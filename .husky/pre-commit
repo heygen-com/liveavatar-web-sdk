@@ -1,5 +1,12 @@
 #!/bin/sh
 
+branch_name=$(git symbolic-ref --short HEAD)
+
+if [ "$branch_name" = "master" ]; then
+  echo "🚫 Direct commits to $branch_name are not allowed!"
+  exit 1
+fi
+
 pnpm prettier $(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx|js|json|md)$') --write --ignore-unknown
 git update-index --again
 
