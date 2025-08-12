@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "target": "es2015",
+    "module": "es6",
+    "moduleResolution": "node",
+    "outDir": "lib",
+    "lib": ["es6", "dom", "es2018", "es2021"],
+    "strict": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "lib"],
+  "typedocOptions": {
+    "entryPoints": ["src/index.ts"],
+    "excludeInternal": true,
+    "excludePrivate": true,
+    "excludeProtected": true,
+    "excludeExternals": true,
+    "includeVersion": true,
+    "name": "Heygen Streaming Avatar",
+    "out": "docs",
+    "theme": "default"
+  }
+}

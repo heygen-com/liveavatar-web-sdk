@@ -1,0 +1,44 @@
+{
+  "name": "@liveavatar/js-sdk",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.esm.js",
+      "require": "./lib/index.cjs.js"
+    }
+  },
+  "main": "./lib/index.cjs.js",
+  "module": "./lib/index.esm.js",
+  "types": "./lib/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@rollup/plugin-commonjs": "^26.0.1",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@typescript-eslint/eslint-plugin": "^8.33.1",
+    "@typescript-eslint/parser": "^8.33.1",
+    "eslint": "^9.9.1",
+    "globals": "^14.0.0",
+    "prettier": "^3.3.3",
+    "rollup": "^4.12.0",
+    "tslib": "^2.8.1",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "events": "^3.3.0",
+    "livekit-client": "^2.11.3",
+    "webrtc-issue-detector": "^1.16.3",
+    "typed-emitter": "^2.1.0"
+  }
+}

@@ -1,0 +1,7 @@
+#!/bin/sh
+
+pnpm prettier $(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx|js|json|md)$') --write --ignore-unknown
+git update-index --again
+
+pnpm run lint
+pnpm run typecheck
