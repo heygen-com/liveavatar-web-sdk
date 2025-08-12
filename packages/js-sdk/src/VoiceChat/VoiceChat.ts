@@ -69,7 +69,7 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
     this.state = VoiceChatState.ACTIVE;
   }
 
-  public async stop(): Promise<void> {
+  public stop(): void {
     this.room.localParticipant.getTrackPublications().forEach((publication) => {
       if (publication.track && publication.track.kind === Track.Kind.Audio) {
         publication.track.stop();

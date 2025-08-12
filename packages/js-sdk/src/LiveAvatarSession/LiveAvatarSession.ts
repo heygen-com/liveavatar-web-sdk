@@ -2,7 +2,12 @@ import { Room, RoomEvent, VideoPresets } from "livekit-client";
 import { EventEmitter } from "events";
 import TypedEmitter from "typed-emitter";
 import { SessionEvent, SessionEventCallbacks } from "./events";
-import { SessionState, SessionConfig, SessionInfo } from "./types";
+import {
+  SessionState,
+  SessionConfig,
+  SessionInfo,
+  SessionDisconnectReason,
+} from "./types";
 import {
   ConnectionQualityIndicator,
   AbstractConnectionQualityIndicator,
@@ -91,8 +96,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       }
     });
 
-    // TODO: handle disconnect
-    this.room.on(RoomEvent.Disconnected, () => {});
+    this.room.on(RoomEvent.Disconnected, () => {
+      this.handleRoomDisconnect();
+    });
 
     this._sessionInfo = await this.api.startSession(this.config);
 
@@ -112,10 +118,11 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public async stop(): Promise<void> {
-    if (!this.isActive) {
-      return;
-    }
-    // TODO: handle stop
+    this.state = SessionState.DISCONNECTING;
+    this.cleanup();
+    this.room.disconnect();
+    await this.api.stopSession();
+    this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
   }
 
   public async keepAlive(): Promise<void> {
@@ -124,6 +131,14 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     }
     await this.api.keepAlive();
   }
+
+  public message(): void {}
+
+  public repeat(): void {}
+
+  public startListening(): void {}
+
+  public stopListening(): void {}
 
   private set stream(stream: MediaStream) {
     if (this._mediaStream) {
@@ -143,5 +158,22 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
 
   private get isActive(): boolean {
     return this.state === SessionState.CONNECTED;
+  }
+
+  private cleanup(): void {
+    this.connectionQualityIndicator.stop();
+    this.voiceChat.stop();
+    this.room.localParticipant.removeAllListeners();
+    this.room.removeAllListeners();
+  }
+
+  private postStop(reason: SessionDisconnectReason): void {
+    this.state = SessionState.INACTIVE;
+    this.emit(SessionEvent.DISCONNECTED, reason);
+  }
+
+  private handleRoomDisconnect(): void {
+    this.cleanup();
+    this.postStop(SessionDisconnectReason.UNKNOWN_REASON);
   }
 }
