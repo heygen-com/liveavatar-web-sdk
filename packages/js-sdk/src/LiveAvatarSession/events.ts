@@ -1,4 +1,4 @@
-import { SessionState } from "./types";
+import { SessionDisconnectReason, SessionState } from "./types";
 import { ConnectionQuality } from "../QualityIndicator";
 
 export enum SessionEvent {
@@ -14,6 +14,7 @@ export enum SessionEvent {
   USER_MESSAGE = "USER_MESSAGE",
   USER_END_MESSAGE = "USER_END_MESSAGE",
   INACTIVITY_DETECTED = "INACTIVITY_DETECTED",
+  DISCONNECTED = "DISCONNECTED",
 }
 
 type TaskEvent<T extends Record<string, unknown> = Record<string, unknown>> = {
@@ -37,4 +38,5 @@ export type SessionEventCallbacks = {
   [SessionEvent.USER_MESSAGE]: (event: TaskEvent<{ message: string }>) => void;
   [SessionEvent.USER_END_MESSAGE]: (event: TaskEvent) => void;
   [SessionEvent.INACTIVITY_DETECTED]: () => void;
+  [SessionEvent.DISCONNECTED]: (reason: SessionDisconnectReason) => void;
 };

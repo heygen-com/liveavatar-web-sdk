@@ -8,6 +8,12 @@ export enum SessionState {
   DISCONNECTED = "DISCONNECTED",
 }
 
+export enum SessionDisconnectReason {
+  UNKNOWN_REASON = "UNKNOWN_REASON",
+  CLIENT_INITIATED = "CLIENT_INITIATED",
+  // Consider adding other reasons: INACTIVITY_TIMEOUT, SESSION_DURATION_EXCEEDED, OUT_OF_CREDITS, etc.
+}
+
 export interface SessionConfig {
   voiceChat?: VoiceChatConfig | boolean;
 }
