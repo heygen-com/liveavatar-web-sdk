@@ -1,0 +1,36 @@
+name: Code Check
+
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  check-code:
+    name: Check Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: Install dependencies
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 2
+          command: |
+            pnpm i turbo -w
+            pnpm i --no-optional
+          on_retry_command: |
+            npm i -g pnpm@9.0.0
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Type Check
+        run: pnpm run typecheck
+
+      - name: Prettier Check
+        run: pnpm run prettier:check
