@@ -61,8 +61,10 @@ const LiveAvatarSessionComponent: React.FC<{
   }, [videoRef, stream]);
 
   useEffect(() => {
-    startSession();
-  }, [startSession]);
+    if (sessionState === SessionState.INACTIVE) {
+      startSession();
+    }
+  }, [startSession, sessionState]);
 
   return (
     <div className="w-[1080px] max-w-full h-full flex flex-col items-center justify-center gap-4 py-4">
