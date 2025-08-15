@@ -1,10 +1,10 @@
 import { LiveAvatarSession, SessionConfig } from "../LiveAvatarSession";
 
 export class LiveAvatarClient {
-  public async createSession(
+  public createSession(
     config: SessionConfig,
     token: string,
-  ): Promise<LiveAvatarSession> {
+  ): LiveAvatarSession {
     return new LiveAvatarSession(config, token);
   }
 }

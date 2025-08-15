@@ -16,12 +16,16 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@liveavatar/js-sdk": "workspace:*",
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "@types/react": "19.1.0",
     "@types/react-dom": "19.1.1",
     "eslint": "^9.31.0",
-    "typescript": "5.8.2"
+    "typescript": "5.8.2",
+    "postcss": "8.4.38",
+    "tailwindcss": "^3.4.17",
+    "autoprefixer": "10.4.19"
   }
 }
