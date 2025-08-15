@@ -2,6 +2,7 @@ import { API_URL } from "../const";
 import { SessionInfo, SessionConfig } from "./types";
 
 const DEFAULT_ERROR_CODE = 500;
+const SUCCESS_CODE = 1000;
 
 class SessionApiError extends Error {
   errorCode: number;
@@ -21,15 +22,18 @@ export class SessionApiClient {
     this.sessionToken = sessionToken;
   }
 
-  private async post(path: string, body: any = {}): Promise<any> {
+  private async request<T = any>(
+    path: string,
+    params: RequestInit,
+  ): Promise<T> {
     try {
       const response = await fetch(`${API_URL}${path}`, {
-        method: "POST",
+        ...params,
         headers: {
           Authorization: `Bearer ${this.sessionToken}`,
           "Content-Type": "application/json",
+          ...params.headers,
         },
-        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -43,7 +47,12 @@ export class SessionApiClient {
       }
 
       const data = await response.json();
-      return data.data;
+
+      if (data.code !== SUCCESS_CODE) {
+        throw new SessionApiError(data.data?.message || "API request failed");
+      }
+
+      return data.data as T;
     } catch (err) {
       if (err instanceof SessionApiError) {
         throw err;
@@ -53,14 +62,15 @@ export class SessionApiClient {
   }
 
   public async startSession(config: SessionConfig): Promise<SessionInfo> {
-    return await this.post(`/start-session`, config);
+    return await this.request(`/api/v1/sessions`, {
+      method: "POST",
+      body: JSON.stringify(config),
+    });
   }
 
   public async stopSession(): Promise<void> {
-    return await this.post(`/stop-session`);
-  }
-
-  public async keepAlive(): Promise<void> {
-    return await this.post(`/keep-alive`);
+    return await this.request(`/api/v1/sessions`, {
+      method: "DELETE",
+    });
   }
 }

@@ -1,0 +1,30 @@
+const API_KEY = "";
+
+const payload = {};
+
+export async function POST() {
+  try {
+    const baseApiUrl = "";
+
+    const res = await fetch(`${baseApiUrl}/api/v1/sessions/token`, {
+      method: "POST",
+      headers: {
+        "X-API-KEY": API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    return new Response(data.data.session_token, {
+      status: 200,
+    });
+  } catch (error) {
+    console.error("Error retrieving access token:", error);
+
+    return new Response("Failed to retrieve access token", {
+      status: 500,
+    });
+  }
+}

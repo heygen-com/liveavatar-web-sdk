@@ -11,6 +11,7 @@ export enum SessionState {
 export enum SessionDisconnectReason {
   UNKNOWN_REASON = "UNKNOWN_REASON",
   CLIENT_INITIATED = "CLIENT_INITIATED",
+  SESSION_START_FAILED = "SESSION_START_FAILED",
   // Consider adding other reasons: INACTIVITY_TIMEOUT, SESSION_DURATION_EXCEEDED, OUT_OF_CREDITS, etc.
 }
 
@@ -20,5 +21,10 @@ export interface SessionConfig {
 
 export interface SessionInfo {
   session_id: string;
-  room_url: string;
+  livekit_url: string;
+  ws_url: string;
+  /**
+   * @deprecated
+   */
+  access_token: string;
 }

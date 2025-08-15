@@ -1,7 +1,12 @@
 import { Room, RoomEvent, VideoPresets } from "livekit-client";
 import { EventEmitter } from "events";
 import TypedEmitter from "typed-emitter";
-import { SessionEvent, SessionEventCallbacks } from "./events";
+import {
+  SessionEvent,
+  SessionEventCallbacks,
+  ServerEvent,
+  getEventEmitterArgs,
+} from "./events";
 import {
   SessionState,
   SessionConfig,
@@ -18,7 +23,7 @@ import { VoiceChat } from "../VoiceChat";
 
 export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<SessionEventCallbacks>) {
   private readonly config: SessionConfig;
-  private readonly sessionToken: string;
+  // private readonly sessionToken: string;
   private readonly api: SessionApiClient;
   private readonly room: Room;
   private readonly _voiceChat: VoiceChat;
@@ -29,11 +34,12 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   private _sessionInfo: SessionInfo | null = null;
   private _state: SessionState = SessionState.INACTIVE;
   private _mediaStream: MediaStream | null = null;
+  private ws: WebSocket | null = null;
 
   constructor(config: SessionConfig, sessionToken: string) {
     super();
     this.config = config;
-    this.sessionToken = sessionToken;
+    // this.sessionToken = sessionToken;
     this.api = new SessionApiClient(sessionToken);
     this.room = new Room({
       adaptiveStream: true,
@@ -69,52 +75,81 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     return this._voiceChat;
   }
 
-  public async start(): Promise<SessionInfo> {
+  public async start(): Promise<void> {
     if (this.state !== SessionState.INACTIVE) {
-      throw new Error("Session is already started");
+      console.warn("Session is already started");
+      return;
     }
 
-    this.state = SessionState.CONNECTING;
+    try {
+      this.state = SessionState.CONNECTING;
 
-    const mediaStream = new MediaStream();
-    this.room.on(RoomEvent.TrackSubscribed, (track) => {
-      if (track.kind === "video" || track.kind === "audio") {
-        mediaStream.addTrack(track.mediaStreamTrack);
+      const mediaStream = new MediaStream();
+      this.room.on(RoomEvent.TrackSubscribed, (track) => {
+        if (track.kind === "video" || track.kind === "audio") {
+          mediaStream.addTrack(track.mediaStreamTrack);
 
-        const hasVideoTrack = mediaStream.getVideoTracks().length > 0;
-        const hasAudioTrack = mediaStream.getAudioTracks().length > 0;
-        if (hasVideoTrack && hasAudioTrack) {
-          this.stream = mediaStream;
+          const hasVideoTrack = mediaStream.getVideoTracks().length > 0;
+          const hasAudioTrack = mediaStream.getAudioTracks().length > 0;
+          if (hasVideoTrack && hasAudioTrack) {
+            this.stream = mediaStream;
+          }
         }
-      }
-    });
+      });
 
-    this.room.on(RoomEvent.TrackUnsubscribed, (track) => {
-      const mediaTrack = track.mediaStreamTrack;
-      if (mediaTrack) {
-        mediaStream.removeTrack(mediaTrack);
-      }
-    });
+      this.room.on(RoomEvent.DataReceived, (roomMessage) => {
+        let eventMsg: ServerEvent | null = null;
+        try {
+          const messageString = new TextDecoder().decode(roomMessage);
+          eventMsg = JSON.parse(messageString);
+        } catch (e) {
+          console.error(e);
+        }
+        if (!eventMsg) {
+          return;
+        }
+        const args = getEventEmitterArgs(eventMsg);
+        if (args) {
+          const [event, ...data] = args;
+          this.emit(event, ...data);
+        }
+      });
 
-    this.room.on(RoomEvent.Disconnected, () => {
-      this.handleRoomDisconnect();
-    });
+      this.room.on(RoomEvent.TrackUnsubscribed, (track) => {
+        const mediaTrack = track.mediaStreamTrack;
+        if (mediaTrack) {
+          mediaStream.removeTrack(mediaTrack);
+        }
+      });
 
-    this._sessionInfo = await this.api.startSession(this.config);
+      this.room.on(RoomEvent.Disconnected, () => {
+        this.handleRoomDisconnect();
+      });
 
-    await this.room.connect(this._sessionInfo.room_url, this.sessionToken);
+      this._sessionInfo = await this.api.startSession({});
 
-    this.connectionQualityIndicator.start(this.room);
-
-    if (this.config.voiceChat) {
-      await this.voiceChat.start(
-        typeof this.config.voiceChat === "boolean" ? {} : this.config.voiceChat,
+      await this.room.connect(
+        this._sessionInfo.livekit_url,
+        this._sessionInfo.access_token,
       );
+      await this.__legacy_ws_connect__();
+
+      this.connectionQualityIndicator.start(this.room);
+
+      if (this.config.voiceChat) {
+        await this.voiceChat.start(
+          typeof this.config.voiceChat === "boolean"
+            ? {}
+            : this.config.voiceChat,
+        );
+      }
+
+      this.state = SessionState.CONNECTED;
+    } catch (error) {
+      console.error("Session start failed:", error);
+      this.cleanup();
+      this.postStop(SessionDisconnectReason.SESSION_START_FAILED);
     }
-
-    this.state = SessionState.CONNECTED;
-
-    return this._sessionInfo;
   }
 
   public async stop(): Promise<void> {
@@ -125,14 +160,17 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
   }
 
-  public async keepAlive(): Promise<void> {
-    if (!this.isActive) {
+  public async keepAlive(): Promise<void> {}
+
+  public message(message: string): void {
+    if (this.state !== SessionState.CONNECTED) {
+      console.warn("Session is not connected");
       return;
     }
-    await this.api.keepAlive();
-  }
 
-  public message(): void {}
+    const data = new TextEncoder().encode(JSON.stringify(message));
+    this.room.localParticipant.publishData(data, { reliable: true });
+  }
 
   public repeat(): void {}
 
@@ -156,24 +194,57 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     this.emit(SessionEvent.STATE_CHANGED, state);
   }
 
-  private get isActive(): boolean {
-    return this.state === SessionState.CONNECTED;
-  }
-
   private cleanup(): void {
     this.connectionQualityIndicator.stop();
     this.voiceChat.stop();
     this.room.localParticipant.removeAllListeners();
     this.room.removeAllListeners();
+    // TODO: remove
+    this.ws?.close();
+    this.ws = null;
   }
 
   private postStop(reason: SessionDisconnectReason): void {
-    this.state = SessionState.INACTIVE;
+    this.state = SessionState.DISCONNECTED;
     this.emit(SessionEvent.DISCONNECTED, reason);
   }
 
   private handleRoomDisconnect(): void {
     this.cleanup();
     this.postStop(SessionDisconnectReason.UNKNOWN_REASON);
+  }
+
+  private __legacy_ws_connect__(): Promise<boolean> {
+    const websocketUrl = `wss://api.dev.heygen.com/v1/ws/streaming.chat?session_id=${this.sessionId}&session_token=${this.sessionInfo?.access_token}&arch_version=v2`;
+    this.ws = new WebSocket(websocketUrl);
+    this.ws.addEventListener("close", () => {
+      this.ws = null;
+    });
+    this.ws.addEventListener("message", (event) => {
+      let eventData: ServerEvent | null = null;
+      try {
+        eventData = JSON.parse(event.data);
+      } catch (e) {
+        console.error(e);
+        return;
+      }
+      if (eventData) {
+        const args = getEventEmitterArgs(eventData);
+        if (args) {
+          const [event, ...data] = args;
+          this.emit(event, ...data);
+        }
+      }
+    });
+    return new Promise((resolve, reject) => {
+      this.ws?.addEventListener("error", (event) => {
+        console.error("WS Error:", event);
+        this.ws = null;
+        reject(event);
+      });
+      this.ws?.addEventListener("open", () => {
+        resolve(true);
+      });
+    });
   }
 }

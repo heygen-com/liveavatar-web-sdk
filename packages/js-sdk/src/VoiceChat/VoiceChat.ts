@@ -5,16 +5,12 @@ import {
   LocalAudioTrack,
   Room,
   TrackEvent,
-  RoomEvent,
   Track,
+  ConnectionState,
 } from "livekit-client";
 import { VoiceChatEvent, VoiceChatEventCallbacks } from "./events";
 import { VoiceChatConfig, VoiceChatState } from "./types";
 
-// TODO: investigate if RoomEvent.ActiveDeviceChanged is fired when device is set on local audio track.
-// If not, then investigate other options or implement custom device change logic.
-
-// TODO: add checks for voice chat methods to ensure that session is active.
 export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChatEventCallbacks>) {
   private readonly room: Room;
   private _state: VoiceChatState = VoiceChatState.INACTIVE;
@@ -25,11 +21,23 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
     this.room = room;
   }
 
+  private get isConnected(): boolean {
+    return (
+      this.room.state !== ConnectionState.Disconnected &&
+      this.room.state !== ConnectionState.Connecting
+    );
+  }
+
   public get state(): VoiceChatState {
     return this._state;
   }
 
   public async start(config: VoiceChatConfig = {}): Promise<void> {
+    if (!this.isConnected) {
+      console.warn("Voice chat can only be started when session is active");
+      return;
+    }
+
     if (this._state !== VoiceChatState.INACTIVE) {
       console.warn("Voice chat is already started");
       return;
@@ -60,12 +68,6 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
       this.emit(VoiceChatEvent.UNMUTED);
     });
 
-    this.room.on(RoomEvent.ActiveDeviceChanged, (kind, deviceId) => {
-      if (kind === "audioinput") {
-        this.emit(VoiceChatEvent.DEVICE_CHANGED, deviceId);
-      }
-    });
-
     this.state = VoiceChatState.ACTIVE;
   }
 
@@ -86,18 +88,33 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
   }
 
   public async mute(): Promise<void> {
+    if (this.state !== VoiceChatState.ACTIVE) {
+      console.warn("Voice chat can only be muted when active");
+      return;
+    }
+
     if (this.track) {
       this.track.mute();
     }
   }
 
   public async unmute(): Promise<void> {
+    if (this.state !== VoiceChatState.ACTIVE) {
+      console.warn("Voice chat can only be unmuted when active");
+      return;
+    }
+
     if (this.track) {
       this.track.unmute();
     }
   }
 
   public async setDevice(deviceId: ConstrainDOMString): Promise<boolean> {
+    if (this.state !== VoiceChatState.ACTIVE) {
+      console.warn("Voice chat can only be set when active");
+      return false;
+    }
+
     if (this.track) {
       return this.track.setDeviceId(deviceId);
     }

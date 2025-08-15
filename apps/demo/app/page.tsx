@@ -1,5 +1,5 @@
-import styles from "./page.module.css";
+import { LiveAvatarDemo } from "../src/components/LiveAvatarDemo";
 
 export default function Home() {
-  return <div className={styles.page}></div>;
+  return <LiveAvatarDemo />;
 }
