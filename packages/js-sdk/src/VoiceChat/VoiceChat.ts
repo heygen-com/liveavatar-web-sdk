@@ -56,6 +56,8 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
 
     if (defaultMuted) {
       await this.track.mute();
+    } else {
+      this.emit(VoiceChatEvent.UNMUTED);
     }
 
     await this.room.localParticipant.publishTrack(this.track);
