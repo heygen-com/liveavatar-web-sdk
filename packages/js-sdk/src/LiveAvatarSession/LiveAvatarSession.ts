@@ -12,6 +12,7 @@ import {
   SessionConfig,
   SessionInfo,
   SessionDisconnectReason,
+  DataMessage,
 } from "./types";
 import {
   ConnectionQualityIndicator,
@@ -20,6 +21,7 @@ import {
 } from "../QualityIndicator";
 import { SessionApiClient } from "./SessionApiClient";
 import { VoiceChat } from "../VoiceChat";
+import { LIVEKIT_DATA_CHANNEL_TOPIC } from "./const";
 
 export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<SessionEventCallbacks>) {
   private readonly config: SessionConfig;
@@ -96,7 +98,11 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
         }
       });
 
-      this.room.on(RoomEvent.DataReceived, (roomMessage) => {
+      this.room.on(RoomEvent.DataReceived, (roomMessage, _, __, topic) => {
+        if (topic !== LIVEKIT_DATA_CHANNEL_TOPIC) {
+          return;
+        }
+
         let eventMsg: ServerEventType | null = null;
         try {
           const messageString = new TextDecoder().decode(roomMessage);
@@ -166,15 +172,41 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       return;
     }
 
-    const data = new TextEncoder().encode(JSON.stringify(message));
-    this.room.localParticipant.publishData(data, { reliable: true });
+    const data = {
+      type: DataMessage.USER_MESSAGE,
+      message,
+    };
+    this.publishData(data);
   }
 
-  public repeat(): void {}
+  public repeat(message: string): void {
+    const data = {
+      type: DataMessage.AVATAR_REPEAT,
+      message,
+    };
+    this.publishData(data);
+  }
 
-  public startListening(): void {}
+  public startListening(): void {
+    const data = {
+      type: DataMessage.AVATAR_START_LISTENING,
+    };
+    this.publishData(data);
+  }
 
-  public stopListening(): void {}
+  public stopListening(): void {
+    const data = {
+      type: DataMessage.AVATAR_STOP_LISTENING,
+    };
+    this.publishData(data);
+  }
+
+  public interrupt(): void {
+    const data = {
+      type: DataMessage.AVATAR_INTERRUPT,
+    };
+    this.publishData(data);
+  }
 
   private set stream(stream: MediaStream) {
     if (this._mediaStream) {
@@ -207,5 +239,13 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   private handleRoomDisconnect(): void {
     this.cleanup();
     this.postStop(SessionDisconnectReason.UNKNOWN_REASON);
+  }
+
+  private publishData(message: object): void {
+    const data = new TextEncoder().encode(JSON.stringify(message));
+    this.room.localParticipant.publishData(data, {
+      reliable: true,
+      topic: LIVEKIT_DATA_CHANNEL_TOPIC,
+    });
   }
 }

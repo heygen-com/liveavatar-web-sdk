@@ -28,3 +28,11 @@ export interface SessionInfo {
    */
   access_token: string;
 }
+
+export enum DataMessage {
+  USER_MESSAGE = "user_message",
+  AVATAR_INTERRUPT = "avatar_interrupt",
+  AVATAR_REPEAT = "avatar_repeat",
+  AVATAR_START_LISTENING = "avatar_start_listening",
+  AVATAR_STOP_LISTENING = "avatar_stop_listening",
+}
