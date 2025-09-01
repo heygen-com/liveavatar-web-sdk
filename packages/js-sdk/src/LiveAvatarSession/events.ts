@@ -27,8 +27,8 @@ export type SessionEventCallbacks = {
     quality: ConnectionQuality,
   ) => void;
   [SessionEvent.STREAM_READY]: (stream: MediaStream) => void;
-  [SessionEvent.USER_START_TALKING]: () => void;
-  [SessionEvent.USER_STOP_TALKING]: () => void;
+  [SessionEvent.USER_START_TALKING]: (event: TaskEvent) => void;
+  [SessionEvent.USER_STOP_TALKING]: (event: TaskEvent) => void;
   [SessionEvent.AVATAR_START_TALKING]: (event: TaskEvent) => void;
   [SessionEvent.AVATAR_STOP_TALKING]: (event: TaskEvent) => void;
   [SessionEvent.AVATAR_MESSAGE]: (
@@ -41,7 +41,6 @@ export type SessionEventCallbacks = {
   [SessionEvent.DISCONNECTED]: (reason: SessionDisconnectReason) => void;
 };
 
-// Build a discriminated union of emit argument tuples from the callbacks map
 export type SessionEmitArgs = {
   [K in keyof SessionEventCallbacks]: [
     K,
@@ -49,99 +48,87 @@ export type SessionEmitArgs = {
   ];
 }[keyof SessionEventCallbacks];
 
-enum LegacyWSEvent {
-  USER_START = "user_start",
-  USER_STOP = "user_stop",
-}
-
-interface WSEvent<T extends LegacyWSEvent> {
-  event_type: T;
-}
-
-type WSEventType =
-  | WSEvent<LegacyWSEvent.USER_START>
-  | WSEvent<LegacyWSEvent.USER_STOP>;
-
-enum LivekitChannelEvent {
+enum ServerEvent {
   AVATAR_START_TALKING = "avatar_start_talking",
   AVATAR_STOP_TALKING = "avatar_stop_talking",
+  USER_START_TALKING = "user_start_talking",
+  USER_STOP_TALKING = "user_stop_talking",
   AVATAR_TALKING_MESSAGE = "avatar_talking_message",
   AVATAR_END_MESSAGE = "avatar_end_message",
   USER_TALKING_MESSAGE = "user_talking_message",
   USER_END_MESSAGE = "user_end_message",
 }
 
-interface LivekitEvent<T extends LivekitChannelEvent> {
+interface LivekitEvent<T extends ServerEvent> {
   task_id: string;
   type: T;
 }
 
 interface AvatarTalkingMessageEvent
-  extends LivekitEvent<LivekitChannelEvent.AVATAR_TALKING_MESSAGE> {
+  extends LivekitEvent<ServerEvent.AVATAR_TALKING_MESSAGE> {
   message: string;
 }
 
 interface UserTalkingMessageEvent
-  extends LivekitEvent<LivekitChannelEvent.USER_TALKING_MESSAGE> {
+  extends LivekitEvent<ServerEvent.USER_TALKING_MESSAGE> {
   message: string;
 }
 
-type LivekitEventType =
-  | LivekitEvent<LivekitChannelEvent.AVATAR_START_TALKING>
-  | LivekitEvent<LivekitChannelEvent.AVATAR_STOP_TALKING>
+export type ServerEventType =
+  | LivekitEvent<ServerEvent.AVATAR_START_TALKING>
+  | LivekitEvent<ServerEvent.AVATAR_STOP_TALKING>
   | AvatarTalkingMessageEvent
-  | LivekitEvent<LivekitChannelEvent.AVATAR_END_MESSAGE>
+  | LivekitEvent<ServerEvent.AVATAR_END_MESSAGE>
   | UserTalkingMessageEvent
-  | LivekitEvent<LivekitChannelEvent.USER_END_MESSAGE>;
+  | LivekitEvent<ServerEvent.USER_END_MESSAGE>
+  | LivekitEvent<ServerEvent.USER_START_TALKING>
+  | LivekitEvent<ServerEvent.USER_STOP_TALKING>;
 
 export const getEventEmitterArgs = (
-  event: WSEventType | LivekitEventType,
+  event: ServerEventType,
 ): SessionEmitArgs | null => {
-  if ("event_type" in event) {
-    switch (event.event_type) {
-      case LegacyWSEvent.USER_START:
-        return [SessionEvent.USER_START_TALKING];
-      case LegacyWSEvent.USER_STOP:
-        return [SessionEvent.USER_STOP_TALKING];
-    }
-  }
-
   if ("type" in event) {
     switch (event.type) {
-      case LivekitChannelEvent.AVATAR_START_TALKING: {
+      case ServerEvent.AVATAR_START_TALKING: {
         const payload: TaskEvent = { task_id: event.task_id };
         return [SessionEvent.AVATAR_START_TALKING, payload];
       }
-      case LivekitChannelEvent.AVATAR_STOP_TALKING: {
+      case ServerEvent.AVATAR_STOP_TALKING: {
         const payload: TaskEvent = { task_id: event.task_id };
         return [SessionEvent.AVATAR_STOP_TALKING, payload];
       }
-      case LivekitChannelEvent.AVATAR_TALKING_MESSAGE: {
+      case ServerEvent.AVATAR_TALKING_MESSAGE: {
         const payload: TaskEvent<{ message: string }> = {
           task_id: event.task_id,
           message: event.message,
         };
         return [SessionEvent.AVATAR_MESSAGE, payload];
       }
-      case LivekitChannelEvent.AVATAR_END_MESSAGE: {
+      case ServerEvent.AVATAR_END_MESSAGE: {
         const payload: TaskEvent = { task_id: event.task_id };
         return [SessionEvent.AVATAR_END_MESSAGE, payload];
       }
-      case LivekitChannelEvent.USER_TALKING_MESSAGE: {
+      case ServerEvent.USER_TALKING_MESSAGE: {
         const payload: TaskEvent<{ message: string }> = {
           task_id: event.task_id,
           message: event.message,
         };
         return [SessionEvent.USER_MESSAGE, payload];
       }
-      case LivekitChannelEvent.USER_END_MESSAGE: {
+      case ServerEvent.USER_END_MESSAGE: {
         const payload: TaskEvent = { task_id: event.task_id };
         return [SessionEvent.USER_END_MESSAGE, payload];
+      }
+      case ServerEvent.USER_START_TALKING: {
+        const payload: TaskEvent = { task_id: event.task_id };
+        return [SessionEvent.USER_START_TALKING, payload];
+      }
+      case ServerEvent.USER_STOP_TALKING: {
+        const payload: TaskEvent = { task_id: event.task_id };
+        return [SessionEvent.USER_STOP_TALKING, payload];
       }
     }
   }
 
   return null;
 };
-
-export type ServerEvent = WSEventType | LivekitEventType;

@@ -4,7 +4,7 @@ import TypedEmitter from "typed-emitter";
 import {
   SessionEvent,
   SessionEventCallbacks,
-  ServerEvent,
+  ServerEventType,
   getEventEmitterArgs,
 } from "./events";
 import {
@@ -34,7 +34,6 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   private _sessionInfo: SessionInfo | null = null;
   private _state: SessionState = SessionState.INACTIVE;
   private _mediaStream: MediaStream | null = null;
-  private ws: WebSocket | null = null;
 
   constructor(config: SessionConfig, sessionToken: string) {
     super();
@@ -98,7 +97,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       });
 
       this.room.on(RoomEvent.DataReceived, (roomMessage) => {
-        let eventMsg: ServerEvent | null = null;
+        let eventMsg: ServerEventType | null = null;
         try {
           const messageString = new TextDecoder().decode(roomMessage);
           eventMsg = JSON.parse(messageString);
@@ -132,7 +131,6 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
         this._sessionInfo.livekit_url,
         this._sessionInfo.access_token,
       );
-      await this.__legacy_ws_connect__();
 
       this.connectionQualityIndicator.start(this.room);
 
@@ -199,9 +197,6 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     this.voiceChat.stop();
     this.room.localParticipant.removeAllListeners();
     this.room.removeAllListeners();
-    // TODO: remove
-    this.ws?.close();
-    this.ws = null;
   }
 
   private postStop(reason: SessionDisconnectReason): void {
@@ -212,39 +207,5 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   private handleRoomDisconnect(): void {
     this.cleanup();
     this.postStop(SessionDisconnectReason.UNKNOWN_REASON);
-  }
-
-  private __legacy_ws_connect__(): Promise<boolean> {
-    const websocketUrl = `wss://api.dev.heygen.com/v1/ws/streaming.chat?session_id=${this.sessionId}&session_token=${this.sessionInfo?.access_token}&arch_version=v2`;
-    this.ws = new WebSocket(websocketUrl);
-    this.ws.addEventListener("close", () => {
-      this.ws = null;
-    });
-    this.ws.addEventListener("message", (event) => {
-      let eventData: ServerEvent | null = null;
-      try {
-        eventData = JSON.parse(event.data);
-      } catch (e) {
-        console.error(e);
-        return;
-      }
-      if (eventData) {
-        const args = getEventEmitterArgs(eventData);
-        if (args) {
-          const [event, ...data] = args;
-          this.emit(event, ...data);
-        }
-      }
-    });
-    return new Promise((resolve, reject) => {
-      this.ws?.addEventListener("error", (event) => {
-        console.error("WS Error:", event);
-        this.ws = null;
-        reject(event);
-      });
-      this.ws?.addEventListener("open", () => {
-        resolve(true);
-      });
-    });
   }
 }
