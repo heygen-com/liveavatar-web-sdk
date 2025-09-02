@@ -8,6 +8,7 @@ import {
   useVoiceChat,
 } from "../liveavatar";
 import { SessionState } from "@liveavatar/js-sdk";
+import { useAvatarActions } from "../liveavatar/useAvatarActions";
 
 const Button: React.FC<{
   onClick: () => void;
@@ -42,6 +43,8 @@ const LiveAvatarSessionComponent: React.FC<{
     mute,
     unmute,
   } = useVoiceChat();
+  const { interrupt, repeat, startListening, stopListening } =
+    useAvatarActions();
   const { sendMessage } = useTextChat();
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -116,6 +119,29 @@ const LiveAvatarSessionComponent: React.FC<{
           </Button>
         )}
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
+          <Button
+            onClick={() => {
+              startListening();
+            }}
+          >
+            Start Listening
+          </Button>
+          <Button
+            onClick={() => {
+              stopListening();
+            }}
+          >
+            Stop Listening
+          </Button>
+          <Button
+            onClick={() => {
+              interrupt();
+            }}
+          >
+            Interrupt
+          </Button>
+        </div>
+        <div className="w-full h-full flex flex-row items-center justify-center gap-4">
           <input
             type="text"
             value={message}
@@ -129,6 +155,14 @@ const LiveAvatarSessionComponent: React.FC<{
             }}
           >
             Send
+          </Button>
+          <Button
+            onClick={() => {
+              repeat(message);
+              setMessage("");
+            }}
+          >
+            Repeat
           </Button>
         </div>
       </div>

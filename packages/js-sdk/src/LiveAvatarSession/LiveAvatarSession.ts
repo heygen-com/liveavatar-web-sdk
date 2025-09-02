@@ -135,7 +135,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
 
       await this.room.connect(
         this._sessionInfo.livekit_url,
-        this._sessionInfo.access_token,
+        this._sessionInfo.room_token,
       );
 
       this.connectionQualityIndicator.start(this.room);
@@ -157,6 +157,11 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public async stop(): Promise<void> {
+    if (this.state !== SessionState.CONNECTED) {
+      console.warn("Session is not connected");
+      return;
+    }
+
     this.state = SessionState.DISCONNECTING;
     this.cleanup();
     this.room.disconnect();
@@ -180,6 +185,11 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public repeat(message: string): void {
+    if (this.state !== SessionState.CONNECTED) {
+      console.warn("Session is not connected");
+      return;
+    }
+
     const data = {
       type: DataMessage.AVATAR_REPEAT,
       message,
@@ -188,6 +198,11 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public startListening(): void {
+    if (this.state !== SessionState.CONNECTED) {
+      console.warn("Session is not connected");
+      return;
+    }
+
     const data = {
       type: DataMessage.AVATAR_START_LISTENING,
     };
@@ -195,6 +210,11 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public stopListening(): void {
+    if (this.state !== SessionState.CONNECTED) {
+      console.warn("Session is not connected");
+      return;
+    }
+
     const data = {
       type: DataMessage.AVATAR_STOP_LISTENING,
     };
@@ -202,6 +222,11 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public interrupt(): void {
+    if (this.state !== SessionState.CONNECTED) {
+      console.warn("Session is not connected");
+      return;
+    }
+
     const data = {
       type: DataMessage.AVATAR_INTERRUPT,
     };
