@@ -30,8 +30,14 @@ const LiveAvatarSessionComponent: React.FC<{
   onSessionStopped: () => void;
 }> = ({ onSessionStopped }) => {
   const [message, setMessage] = useState("");
-  const { sessionState, stream, startSession, stopSession, connectionQuality } =
-    useSession();
+  const {
+    sessionState,
+    stream,
+    startSession,
+    stopSession,
+    connectionQuality,
+    keepAlive,
+  } = useSession();
   const {
     isAvatarTalking,
     isUserTalking,
@@ -118,6 +124,13 @@ const LiveAvatarSessionComponent: React.FC<{
             {isMuted ? "Unmute" : "Mute"}
           </Button>
         )}
+        <Button
+          onClick={() => {
+            keepAlive();
+          }}
+        >
+          Keep Alive
+        </Button>
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
           <Button
             onClick={() => {

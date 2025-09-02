@@ -13,11 +13,16 @@ export const useSession = () => {
     return await sessionRef.current.stop();
   }, [sessionRef]);
 
+  const keepAlive = useCallback(async () => {
+    return await sessionRef.current.keepAlive();
+  }, [sessionRef]);
+
   return {
     sessionState,
     stream,
     connectionQuality,
     startSession,
     stopSession,
+    keepAlive,
   };
 };

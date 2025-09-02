@@ -169,7 +169,14 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
   }
 
-  public async keepAlive(): Promise<void> {}
+  public async keepAlive(): Promise<void> {
+    if (this.state !== SessionState.CONNECTED) {
+      console.warn("Session is not connected");
+      return;
+    }
+
+    return this.api.keepAlive();
+  }
 
   public message(message: string): void {
     if (this.state !== SessionState.CONNECTED) {

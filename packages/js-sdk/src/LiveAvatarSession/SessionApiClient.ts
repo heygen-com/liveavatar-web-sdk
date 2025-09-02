@@ -73,4 +73,10 @@ export class SessionApiClient {
       method: "DELETE",
     });
   }
+
+  public async keepAlive(): Promise<void> {
+    return await this.request(`/v1/sessions/keep-alive`, {
+      method: "POST",
+    });
+  }
 }
