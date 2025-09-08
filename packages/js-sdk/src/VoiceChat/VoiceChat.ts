@@ -33,7 +33,7 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
   }
 
   public get isMuted(): boolean {
-    return this.track?.isMuted ?? false;
+    return this.track?.isMuted ?? true;
   }
 
   public async start(config: VoiceChatConfig = {}): Promise<void> {
@@ -60,6 +60,7 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
 
     if (defaultMuted) {
       await this.track.mute();
+      this.emit(VoiceChatEvent.MUTED);
     } else {
       this.emit(VoiceChatEvent.UNMUTED);
     }
@@ -90,6 +91,7 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
       this.track = null;
     }
 
+    this.emit(VoiceChatEvent.MUTED);
     this.state = VoiceChatState.INACTIVE;
   }
 
