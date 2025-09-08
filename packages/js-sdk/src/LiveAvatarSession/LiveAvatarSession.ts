@@ -157,8 +157,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public async stop(): Promise<void> {
-    if (this.state !== SessionState.CONNECTED) {
-      console.warn("Session is not connected");
+    if (!this.assertConnexted()) {
       return;
     }
 
@@ -170,8 +169,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public async keepAlive(): Promise<void> {
-    if (this.state !== SessionState.CONNECTED) {
-      console.warn("Session is not connected");
+    if (!this.assertConnexted()) {
       return;
     }
 
@@ -179,8 +177,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public message(message: string): void {
-    if (this.state !== SessionState.CONNECTED) {
-      console.warn("Session is not connected");
+    if (!this.assertConnexted()) {
       return;
     }
 
@@ -192,8 +189,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public repeat(message: string): void {
-    if (this.state !== SessionState.CONNECTED) {
-      console.warn("Session is not connected");
+    if (!this.assertConnexted()) {
       return;
     }
 
@@ -205,8 +201,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public startListening(): void {
-    if (this.state !== SessionState.CONNECTED) {
-      console.warn("Session is not connected");
+    if (!this.assertConnexted()) {
       return;
     }
 
@@ -217,8 +212,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public stopListening(): void {
-    if (this.state !== SessionState.CONNECTED) {
-      console.warn("Session is not connected");
+    if (!this.assertConnexted()) {
       return;
     }
 
@@ -229,8 +223,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public interrupt(): void {
-    if (this.state !== SessionState.CONNECTED) {
-      console.warn("Session is not connected");
+    if (!this.assertConnexted()) {
       return;
     }
 
@@ -279,5 +272,13 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       reliable: true,
       topic: LIVEKIT_DATA_CHANNEL_TOPIC,
     });
+  }
+
+  private assertConnexted(): boolean {
+    if (this.state !== SessionState.CONNECTED) {
+      console.warn("Session is not connected");
+      return false;
+    }
+    return true;
   }
 }

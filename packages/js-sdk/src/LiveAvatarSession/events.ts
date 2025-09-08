@@ -59,30 +59,32 @@ enum ServerEvent {
   USER_END_MESSAGE = "user_end_message",
 }
 
-interface LivekitEvent<T extends ServerEvent> {
+type ServerEventData<T extends ServerEvent, U extends object = object> = {
   task_id: string;
   type: T;
-}
+} & U;
 
-interface AvatarTalkingMessageEvent
-  extends LivekitEvent<ServerEvent.AVATAR_TALKING_MESSAGE> {
-  message: string;
-}
+// interface AvatarTalkingMessageEvent
+//   extends LivekitEvent<ServerEvent.AVATAR_TALKING_MESSAGE> {
+//   message: string;
+// }
 
-interface UserTalkingMessageEvent
-  extends LivekitEvent<ServerEvent.USER_TALKING_MESSAGE> {
-  message: string;
-}
+// interface UserTalkingMessageEvent
+//   extends LivekitEvent<ServerEvent.USER_TALKING_MESSAGE> {
+//   message: string;
+// }
 
 export type ServerEventType =
-  | LivekitEvent<ServerEvent.AVATAR_START_TALKING>
-  | LivekitEvent<ServerEvent.AVATAR_STOP_TALKING>
-  | AvatarTalkingMessageEvent
-  | LivekitEvent<ServerEvent.AVATAR_END_MESSAGE>
-  | UserTalkingMessageEvent
-  | LivekitEvent<ServerEvent.USER_END_MESSAGE>
-  | LivekitEvent<ServerEvent.USER_START_TALKING>
-  | LivekitEvent<ServerEvent.USER_STOP_TALKING>;
+  | ServerEventData<
+      | ServerEvent.AVATAR_START_TALKING
+      | ServerEvent.AVATAR_STOP_TALKING
+      | ServerEvent.AVATAR_END_MESSAGE
+      | ServerEvent.USER_END_MESSAGE
+      | ServerEvent.USER_START_TALKING
+      | ServerEvent.USER_STOP_TALKING
+    >
+  | ServerEventData<ServerEvent.AVATAR_TALKING_MESSAGE, { message: string }>
+  | ServerEventData<ServerEvent.USER_TALKING_MESSAGE, { message: string }>;
 
 export const getEventEmitterArgs = (
   event: ServerEventType,
