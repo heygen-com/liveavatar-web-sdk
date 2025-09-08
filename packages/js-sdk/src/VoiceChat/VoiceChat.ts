@@ -91,7 +91,6 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
       this.track = null;
     }
 
-    this.emit(VoiceChatEvent.MUTED);
     this.state = VoiceChatState.INACTIVE;
   }
 
