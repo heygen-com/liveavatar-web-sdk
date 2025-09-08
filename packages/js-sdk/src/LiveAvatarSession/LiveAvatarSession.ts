@@ -157,7 +157,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public async stop(): Promise<void> {
-    if (!this.assertConnexted()) {
+    if (!this.assertConnected()) {
       return;
     }
 
@@ -169,7 +169,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public async keepAlive(): Promise<void> {
-    if (!this.assertConnexted()) {
+    if (!this.assertConnected()) {
       return;
     }
 
@@ -177,7 +177,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public message(message: string): void {
-    if (!this.assertConnexted()) {
+    if (!this.assertConnected()) {
       return;
     }
 
@@ -189,7 +189,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public repeat(message: string): void {
-    if (!this.assertConnexted()) {
+    if (!this.assertConnected()) {
       return;
     }
 
@@ -201,7 +201,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public startListening(): void {
-    if (!this.assertConnexted()) {
+    if (!this.assertConnected()) {
       return;
     }
 
@@ -212,7 +212,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public stopListening(): void {
-    if (!this.assertConnexted()) {
+    if (!this.assertConnected()) {
       return;
     }
 
@@ -223,7 +223,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public interrupt(): void {
-    if (!this.assertConnexted()) {
+    if (!this.assertConnected()) {
       return;
     }
 
@@ -274,7 +274,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     });
   }
 
-  private assertConnexted(): boolean {
+  private assertConnected(): boolean {
     if (this.state !== SessionState.CONNECTED) {
       console.warn("Session is not connected");
       return false;
