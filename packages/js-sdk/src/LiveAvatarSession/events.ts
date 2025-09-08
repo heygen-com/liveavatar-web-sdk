@@ -64,16 +64,6 @@ type ServerEventData<T extends ServerEvent, U extends object = object> = {
   type: T;
 } & U;
 
-// interface AvatarTalkingMessageEvent
-//   extends LivekitEvent<ServerEvent.AVATAR_TALKING_MESSAGE> {
-//   message: string;
-// }
-
-// interface UserTalkingMessageEvent
-//   extends LivekitEvent<ServerEvent.USER_TALKING_MESSAGE> {
-//   message: string;
-// }
-
 export type ServerEventType =
   | ServerEventData<
       | ServerEvent.AVATAR_START_TALKING
