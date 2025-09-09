@@ -62,15 +62,21 @@ export class SessionApiClient {
   }
 
   public async startSession(config: SessionConfig): Promise<SessionInfo> {
-    return await this.request(`/api/v1/sessions`, {
+    return await this.request(`/v1/sessions`, {
       method: "POST",
       body: JSON.stringify(config),
     });
   }
 
   public async stopSession(): Promise<void> {
-    return await this.request(`/api/v1/sessions`, {
+    return await this.request(`/v1/sessions`, {
       method: "DELETE",
+    });
+  }
+
+  public async keepAlive(): Promise<void> {
+    return await this.request(`/v1/sessions/keep-alive`, {
+      method: "POST",
     });
   }
 }

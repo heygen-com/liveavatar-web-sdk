@@ -22,9 +22,13 @@ export interface SessionConfig {
 export interface SessionInfo {
   session_id: string;
   livekit_url: string;
-  ws_url: string;
-  /**
-   * @deprecated
-   */
-  access_token: string;
+  room_token: string;
+}
+
+export enum DataMessage {
+  USER_MESSAGE = "user_message",
+  AVATAR_INTERRUPT = "avatar_interrupt",
+  AVATAR_REPEAT = "avatar_repeat",
+  AVATAR_START_LISTENING = "avatar_start_listening",
+  AVATAR_STOP_LISTENING = "avatar_stop_listening",
 }

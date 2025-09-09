@@ -2,11 +2,11 @@ const API_KEY = "";
 
 const payload = {};
 
+const baseApiUrl = "";
+
 export async function POST() {
   try {
-    const baseApiUrl = "";
-
-    const res = await fetch(`${baseApiUrl}/api/v1/sessions/token`, {
+    const res = await fetch(`${baseApiUrl}/v1/sessions/token`, {
       method: "POST",
       headers: {
         "X-API-KEY": API_KEY,

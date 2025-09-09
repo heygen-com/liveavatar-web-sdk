@@ -21,7 +21,7 @@ export const LiveAvatarDemo = () => {
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center">
-      {sessionToken ? (
+      {!sessionToken ? (
         <button
           onClick={handleStart}
           className="w-fit bg-white text-black px-4 py-2 rounded-md"

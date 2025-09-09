@@ -32,6 +32,10 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
     return this._state;
   }
 
+  public get isMuted(): boolean {
+    return this.track?.isMuted ?? true;
+  }
+
   public async start(config: VoiceChatConfig = {}): Promise<void> {
     if (!this.isConnected) {
       console.warn("Voice chat can only be started when session is active");
@@ -56,6 +60,9 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
 
     if (defaultMuted) {
       await this.track.mute();
+      this.emit(VoiceChatEvent.MUTED);
+    } else {
+      this.emit(VoiceChatEvent.UNMUTED);
     }
 
     await this.room.localParticipant.publishTrack(this.track);
@@ -111,7 +118,7 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
 
   public async setDevice(deviceId: ConstrainDOMString): Promise<boolean> {
     if (this.state !== VoiceChatState.ACTIVE) {
-      console.warn("Voice chat can only be set when active");
+      console.warn("Voice chat device can only be set when active");
       return false;
     }
 

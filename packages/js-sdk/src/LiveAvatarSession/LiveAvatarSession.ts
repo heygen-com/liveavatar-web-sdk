@@ -4,7 +4,7 @@ import TypedEmitter from "typed-emitter";
 import {
   SessionEvent,
   SessionEventCallbacks,
-  ServerEvent,
+  ServerEventType,
   getEventEmitterArgs,
 } from "./events";
 import {
@@ -12,6 +12,7 @@ import {
   SessionConfig,
   SessionInfo,
   SessionDisconnectReason,
+  DataMessage,
 } from "./types";
 import {
   ConnectionQualityIndicator,
@@ -20,6 +21,7 @@ import {
 } from "../QualityIndicator";
 import { SessionApiClient } from "./SessionApiClient";
 import { VoiceChat } from "../VoiceChat";
+import { LIVEKIT_DATA_CHANNEL_TOPIC } from "./const";
 
 export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<SessionEventCallbacks>) {
   private readonly config: SessionConfig;
@@ -34,7 +36,6 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   private _sessionInfo: SessionInfo | null = null;
   private _state: SessionState = SessionState.INACTIVE;
   private _mediaStream: MediaStream | null = null;
-  private ws: WebSocket | null = null;
 
   constructor(config: SessionConfig, sessionToken: string) {
     super();
@@ -97,8 +98,12 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
         }
       });
 
-      this.room.on(RoomEvent.DataReceived, (roomMessage) => {
-        let eventMsg: ServerEvent | null = null;
+      this.room.on(RoomEvent.DataReceived, (roomMessage, _, __, topic) => {
+        if (topic !== LIVEKIT_DATA_CHANNEL_TOPIC) {
+          return;
+        }
+
+        let eventMsg: ServerEventType | null = null;
         try {
           const messageString = new TextDecoder().decode(roomMessage);
           eventMsg = JSON.parse(messageString);
@@ -130,9 +135,8 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
 
       await this.room.connect(
         this._sessionInfo.livekit_url,
-        this._sessionInfo.access_token,
+        this._sessionInfo.room_token,
       );
-      await this.__legacy_ws_connect__();
 
       this.connectionQualityIndicator.start(this.room);
 
@@ -153,6 +157,10 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   }
 
   public async stop(): Promise<void> {
+    if (!this.assertConnected()) {
+      return;
+    }
+
     this.state = SessionState.DISCONNECTING;
     this.cleanup();
     this.room.disconnect();
@@ -160,23 +168,70 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
   }
 
-  public async keepAlive(): Promise<void> {}
-
-  public message(message: string): void {
-    if (this.state !== SessionState.CONNECTED) {
-      console.warn("Session is not connected");
+  public async keepAlive(): Promise<void> {
+    if (!this.assertConnected()) {
       return;
     }
 
-    const data = new TextEncoder().encode(JSON.stringify(message));
-    this.room.localParticipant.publishData(data, { reliable: true });
+    return this.api.keepAlive();
   }
 
-  public repeat(): void {}
+  public message(message: string): void {
+    if (!this.assertConnected()) {
+      return;
+    }
 
-  public startListening(): void {}
+    const data = {
+      type: DataMessage.USER_MESSAGE,
+      message,
+    };
+    this.publishData(data);
+  }
 
-  public stopListening(): void {}
+  public repeat(message: string): void {
+    if (!this.assertConnected()) {
+      return;
+    }
+
+    const data = {
+      type: DataMessage.AVATAR_REPEAT,
+      message,
+    };
+    this.publishData(data);
+  }
+
+  public startListening(): void {
+    if (!this.assertConnected()) {
+      return;
+    }
+
+    const data = {
+      type: DataMessage.AVATAR_START_LISTENING,
+    };
+    this.publishData(data);
+  }
+
+  public stopListening(): void {
+    if (!this.assertConnected()) {
+      return;
+    }
+
+    const data = {
+      type: DataMessage.AVATAR_STOP_LISTENING,
+    };
+    this.publishData(data);
+  }
+
+  public interrupt(): void {
+    if (!this.assertConnected()) {
+      return;
+    }
+
+    const data = {
+      type: DataMessage.AVATAR_INTERRUPT,
+    };
+    this.publishData(data);
+  }
 
   private set stream(stream: MediaStream) {
     if (this._mediaStream) {
@@ -199,9 +254,6 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     this.voiceChat.stop();
     this.room.localParticipant.removeAllListeners();
     this.room.removeAllListeners();
-    // TODO: remove
-    this.ws?.close();
-    this.ws = null;
   }
 
   private postStop(reason: SessionDisconnectReason): void {
@@ -214,37 +266,19 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     this.postStop(SessionDisconnectReason.UNKNOWN_REASON);
   }
 
-  private __legacy_ws_connect__(): Promise<boolean> {
-    const websocketUrl = `wss://api.dev.heygen.com/v1/ws/streaming.chat?session_id=${this.sessionId}&session_token=${this.sessionInfo?.access_token}&arch_version=v2`;
-    this.ws = new WebSocket(websocketUrl);
-    this.ws.addEventListener("close", () => {
-      this.ws = null;
+  private publishData(message: object): void {
+    const data = new TextEncoder().encode(JSON.stringify(message));
+    this.room.localParticipant.publishData(data, {
+      reliable: true,
+      topic: LIVEKIT_DATA_CHANNEL_TOPIC,
     });
-    this.ws.addEventListener("message", (event) => {
-      let eventData: ServerEvent | null = null;
-      try {
-        eventData = JSON.parse(event.data);
-      } catch (e) {
-        console.error(e);
-        return;
-      }
-      if (eventData) {
-        const args = getEventEmitterArgs(eventData);
-        if (args) {
-          const [event, ...data] = args;
-          this.emit(event, ...data);
-        }
-      }
-    });
-    return new Promise((resolve, reject) => {
-      this.ws?.addEventListener("error", (event) => {
-        console.error("WS Error:", event);
-        this.ws = null;
-        reject(event);
-      });
-      this.ws?.addEventListener("open", () => {
-        resolve(true);
-      });
-    });
+  }
+
+  private assertConnected(): boolean {
+    if (this.state !== SessionState.CONNECTED) {
+      console.warn("Session is not connected");
+      return false;
+    }
+    return true;
   }
 }
