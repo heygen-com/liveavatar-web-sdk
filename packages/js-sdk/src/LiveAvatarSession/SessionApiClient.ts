@@ -64,7 +64,11 @@ export class SessionApiClient {
   public async startSession(config: SessionConfig): Promise<SessionInfo> {
     return await this.request(`/v1/sessions`, {
       method: "POST",
-      body: JSON.stringify(config),
+      body: JSON.stringify({
+        language: config.language,
+        avatar_id: config.avatarId,
+        context_id: config.contextId,
+      }),
     });
   }
 
