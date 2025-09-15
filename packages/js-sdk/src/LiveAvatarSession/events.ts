@@ -26,7 +26,7 @@ export type SessionEventCallbacks = {
   [SessionEvent.CONNECTION_QUALITY_CHANGED]: (
     quality: ConnectionQuality,
   ) => void;
-  [SessionEvent.STREAM_READY]: (stream: MediaStream) => void;
+  [SessionEvent.STREAM_READY]: () => void;
   [SessionEvent.USER_START_TALKING]: (event: TaskEvent) => void;
   [SessionEvent.USER_STOP_TALKING]: (event: TaskEvent) => void;
   [SessionEvent.AVATAR_START_TALKING]: (event: TaskEvent) => void;
