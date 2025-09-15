@@ -17,7 +17,8 @@
     "build": "rollup -c",
     "dev": "rollup -c -w",
     "lint": "eslint . --max-warnings 0",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "docs": "typedoc --out docs"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
