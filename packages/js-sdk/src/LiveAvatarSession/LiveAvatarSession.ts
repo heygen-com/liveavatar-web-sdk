@@ -4,6 +4,8 @@ import {
   VideoPresets,
   RemoteVideoTrack,
   RemoteAudioTrack,
+  supportsAdaptiveStream,
+  supportsDynacast,
 } from "livekit-client";
 import { EventEmitter } from "events";
 import TypedEmitter from "typed-emitter";
@@ -50,10 +52,12 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     // this.sessionToken = sessionToken;
     this.api = new SessionApiClient(sessionToken);
     this.room = new Room({
-      adaptiveStream: {
-        pauseVideoInBackground: false,
-      },
-      dynacast: true,
+      adaptiveStream: supportsAdaptiveStream()
+        ? {
+            pauseVideoInBackground: false,
+          }
+        : false,
+      dynacast: supportsDynacast(),
       videoCaptureDefaults: {
         resolution: VideoPresets.h720.resolution,
       },
