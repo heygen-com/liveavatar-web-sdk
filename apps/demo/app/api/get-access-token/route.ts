@@ -2,7 +2,7 @@ const API_KEY = "";
 
 const payload = {};
 
-const baseApiUrl = "https://api.liveavatar.dev";
+const baseApiUrl = "https://api.liveavatar.com";
 
 export async function POST() {
   try {
