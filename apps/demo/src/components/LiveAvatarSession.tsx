@@ -32,11 +32,12 @@ const LiveAvatarSessionComponent: React.FC<{
   const [message, setMessage] = useState("");
   const {
     sessionState,
-    stream,
+    isStreamReady,
     startSession,
     stopSession,
     connectionQuality,
     keepAlive,
+    attachElement,
   } = useSession();
   const {
     isAvatarTalking,
@@ -61,13 +62,10 @@ const LiveAvatarSessionComponent: React.FC<{
   }, [sessionState, onSessionStopped]);
 
   useEffect(() => {
-    if (stream && videoRef.current) {
-      videoRef.current.srcObject = stream;
-      videoRef.current.onloadedmetadata = () => {
-        videoRef.current!.play();
-      };
+    if (isStreamReady && videoRef.current) {
+      attachElement(videoRef.current);
     }
-  }, [videoRef, stream]);
+  }, [attachElement, isStreamReady]);
 
   useEffect(() => {
     if (sessionState === SessionState.INACTIVE) {

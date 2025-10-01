@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useLiveAvatarContext } from "./context";
 
 export const useSession = () => {
-  const { sessionRef, sessionState, stream, connectionQuality } =
+  const { sessionRef, sessionState, isStreamReady, connectionQuality } =
     useLiveAvatarContext();
 
   const startSession = useCallback(async () => {
@@ -17,12 +17,20 @@ export const useSession = () => {
     return await sessionRef.current.keepAlive();
   }, [sessionRef]);
 
+  const attachElement = useCallback(
+    (element: HTMLMediaElement) => {
+      return sessionRef.current.attach(element);
+    },
+    [sessionRef],
+  );
+
   return {
     sessionState,
-    stream,
+    isStreamReady,
     connectionQuality,
     startSession,
     stopSession,
     keepAlive,
+    attachElement,
   };
 };

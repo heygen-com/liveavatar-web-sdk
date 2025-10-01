@@ -27,6 +27,7 @@ out/
 build
 dist
 lib
+docs
 
 
 # Debug

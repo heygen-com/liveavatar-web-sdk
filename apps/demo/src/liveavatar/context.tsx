@@ -20,7 +20,7 @@ type LiveAvatarContextProps = {
   voiceChatState: VoiceChatState;
 
   sessionState: SessionState;
-  stream: MediaStream | null;
+  isStreamReady: boolean;
   connectionQuality: ConnectionQuality;
 
   isUserTalking: boolean;
@@ -37,7 +37,7 @@ export const LiveAvatarContext = createContext<LiveAvatarContextProps>({
   isMuted: true,
   voiceChatState: VoiceChatState.INACTIVE,
   sessionState: SessionState.DISCONNECTED,
-  stream: null,
+  isStreamReady: false,
   isUserTalking: false,
   isAvatarTalking: false,
   messages: [],
@@ -56,7 +56,7 @@ const useSessionState = (sessionRef: React.RefObject<LiveAvatarSession>) => {
   const [connectionQuality, setConnectionQuality] = useState<ConnectionQuality>(
     sessionRef.current?.connectionQuality || ConnectionQuality.UNKNOWN,
   );
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isStreamReady, setIsStreamReady] = useState<boolean>(false);
 
   useEffect(() => {
     if (sessionRef.current) {
@@ -65,10 +65,12 @@ const useSessionState = (sessionRef: React.RefObject<LiveAvatarSession>) => {
         if (state === SessionState.DISCONNECTED) {
           sessionRef.current.removeAllListeners();
           sessionRef.current.voiceChat.removeAllListeners();
-          setStream(null);
+          setIsStreamReady(false);
         }
       });
-      sessionRef.current.on(SessionEvent.STREAM_READY, setStream);
+      sessionRef.current.on(SessionEvent.STREAM_READY, () => {
+        setIsStreamReady(true);
+      });
       sessionRef.current.on(
         SessionEvent.CONNECTION_QUALITY_CHANGED,
         setConnectionQuality,
@@ -76,7 +78,7 @@ const useSessionState = (sessionRef: React.RefObject<LiveAvatarSession>) => {
     }
   }, [sessionRef]);
 
-  return { sessionState, stream, connectionQuality };
+  return { sessionState, isStreamReady, connectionQuality };
 };
 
 const useVoiceChatState = (sessionRef: React.RefObject<LiveAvatarSession>) => {
@@ -187,7 +189,7 @@ export const LiveAvatarContextProvider = ({
   const sessionRef = useRef<LiveAvatarSession>(
     client.createSession(config || {}, sessionToken),
   );
-  const { sessionState, stream, connectionQuality } =
+  const { sessionState, isStreamReady, connectionQuality } =
     useSessionState(sessionRef);
   const { isMuted, voiceChatState } = useVoiceChatState(sessionRef);
   const { isUserTalking, isAvatarTalking } = useTalkingState(sessionRef);
@@ -198,7 +200,7 @@ export const LiveAvatarContextProvider = ({
       value={{
         sessionRef,
         sessionState,
-        stream,
+        isStreamReady,
         connectionQuality,
         isMuted,
         voiceChatState,

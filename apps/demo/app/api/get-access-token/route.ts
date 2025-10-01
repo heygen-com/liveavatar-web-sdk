@@ -2,7 +2,7 @@ const API_KEY = "";
 
 const payload = {};
 
-const baseApiUrl = "";
+const baseApiUrl = "https://api.liveavatar.com";
 
 export async function POST() {
   try {
@@ -16,6 +16,8 @@ export async function POST() {
     });
 
     const data = await res.json();
+
+    console.log("Data:", data);
 
     return new Response(data.data.session_token, {
       status: 200,

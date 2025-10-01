@@ -1,4 +1,12 @@
-import { Room, RoomEvent, VideoPresets } from "livekit-client";
+import {
+  Room,
+  RoomEvent,
+  VideoPresets,
+  RemoteVideoTrack,
+  RemoteAudioTrack,
+  supportsAdaptiveStream,
+  supportsDynacast,
+} from "livekit-client";
 import { EventEmitter } from "events";
 import TypedEmitter from "typed-emitter";
 import {
@@ -35,7 +43,8 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     );
   private _sessionInfo: SessionInfo | null = null;
   private _state: SessionState = SessionState.INACTIVE;
-  private _mediaStream: MediaStream | null = null;
+  private _remoteAudioTrack: RemoteAudioTrack | null = null;
+  private _remoteVideoTrack: RemoteVideoTrack | null = null;
 
   constructor(config: SessionConfig, sessionToken: string) {
     super();
@@ -43,8 +52,12 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     // this.sessionToken = sessionToken;
     this.api = new SessionApiClient(sessionToken);
     this.room = new Room({
-      adaptiveStream: true,
-      dynacast: true,
+      adaptiveStream: supportsAdaptiveStream()
+        ? {
+            pauseVideoInBackground: false,
+          }
+        : false,
+      dynacast: supportsDynacast(),
       videoCaptureDefaults: {
         resolution: VideoPresets.h720.resolution,
       },
@@ -68,10 +81,6 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     return this._sessionInfo?.session_id ?? null;
   }
 
-  public get mediaStream(): MediaStream | null {
-    return this._mediaStream;
-  }
-
   public get voiceChat(): VoiceChat {
     return this._voiceChat;
   }
@@ -88,12 +97,17 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       const mediaStream = new MediaStream();
       this.room.on(RoomEvent.TrackSubscribed, (track) => {
         if (track.kind === "video" || track.kind === "audio") {
+          if (track.kind === "video") {
+            this._remoteVideoTrack = track as RemoteVideoTrack;
+          } else {
+            this._remoteAudioTrack = track as RemoteAudioTrack;
+          }
           mediaStream.addTrack(track.mediaStreamTrack);
 
           const hasVideoTrack = mediaStream.getVideoTracks().length > 0;
           const hasAudioTrack = mediaStream.getAudioTracks().length > 0;
           if (hasVideoTrack && hasAudioTrack) {
-            this.stream = mediaStream;
+            this.emit(SessionEvent.STREAM_READY);
           }
         }
       });
@@ -131,7 +145,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
         this.handleRoomDisconnect();
       });
 
-      this._sessionInfo = await this.api.startSession({});
+      this._sessionInfo = await this.api.startSession(this.config);
 
       await this.room.connect(
         this._sessionInfo.livekit_url,
@@ -174,6 +188,15 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     }
 
     return this.api.keepAlive();
+  }
+
+  public attach(element: HTMLMediaElement): void {
+    if (!this._remoteVideoTrack || !this._remoteAudioTrack) {
+      console.warn("Stream is not yet ready");
+      return;
+    }
+    this._remoteVideoTrack.attach(element);
+    this._remoteAudioTrack.attach(element);
   }
 
   public message(message: string): void {
@@ -233,14 +256,6 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     this.publishData(data);
   }
 
-  private set stream(stream: MediaStream) {
-    if (this._mediaStream) {
-      return;
-    }
-    this._mediaStream = stream;
-    this.emit(SessionEvent.STREAM_READY, stream);
-  }
-
   private set state(state: SessionState) {
     if (this._state === state) {
       return;
@@ -252,6 +267,14 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   private cleanup(): void {
     this.connectionQualityIndicator.stop();
     this.voiceChat.stop();
+    if (this._remoteAudioTrack) {
+      this._remoteAudioTrack.stop();
+    }
+    if (this._remoteVideoTrack) {
+      this._remoteVideoTrack.stop();
+    }
+    this._remoteAudioTrack = null;
+    this._remoteVideoTrack = null;
     this.room.localParticipant.removeAllListeners();
     this.room.removeAllListeners();
   }
