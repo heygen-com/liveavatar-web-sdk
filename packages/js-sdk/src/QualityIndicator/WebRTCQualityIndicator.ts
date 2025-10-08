@@ -29,7 +29,7 @@ export class WebRTCConnectionQualityIndicator extends AbstractConnectionQualityI
   protected calculateConnectionQuality(): ConnectionQuality {
     if (
       !this.mosScores ||
-      (this.mosScores.inbound && this.mosScores.outbound)
+      (!this.mosScores.inbound && !this.mosScores.outbound)
     ) {
       return ConnectionQuality.UNKNOWN;
     }
