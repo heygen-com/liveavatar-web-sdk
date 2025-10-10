@@ -17,9 +17,6 @@ export enum SessionDisconnectReason {
 
 export interface SessionConfig {
   voiceChat?: VoiceChatConfig | boolean;
-  language?: Language;
-  avatarId?: string;
-  contextId?: string;
 }
 
 export interface SessionInfo {

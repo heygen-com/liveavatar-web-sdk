@@ -1,5 +1,5 @@
 import { API_URL } from "../const";
-import { SessionInfo, SessionConfig } from "./types";
+import { SessionInfo } from "./types";
 
 const DEFAULT_ERROR_CODE = 500;
 const SUCCESS_CODE = 1000;
@@ -15,10 +15,12 @@ class SessionApiError extends Error {
   }
 }
 
-export class SessionApiClient {
+export class SessionAPIClient {
+  private readonly sessionId: string;
   private readonly sessionToken: string;
 
-  constructor(sessionToken: string) {
+  constructor(sessionId: string, sessionToken: string) {
+    this.sessionId = sessionId;
     this.sessionToken = sessionToken;
   }
 
@@ -61,26 +63,27 @@ export class SessionApiClient {
     }
   }
 
-  public async startSession(config: SessionConfig): Promise<SessionInfo> {
+  public async startSession(): Promise<SessionInfo> {
     return await this.request(`/v1/sessions`, {
       method: "POST",
-      body: JSON.stringify({
-        language: config.language,
-        avatar_id: config.avatarId,
-        context_id: config.contextId,
-      }),
     });
   }
 
   public async stopSession(): Promise<void> {
     return await this.request(`/v1/sessions`, {
       method: "DELETE",
+      body: JSON.stringify({
+        session_id: this.sessionId,
+      }),
     });
   }
 
   public async keepAlive(): Promise<void> {
     return await this.request(`/v1/sessions/keep-alive`, {
       method: "POST",
+      body: JSON.stringify({
+        session_id: this.sessionId,
+      }),
     });
   }
 }

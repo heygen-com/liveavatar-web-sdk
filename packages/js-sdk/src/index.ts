@@ -1,12 +1,8 @@
 // classes
-export * from "./LiveAvatarClient";
+export { LiveAvatarSession } from "./LiveAvatarSession";
 
 // types
-export type {
-  LiveAvatarSession,
-  SessionConfig,
-  SessionInfo,
-} from "./LiveAvatarSession";
+export type { SessionConfig, SessionInfo } from "./LiveAvatarSession";
 export type { VoiceChat, VoiceChatConfig } from "./VoiceChat";
 
 // enums
