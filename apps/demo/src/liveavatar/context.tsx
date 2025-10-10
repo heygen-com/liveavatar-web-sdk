@@ -3,15 +3,11 @@ import {
   ConnectionQuality,
   LiveAvatarSession,
   SessionState,
-  SessionConfig,
-  LiveAvatarClient,
   SessionEvent,
   VoiceChatEvent,
   VoiceChatState,
 } from "@liveavatar/js-sdk";
 import { LiveAvatarSessionMessage, MessageSender } from "./types";
-
-const client = new LiveAvatarClient();
 
 type LiveAvatarContextProps = {
   sessionRef: React.RefObject<LiveAvatarSession>;
@@ -45,8 +41,8 @@ export const LiveAvatarContext = createContext<LiveAvatarContextProps>({
 
 type LiveAvatarContextProviderProps = {
   children: React.ReactNode;
-  sessionToken: string;
-  config?: SessionConfig;
+  sessionId: string;
+  sessionAccessToken: string;
 };
 
 const useSessionState = (sessionRef: React.RefObject<LiveAvatarSession>) => {
@@ -183,14 +179,20 @@ const useChatHistoryState = (
 
 export const LiveAvatarContextProvider = ({
   children,
-  sessionToken,
-  config,
+  sessionId,
+  sessionAccessToken,
 }: LiveAvatarContextProviderProps) => {
+  // Default voice chat on
+  const config = {
+    voiceChat: true,
+  };
   const sessionRef = useRef<LiveAvatarSession>(
-    client.createSession(config || {}, sessionToken),
+    new LiveAvatarSession(sessionId, sessionAccessToken, config),
   );
+
   const { sessionState, isStreamReady, connectionQuality } =
     useSessionState(sessionRef);
+
   const { isMuted, voiceChatState } = useVoiceChatState(sessionRef);
   const { isUserTalking, isAvatarTalking } = useTalkingState(sessionRef);
   const { messages } = useChatHistoryState(sessionRef);
