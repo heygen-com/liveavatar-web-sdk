@@ -1,6 +1,23 @@
 {
-  "name": "live-avatar-js-sdk",
+  "name": "@heygen/liveavatar-web-sdk",
+  "version": "1.0.0",
   "private": true,
+  "description": "LiveAvatar supported web client sdk to help manage live avatar sessions",
+  "keywords": [
+    "live-avatar"
+  ],
+  "homepage": "https://github.com/heygen-com/live-avatar-js-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/heygen-com/live-avatar-js-sdk/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heygen-com/live-avatar-js-sdk.git"
+  },
+  "license": "MIT",
+  "author": "HeyGen",
+  "type": "commonjs",
+  "main": "index.js",
   "scripts": {
     "build": "turbo run build",
     "demo": "turbo run dev",
@@ -10,14 +27,25 @@
     "typecheck": "turbo run typecheck",
     "prepare": "husky"
   },
+  "dependencies": {
+    "eslint": "^9.31.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-only-warn": "^1.1.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-turbo": "^2.5.0",
+    "eslint-scope": "^8.4.0",
+    "eslint-visitor-keys": "^4.2.1",
+    "typescript-eslint": "^8.37.0"
+  },
   "devDependencies": {
     "husky": "^9.1.7",
     "prettier": "^3.6.2",
     "turbo": "^2.5.5",
     "typescript": "5.8.3"
   },
-  "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=22"
-  }
+  },
+  "packageManager": "pnpm@9.0.0"
 }
