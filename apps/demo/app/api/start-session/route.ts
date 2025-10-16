@@ -1,8 +1,9 @@
 import { API_KEY, API_URL } from "../secrets";
 
-const AVATAR_ID = "d63b120e-8a77-11f0-9a3d-06ce79efcd67";
-const VOICE_ID = "f580a236-1a86-4d6a-a581-c21e6357aedd";
-const CONTEXT_ID = "bfa51c5d-1036-4879-bac9-f50c9a315ef7";
+// Talk to Wayne's avatar
+const AVATAR_ID = "da25b1c5-d789-4683-b435-fed9f8d25e25";
+const VOICE_ID = "c2527536-6d1f-4412-a643-53a3497dada9";
+const CONTEXT_ID = "5b9dba8a-aa31-11f0-a6ee-066a7fa2e369";
 const LANGUAGE = "en";
 
 export async function POST() {
@@ -23,6 +24,7 @@ export async function POST() {
       }),
     });
     const data = await res.json();
+
     session_token = data.data.session_token;
     session_id = data.data.session_id;
   } catch (error) {
