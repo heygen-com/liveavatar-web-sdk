@@ -20,6 +20,7 @@ import {
   SessionDisconnectReason,
   DataMessage,
   SessionConfig,
+  SessionInfo,
 } from "./types";
 import {
   ConnectionQualityIndicator,
@@ -43,6 +44,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       this.emit(SessionEvent.CONNECTION_QUALITY_CHANGED, quality),
     );
 
+  private sessionInfo: SessionInfo | null = null;
   private _state: SessionState = SessionState.INACTIVE;
   private _remoteAudioTrack: RemoteAudioTrack | null = null;
   private _remoteVideoTrack: RemoteVideoTrack | null = null;
@@ -84,6 +86,10 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     return this._voiceChat;
   }
 
+  public get maxSessionDuration(): number | null {
+    return this.sessionInfo?.max_session_duration ?? null;
+  }
+
   public async start(): Promise<void> {
     if (this.state !== SessionState.INACTIVE) {
       console.warn("Session is already started");
@@ -95,9 +101,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       // Track the different events from the room, server, etc.
       this.trackEvents();
 
-      const sessionInfo = await this.sessionClient.startSession();
-      const roomUrl = sessionInfo.livekit_url;
-      const roomToken = sessionInfo.room_token;
+      this.sessionInfo = await this.sessionClient.startSession();
+      const roomUrl = this.sessionInfo.livekit_url;
+      const roomToken = this.sessionInfo.room_token;
 
       await this.room.connect(roomUrl, roomToken);
 
