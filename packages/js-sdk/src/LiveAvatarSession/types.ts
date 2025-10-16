@@ -17,12 +17,14 @@ export enum SessionDisconnectReason {
 
 export interface SessionConfig {
   voiceChat?: VoiceChatConfig | boolean;
+  apiUrl?: string;
 }
 
 export interface SessionInfo {
   session_id: string;
   livekit_url: string;
   room_token: string;
+  max_session_duration: number | null;
 }
 
 export enum DataMessage {

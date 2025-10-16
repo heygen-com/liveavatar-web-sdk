@@ -20,6 +20,7 @@ import {
   SessionDisconnectReason,
   DataMessage,
   SessionConfig,
+  SessionInfo,
 } from "./types";
 import {
   ConnectionQualityIndicator,
@@ -43,20 +44,20 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       this.emit(SessionEvent.CONNECTION_QUALITY_CHANGED, quality),
     );
 
+  private _sessionInfo: SessionInfo | null = null;
   private _state: SessionState = SessionState.INACTIVE;
   private _remoteAudioTrack: RemoteAudioTrack | null = null;
   private _remoteVideoTrack: RemoteVideoTrack | null = null;
 
-  constructor(
-    sessionId: string,
-    sessionAccessToken: string,
-    config: SessionConfig,
-  ) {
+  constructor(sessionAccessToken: string, config?: SessionConfig) {
     super();
 
     // Required to construct the room
-    this.config = config;
-    this.sessionClient = new SessionAPIClient(sessionId, sessionAccessToken);
+    this.config = config ?? {};
+    this.sessionClient = new SessionAPIClient(
+      sessionAccessToken,
+      this.config.apiUrl,
+    );
 
     this.room = new Room({
       adaptiveStream: supportsAdaptiveStream()
@@ -84,6 +85,10 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     return this._voiceChat;
   }
 
+  public get maxSessionDuration(): number | null {
+    return this._sessionInfo?.max_session_duration ?? null;
+  }
+
   public async start(): Promise<void> {
     if (this.state !== SessionState.INACTIVE) {
       console.warn("Session is already started");
@@ -95,9 +100,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       // Track the different events from the room, server, etc.
       this.trackEvents();
 
-      const sessionInfo = await this.sessionClient.startSession();
-      const roomUrl = sessionInfo.livekit_url;
-      const roomToken = sessionInfo.room_token;
+      this._sessionInfo = await this.sessionClient.startSession();
+      const roomUrl = this._sessionInfo.livekit_url;
+      const roomToken = this._sessionInfo.room_token;
 
       await this.room.connect(roomUrl, roomToken);
 
@@ -110,67 +115,6 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       console.error("Session start failed:", error);
       this.cleanup();
       this.postStop(SessionDisconnectReason.SESSION_START_FAILED);
-    }
-  }
-
-  private trackEvents(): void {
-    const mediaStream = new MediaStream();
-    this.room.on(RoomEvent.TrackSubscribed, (track) => {
-      if (track.kind === "video" || track.kind === "audio") {
-        if (track.kind === "video") {
-          this._remoteVideoTrack = track as RemoteVideoTrack;
-        } else {
-          this._remoteAudioTrack = track as RemoteAudioTrack;
-        }
-        mediaStream.addTrack(track.mediaStreamTrack);
-
-        const hasVideoTrack = mediaStream.getVideoTracks().length > 0;
-        const hasAudioTrack = mediaStream.getAudioTracks().length > 0;
-        if (hasVideoTrack && hasAudioTrack) {
-          this.emit(SessionEvent.STREAM_READY);
-        }
-      }
-    });
-
-    this.room.on(RoomEvent.DataReceived, (roomMessage, _, __, topic) => {
-      if (topic !== LIVEKIT_DATA_CHANNEL_TOPIC) {
-        return;
-      }
-
-      let eventMsg: ServerEventType | null = null;
-      try {
-        const messageString = new TextDecoder().decode(roomMessage);
-        eventMsg = JSON.parse(messageString);
-      } catch (e) {
-        console.error(e);
-      }
-      if (!eventMsg) {
-        return;
-      }
-      const args = getEventEmitterArgs(eventMsg);
-      if (args) {
-        const [event, ...data] = args;
-        this.emit(event, ...data);
-      }
-    });
-
-    this.room.on(RoomEvent.TrackUnsubscribed, (track) => {
-      const mediaTrack = track.mediaStreamTrack;
-      if (mediaTrack) {
-        mediaStream.removeTrack(mediaTrack);
-      }
-    });
-
-    this.room.on(RoomEvent.Disconnected, () => {
-      this.handleRoomDisconnect();
-    });
-  }
-
-  private async configureSession(): Promise<void> {
-    if (this.config.voiceChat) {
-      await this.voiceChat.start(
-        typeof this.config.voiceChat === "boolean" ? {} : this.config.voiceChat,
-      );
     }
   }
 
@@ -268,6 +212,67 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       type: DataMessage.AVATAR_INTERRUPT,
     };
     this.publishData(data);
+  }
+
+  private trackEvents(): void {
+    const mediaStream = new MediaStream();
+    this.room.on(RoomEvent.TrackSubscribed, (track) => {
+      if (track.kind === "video" || track.kind === "audio") {
+        if (track.kind === "video") {
+          this._remoteVideoTrack = track as RemoteVideoTrack;
+        } else {
+          this._remoteAudioTrack = track as RemoteAudioTrack;
+        }
+        mediaStream.addTrack(track.mediaStreamTrack);
+
+        const hasVideoTrack = mediaStream.getVideoTracks().length > 0;
+        const hasAudioTrack = mediaStream.getAudioTracks().length > 0;
+        if (hasVideoTrack && hasAudioTrack) {
+          this.emit(SessionEvent.STREAM_READY);
+        }
+      }
+    });
+
+    this.room.on(RoomEvent.DataReceived, (roomMessage, _, __, topic) => {
+      if (topic !== LIVEKIT_DATA_CHANNEL_TOPIC) {
+        return;
+      }
+
+      let eventMsg: ServerEventType | null = null;
+      try {
+        const messageString = new TextDecoder().decode(roomMessage);
+        eventMsg = JSON.parse(messageString);
+      } catch (e) {
+        console.error(e);
+      }
+      if (!eventMsg) {
+        return;
+      }
+      const args = getEventEmitterArgs(eventMsg);
+      if (args) {
+        const [event, ...data] = args;
+        this.emit(event, ...data);
+      }
+    });
+
+    this.room.on(RoomEvent.TrackUnsubscribed, (track) => {
+      const mediaTrack = track.mediaStreamTrack;
+      if (mediaTrack) {
+        mediaStream.removeTrack(mediaTrack);
+      }
+    });
+
+    this.room.on(RoomEvent.Disconnected, () => {
+      this.handleRoomDisconnect();
+    });
+  }
+
+  private async configureSession(): Promise<void> {
+    if (this.config.voiceChat) {
+      await this.voiceChat.start(
+        typeof this.config.voiceChat === "boolean" ? {} : this.config.voiceChat,
+      );
+    }
   }
 
   private set state(state: SessionState) {

@@ -182,15 +182,11 @@ const LiveAvatarSessionComponent: React.FC<{
 };
 
 export const LiveAvatarSession: React.FC<{
-  sessionId: string;
   sessionAccessToken: string;
   onSessionStopped: () => void;
-}> = ({ sessionId, sessionAccessToken, onSessionStopped }) => {
+}> = ({ sessionAccessToken, onSessionStopped }) => {
   return (
-    <LiveAvatarContextProvider
-      sessionId={sessionId}
-      sessionAccessToken={sessionAccessToken}
-    >
+    <LiveAvatarContextProvider sessionAccessToken={sessionAccessToken}>
       <LiveAvatarSessionComponent onSessionStopped={onSessionStopped} />
     </LiveAvatarContextProvider>
   );
