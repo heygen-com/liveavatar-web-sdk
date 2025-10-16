@@ -8,6 +8,7 @@ import {
   VoiceChatState,
 } from "@liveavatar/js-sdk";
 import { LiveAvatarSessionMessage, MessageSender } from "./types";
+import { API_URL } from "../../app/api/secrets";
 
 type LiveAvatarContextProps = {
   sessionRef: React.RefObject<LiveAvatarSession>;
@@ -41,7 +42,6 @@ export const LiveAvatarContext = createContext<LiveAvatarContextProps>({
 
 type LiveAvatarContextProviderProps = {
   children: React.ReactNode;
-  sessionId: string;
   sessionAccessToken: string;
 };
 
@@ -133,10 +133,6 @@ const useChatHistoryState = (
 
   useEffect(() => {
     if (sessionRef.current) {
-      const handleEndMessage = () => {
-        currentSenderRef.current = null;
-      };
-
       const handleMessage = (
         sender: MessageSender,
         { task_id, message }: { task_id: string; message: string },
@@ -163,8 +159,6 @@ const useChatHistoryState = (
         }
       };
 
-      sessionRef.current.on(SessionEvent.USER_END_MESSAGE, handleEndMessage);
-      sessionRef.current.on(SessionEvent.AVATAR_END_MESSAGE, handleEndMessage);
       sessionRef.current.on(SessionEvent.USER_MESSAGE, (data) =>
         handleMessage(MessageSender.USER, data),
       );
@@ -179,15 +173,15 @@ const useChatHistoryState = (
 
 export const LiveAvatarContextProvider = ({
   children,
-  sessionId,
   sessionAccessToken,
 }: LiveAvatarContextProviderProps) => {
   // Default voice chat on
   const config = {
     voiceChat: true,
+    apiUrl: API_URL,
   };
   const sessionRef = useRef<LiveAvatarSession>(
-    new LiveAvatarSession(sessionId, sessionAccessToken, config),
+    new LiveAvatarSession(sessionAccessToken, config),
   );
 
   const { sessionState, isStreamReady, connectionQuality } =

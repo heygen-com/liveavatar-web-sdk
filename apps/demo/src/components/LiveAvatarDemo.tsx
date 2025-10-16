@@ -5,22 +5,19 @@ import { LiveAvatarSession } from "./LiveAvatarSession";
 
 export const LiveAvatarDemo = () => {
   const [sessionToken, setSessionToken] = useState("");
-  const [sessionId, setSessionId] = useState("");
 
   const handleStart = async () => {
     const res = await fetch("/api/start-session", {
       method: "POST",
     });
-    const { session_token, session_id } = await res.json();
+    const { session_token } = await res.json();
 
     setSessionToken(session_token);
-    setSessionId(session_id);
   };
 
   const onSessionStopped = () => {
     // Reset the FE state
     setSessionToken("");
-    setSessionId("");
   };
 
   return (
@@ -34,7 +31,6 @@ export const LiveAvatarDemo = () => {
         </button>
       ) : (
         <LiveAvatarSession
-          sessionId={sessionId}
           sessionAccessToken={sessionToken}
           onSessionStopped={onSessionStopped}
         />

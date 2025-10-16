@@ -16,12 +16,12 @@ class SessionApiError extends Error {
 }
 
 export class SessionAPIClient {
-  private readonly sessionId: string;
   private readonly sessionToken: string;
+  private readonly apiUrl: string;
 
-  constructor(sessionId: string, sessionToken: string) {
-    this.sessionId = sessionId;
+  constructor(sessionToken: string, apiUrl: string = API_URL) {
     this.sessionToken = sessionToken;
+    this.apiUrl = apiUrl ?? API_URL;
   }
 
   private async request<T = any>(
@@ -29,7 +29,7 @@ export class SessionAPIClient {
     params: RequestInit,
   ): Promise<T> {
     try {
-      const response = await fetch(`${API_URL}${path}`, {
+      const response = await fetch(`${this.apiUrl}${path}`, {
         ...params,
         headers: {
           Authorization: `Bearer ${this.sessionToken}`,
@@ -64,26 +64,14 @@ export class SessionAPIClient {
   }
 
   public async startSession(): Promise<SessionInfo> {
-    return await this.request(`/v1/sessions`, {
-      method: "POST",
-    });
+    return await this.request(`/v1/sessions/start`, { method: "POST" });
   }
 
   public async stopSession(): Promise<void> {
-    return await this.request(`/v1/sessions`, {
-      method: "DELETE",
-      body: JSON.stringify({
-        session_id: this.sessionId,
-      }),
-    });
+    return await this.request(`/v1/sessions/stop`, { method: "POST" });
   }
 
   public async keepAlive(): Promise<void> {
-    return await this.request(`/v1/sessions/keep-alive`, {
-      method: "POST",
-      body: JSON.stringify({
-        session_id: this.sessionId,
-      }),
-    });
+    return await this.request(`/v1/sessions/keep-alive`, { method: "POST" });
   }
 }

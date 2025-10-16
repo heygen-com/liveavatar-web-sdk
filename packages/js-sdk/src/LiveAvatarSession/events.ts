@@ -10,9 +10,7 @@ export enum SessionEvent {
   AVATAR_START_TALKING = "AVATAR_START_TALKING",
   AVATAR_STOP_TALKING = "AVATAR_STOP_TALKING",
   AVATAR_MESSAGE = "AVATAR_MESSAGE",
-  AVATAR_END_MESSAGE = "AVATAR_END_MESSAGE",
   USER_MESSAGE = "USER_MESSAGE",
-  USER_END_MESSAGE = "USER_END_MESSAGE",
   INACTIVITY_DETECTED = "INACTIVITY_DETECTED",
   DISCONNECTED = "DISCONNECTED",
 }
@@ -34,9 +32,7 @@ export type SessionEventCallbacks = {
   [SessionEvent.AVATAR_MESSAGE]: (
     event: TaskEvent<{ message: string }>,
   ) => void;
-  [SessionEvent.AVATAR_END_MESSAGE]: (event: TaskEvent) => void;
   [SessionEvent.USER_MESSAGE]: (event: TaskEvent<{ message: string }>) => void;
-  [SessionEvent.USER_END_MESSAGE]: (event: TaskEvent) => void;
   [SessionEvent.INACTIVITY_DETECTED]: () => void;
   [SessionEvent.DISCONNECTED]: (reason: SessionDisconnectReason) => void;
 };
@@ -54,9 +50,7 @@ enum ServerEvent {
   USER_START_TALKING = "user_start_talking",
   USER_STOP_TALKING = "user_stop_talking",
   AVATAR_TALKING_MESSAGE = "avatar_talking_message",
-  AVATAR_END_MESSAGE = "avatar_end_message",
   USER_TALKING_MESSAGE = "user_talking_message",
-  USER_END_MESSAGE = "user_end_message",
 }
 
 type ServerEventData<T extends ServerEvent, U extends object = object> = {
@@ -68,8 +62,6 @@ export type ServerEventType =
   | ServerEventData<
       | ServerEvent.AVATAR_START_TALKING
       | ServerEvent.AVATAR_STOP_TALKING
-      | ServerEvent.AVATAR_END_MESSAGE
-      | ServerEvent.USER_END_MESSAGE
       | ServerEvent.USER_START_TALKING
       | ServerEvent.USER_STOP_TALKING
     >
@@ -96,20 +88,12 @@ export const getEventEmitterArgs = (
         };
         return [SessionEvent.AVATAR_MESSAGE, payload];
       }
-      case ServerEvent.AVATAR_END_MESSAGE: {
-        const payload: TaskEvent = { task_id: event.task_id };
-        return [SessionEvent.AVATAR_END_MESSAGE, payload];
-      }
       case ServerEvent.USER_TALKING_MESSAGE: {
         const payload: TaskEvent<{ message: string }> = {
           task_id: event.task_id,
           message: event.message,
         };
         return [SessionEvent.USER_MESSAGE, payload];
-      }
-      case ServerEvent.USER_END_MESSAGE: {
-        const payload: TaskEvent = { task_id: event.task_id };
-        return [SessionEvent.USER_END_MESSAGE, payload];
       }
       case ServerEvent.USER_START_TALKING: {
         const payload: TaskEvent = { task_id: event.task_id };
