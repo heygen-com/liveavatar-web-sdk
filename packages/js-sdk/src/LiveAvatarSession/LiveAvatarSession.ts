@@ -115,6 +115,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       console.error("Session start failed:", error);
       this.cleanup();
       this.postStop(SessionDisconnectReason.SESSION_START_FAILED);
+      throw error;
     }
   }
 
@@ -129,11 +130,12 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
 
     try {
       await this.sessionClient.stopSession();
+      this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
     } catch (error) {
       console.error("Session stop error on server:", error);
+      this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
+      throw error;
     }
-
-    this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
   }
 
   public async keepAlive(): Promise<void> {
@@ -145,6 +147,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       this.sessionClient.keepAlive();
     } catch (error) {
       console.error("Session keep alive error on server:", error);
+      throw error;
     }
   }
 

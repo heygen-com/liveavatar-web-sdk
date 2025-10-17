@@ -34,6 +34,7 @@ export class SessionAPIClient {
         headers: {
           Authorization: `Bearer ${this.sessionToken}`,
           "Content-Type": "application/json",
+          credentials: "include",
           ...params.headers,
         },
       });

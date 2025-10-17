@@ -7,5 +7,10 @@ export type { VoiceChat, VoiceChatConfig } from "./VoiceChat";
 
 // enums
 export { ConnectionQuality } from "./QualityIndicator";
-export { SessionEvent, SessionState, Language } from "./LiveAvatarSession";
+export {
+  SessionEvent,
+  SessionState,
+  Language,
+  SessionDisconnectReason,
+} from "./LiveAvatarSession";
 export { VoiceChatState, VoiceChatEvent } from "./VoiceChat";
