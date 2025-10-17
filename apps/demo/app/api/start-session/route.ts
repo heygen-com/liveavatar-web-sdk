@@ -1,9 +1,9 @@
 import { API_KEY, API_URL } from "../secrets";
 
 // Talk to Wayne's avatar
-const AVATAR_ID = "da25b1c5-d789-4683-b435-fed9f8d25e25";
-const VOICE_ID = "c2527536-6d1f-4412-a643-53a3497dada9";
-const CONTEXT_ID = "5b9dba8a-aa31-11f0-a6ee-066a7fa2e369";
+const AVATAR_ID = "d63b120e-8a77-11f0-9a3d-06ce79efcd67";
+const VOICE_ID = "4aad65a8-8a77-11f0-9a3d-06ce79efcd67";
+const CONTEXT_ID = "25bdc332-8a78-11f0-9a3d-06ce79efcd67";
 const LANGUAGE = "en";
 
 export async function POST() {
@@ -27,6 +27,7 @@ export async function POST() {
       }),
     });
     const data = await res.json();
+    console.log("data", data);
 
     session_token = data.data.session_token;
     session_id = data.data.session_id;

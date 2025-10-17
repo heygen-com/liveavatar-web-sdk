@@ -107,6 +107,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       this.trackEvents();
 
       this._sessionInfo = await this.sessionClient.startSession();
+      console.warn("this._sessionInfo", this._sessionInfo);
       const roomUrl = this._sessionInfo.livekit_url;
       const livekitClientToken = this._sessionInfo.livekit_client_token;
 
@@ -251,6 +252,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       try {
         const messageString = new TextDecoder().decode(roomMessage);
         eventMsg = JSON.parse(messageString);
+        console.warn("eventMsg", eventMsg);
       } catch (e) {
         console.error(e);
       }

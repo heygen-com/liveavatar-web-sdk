@@ -1,7 +1,7 @@
 import { API_KEY, API_URL } from "../secrets";
 
 // Talk to Wayne's avatar
-const AVATAR_ID = "da25b1c5-d789-4683-b435-fed9f8d25e25";
+const AVATAR_ID = "d63b120e-8a77-11f0-9a3d-06ce79efcd67";
 
 export async function POST() {
   let session_token = "";
@@ -19,7 +19,6 @@ export async function POST() {
       }),
     });
     const data = await res.json();
-    console.log(data);
 
     session_token = data.data.session_token;
     session_id = data.data.session_id;
