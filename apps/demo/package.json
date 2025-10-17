@@ -16,7 +16,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
-    "@liveavatar/js-sdk": "workspace:*",
+    "@heygen/liveavatar-web-sdk": "workspace:*",
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",

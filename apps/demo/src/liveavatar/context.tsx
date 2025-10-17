@@ -6,7 +6,7 @@ import {
   SessionEvent,
   VoiceChatEvent,
   VoiceChatState,
-} from "@liveavatar/js-sdk";
+} from "@heygen/liveavatar-web-sdk";
 import { LiveAvatarSessionMessage, MessageSender } from "./types";
 import { API_URL } from "../../app/api/secrets";
 
