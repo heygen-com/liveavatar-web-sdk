@@ -1,6 +1,6 @@
 {
   "name": "@heygen/liveavatar-web-sdk",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "LiveAvatar supported web client sdk to help manage live avatar sessions",
   "keywords": [
     "live-avatar"
