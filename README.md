@@ -1,54 +1,15 @@
-# LiveAvatar Web SDK
+## LiveAvatar Web Resources
 
-## About
+This repository contains the web resources for LiveAvatar.
 
-This is offical LiveAvatar supported client-side SDK.
-This SDK library manages various LiveAvatar sessions, supporting the session initiation,
-session management, and session cleanup.
+### Packages
 
-## API Documentation
+We offer the following web SDKs to help you quickly build with Live Avatar.
 
-Please refer to us here https://docs.liveavatar.com
+- `@heygen/liveavatar-web-sdk`: The LiveAvatar Web SDK
 
-## Installation
+### Demos
 
-Install the package in your project through package manager.
+Try out our demos to see how it works and spin off your own projects with.
 
-```bash
-npm install @heygen/liveavatar-web-sdk
-# or
-pnpm install @heygen/liveavatar-web-sdk
-```
-
-## Usage
-
-This library is meant for development use in various client-side facing JavaScript projects.
-It's tailored to manage LiveAvatar sessions, handling the complexities of starting, stopping and various avatar actions. With just the session id and token, we help focus on the session complexity so you focus on building something great.
-
-## Example Usage
-
-```ts
-import { LiveAvatarSession } from "@heygen/liveavatar-web-sdk";
-
-// Make a backend call to grab the sessionId and sessionToken
-const { sessionId, sessionToken } = await myBackendCallForSessionToken();
-const userConfig = {
-  voiceChat: true,
-};
-
-const session = new LiveAvatarSession(sessionId, sessionToken, userConfig);
-
-// Start the session
-await session.start();
-
-// Build something great with LiveAvatar
-
-// Close the session
-await session.stop();
-```
-
-## License
-
-LiveAvatar Web SDK is licensed under the MIT License.
-
-Please refer to the LICENSE file for more information.
+- `apps/demo`: The LiveAvatar Web Demo
