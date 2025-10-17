@@ -1,7 +1,6 @@
 {
-  "name": "@liveavatar/js-sdk",
-  "version": "0.0.1",
-  "private": true,
+  "name": "@heygen/liveavatar-web-sdk",
+  "version": "1.0.3",
   "exports": {
     ".": {
       "types": "./lib/index.d.ts",
@@ -9,6 +8,19 @@
       "require": "./lib/index.cjs.js"
     }
   },
+  "homepage": "https://github.com/heygen-com/live-avatar-js-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/heygen-com/live-avatar-js-sdk/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heygen-com/live-avatar-js-sdk.git"
+  },
+  "keywords": [
+    "live-avatar"
+  ],
+  "license": "MIT",
+  "author": "HeyGen",
   "main": "./lib/index.cjs.js",
   "module": "./lib/index.esm.js",
   "types": "./lib/index.d.ts",
