@@ -1,6 +1,13 @@
 {
   "name": "@heygen/liveavatar-web-sdk",
-  "version": "1.0.4",
+  "version": "1.0.5",
+  "files": [
+    "lib",
+    "dist",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
   "exports": {
     ".": {
       "types": "./lib/index.d.ts",
@@ -24,6 +31,8 @@
   "main": "./lib/index.cjs.js",
   "module": "./lib/index.esm.js",
   "types": "./lib/index.d.ts",
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
   "type": "module",
   "scripts": {
     "build": "rollup -c",
