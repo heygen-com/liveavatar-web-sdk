@@ -17,10 +17,13 @@ export async function POST() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        mode: "FULL",
         avatar_id: AVATAR_ID,
-        voice_id: VOICE_ID,
-        context_id: CONTEXT_ID,
-        language: LANGUAGE,
+        avatar_persona: {
+          voice_id: VOICE_ID,
+          context_id: CONTEXT_ID,
+          language: LANGUAGE,
+        },
       }),
     });
     const data = await res.json();
