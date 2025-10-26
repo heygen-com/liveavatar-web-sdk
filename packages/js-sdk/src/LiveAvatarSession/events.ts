@@ -2,109 +2,154 @@ import { SessionDisconnectReason, SessionState } from "./types";
 import { ConnectionQuality } from "../QualityIndicator";
 
 export enum SessionEvent {
-  STATE_CHANGED = "STATE_CHANGED",
-  CONNECTION_QUALITY_CHANGED = "CONNECTION_QUALITY_CHANGED",
-  STREAM_READY = "STREAM_READY",
-  USER_START_TALKING = "USER_START_TALKING",
-  USER_STOP_TALKING = "USER_STOP_TALKING",
-  AVATAR_START_TALKING = "AVATAR_START_TALKING",
-  AVATAR_STOP_TALKING = "AVATAR_STOP_TALKING",
-  AVATAR_MESSAGE = "AVATAR_MESSAGE",
-  USER_MESSAGE = "USER_MESSAGE",
-  INACTIVITY_DETECTED = "INACTIVITY_DETECTED",
-  DISCONNECTED = "DISCONNECTED",
+  SESSION_STATE_CHANGED = "session.state_changed",
+  SESSION_STREAM_READY = "session.stream_ready",
+  SESSION_CONNECTION_QUALITY_CHANGED = "session.connection_quality_changed",
+  SESSION_DISCONNECTED = "session.disconnected",
 }
-
-type TaskEvent<T extends Record<string, unknown> = Record<string, unknown>> = {
-  task_id: string;
-} & T;
 
 export type SessionEventCallbacks = {
-  [SessionEvent.STATE_CHANGED]: (state: SessionState) => void;
-  [SessionEvent.CONNECTION_QUALITY_CHANGED]: (
+  [SessionEvent.SESSION_STATE_CHANGED]: (state: SessionState) => void;
+  [SessionEvent.SESSION_CONNECTION_QUALITY_CHANGED]: (
     quality: ConnectionQuality,
   ) => void;
-  [SessionEvent.STREAM_READY]: () => void;
-  [SessionEvent.USER_START_TALKING]: (event: TaskEvent) => void;
-  [SessionEvent.USER_STOP_TALKING]: (event: TaskEvent) => void;
-  [SessionEvent.AVATAR_START_TALKING]: (event: TaskEvent) => void;
-  [SessionEvent.AVATAR_STOP_TALKING]: (event: TaskEvent) => void;
-  [SessionEvent.AVATAR_MESSAGE]: (
-    event: TaskEvent<{ message: string }>,
+  [SessionEvent.SESSION_STREAM_READY]: () => void;
+  [SessionEvent.SESSION_DISCONNECTED]: (
+    reason: SessionDisconnectReason,
   ) => void;
-  [SessionEvent.USER_MESSAGE]: (event: TaskEvent<{ message: string }>) => void;
-  [SessionEvent.INACTIVITY_DETECTED]: () => void;
-  [SessionEvent.DISCONNECTED]: (reason: SessionDisconnectReason) => void;
 };
 
-export type SessionEmitArgs = {
-  [K in keyof SessionEventCallbacks]: [
-    K,
-    ...Parameters<SessionEventCallbacks[K]>,
-  ];
-}[keyof SessionEventCallbacks];
+export enum AgentEventsEnum {
+  SESSION_UPDATED = "session.updated",
+  SESSION_STATE_UPDATED = "session.state_updated",
 
-enum ServerEvent {
-  AVATAR_START_TALKING = "avatar_start_talking",
-  AVATAR_STOP_TALKING = "avatar_stop_talking",
-  USER_START_TALKING = "user_start_talking",
-  USER_STOP_TALKING = "user_stop_talking",
-  AVATAR_TALKING_MESSAGE = "avatar_talking_message",
-  USER_TALKING_MESSAGE = "user_talking_message",
+  USER_SPEAK_STARTED = "user.speak_started",
+  USER_SPEAK_ENDED = "user.speak_ended",
+  // USER_TRANSCRIPTION_STARTED = "user.transcription_started",
+  // USER_TRANSCRIPTION_PARTIAL = "user.transcription_partial",
+  // USER_TRANSCRIPTION_FINAL = "user.transcription_final",
+
+  // AVATAR_TRANSCRIPTION_STARTED = "avatar.transcription_started",
+  // AVATAR_TRANSCRIPTION_PARTIAL = "avatar.transcription_partial",
+  // AVATAR_TRANSCRIPTION_FINAL = "avatar.transcription_final",
+
+  AVATAR_SPEAK_STARTED = "avatar.speak_started",
+  AVATAR_SPEAK_ENDED = "avatar.speak_ended",
 }
 
-type ServerEventData<T extends ServerEvent, U extends object = object> = {
-  task_id: string;
+export type AgentEventData<
+  T extends AgentEventsEnum,
+  U extends object = object,
+> = {
+  event_id: string;
+  event_type: T;
+} & U;
+
+export type AgentEvent =
+  | AgentEventData<AgentEventsEnum.USER_SPEAK_STARTED>
+  | AgentEventData<AgentEventsEnum.USER_SPEAK_ENDED>
+  // | AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION_STARTED>
+  // | AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION_PARTIAL>
+  // | AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION_FINAL>
+  // | AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_STARTED>
+  // | AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_PARTIAL>
+  // | AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_FINAL>
+  | AgentEventData<AgentEventsEnum.AVATAR_SPEAK_STARTED>
+  | AgentEventData<AgentEventsEnum.AVATAR_SPEAK_ENDED>;
+
+export type AgentEventCallbacks = {
+  [AgentEventsEnum.USER_SPEAK_STARTED]: (
+    event: AgentEventData<AgentEventsEnum.USER_SPEAK_STARTED>,
+  ) => void;
+  [AgentEventsEnum.USER_SPEAK_ENDED]: (
+    event: AgentEventData<AgentEventsEnum.USER_SPEAK_ENDED>,
+  ) => void;
+  [AgentEventsEnum.AVATAR_SPEAK_STARTED]: (
+    event: AgentEventData<AgentEventsEnum.AVATAR_SPEAK_STARTED>,
+  ) => void;
+  [AgentEventsEnum.AVATAR_SPEAK_ENDED]: (
+    event: AgentEventData<AgentEventsEnum.AVATAR_SPEAK_ENDED>,
+  ) => void;
+  // [AgentEventsEnum.USER_TRANSCRIPTION_STARTED]: (
+  //   event: AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION_STARTED>
+  // ) => void;
+  // [AgentEventsEnum.USER_TRANSCRIPTION_PARTIAL]: (
+  //   event: AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION_PARTIAL>
+  // ) => void;
+  // [AgentEventsEnum.USER_TRANSCRIPTION_FINAL]: (
+  //   event: AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION_FINAL>
+  // ) => void;
+  // [AgentEventsEnum.AVATAR_TRANSCRIPTION_STARTED]: (
+  //   event: AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_STARTED>
+  // ) => void;
+  // [AgentEventsEnum.AVATAR_TRANSCRIPTION_PARTIAL]: (
+  //   event: AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_PARTIAL>
+  // ) => void;
+  // [AgentEventsEnum.AVATAR_TRANSCRIPTION_FINAL]: (
+  //   event: AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_FINAL>
+  // ) => void;
+};
+
+export const getAgentEventEmitArgs = (
+  event: AgentEvent,
+): AgentEventEmitArgs | null => {
+  if ("event_type" in event) {
+    switch (event.event_type) {
+      case AgentEventsEnum.USER_SPEAK_STARTED: {
+        const payload: AgentEventData<AgentEventsEnum.USER_SPEAK_STARTED> = {
+          event_id: event.event_id,
+          event_type: event.event_type,
+        };
+        return [AgentEventsEnum.USER_SPEAK_STARTED, payload];
+      }
+      case AgentEventsEnum.USER_SPEAK_ENDED: {
+        const payload: AgentEventData<AgentEventsEnum.USER_SPEAK_ENDED> = {
+          event_id: event.event_id,
+          event_type: event.event_type,
+        };
+        return [AgentEventsEnum.USER_SPEAK_ENDED, payload];
+      }
+      default:
+        console.warn("New unsupported event type:", event.event_type);
+        return null;
+    }
+  }
+  return null;
+};
+
+export enum CommandEventsEnum {
+  SESSION_UPDATE = "session.update",
+  SESSION_STOP = "session.stop",
+
+  AVATAR_INTERRUPT = "avatar.interrupt",
+  AVATAR_INTERRUPT_VIDEO = "avatar.interrupt_video",
+
+  AVATAR_SPEAK_TEXT = "avatar.speak_text",
+  AVATAR_SPEAK_RESPONSE = "avatar.speak_response",
+  AVATAR_SPEAK_AUDIO = "avatar.speak_audio",
+
+  AVATAR_START_LISTENING = "avatar.start_listening",
+  AVATAR_STOP_LISTENING = "avatar.stop_listening",
+}
+
+type CommandEventData<
+  T extends CommandEventsEnum,
+  U extends object = object,
+> = {
   type: T;
 } & U;
 
-export type ServerEventType =
-  | ServerEventData<
-      | ServerEvent.AVATAR_START_TALKING
-      | ServerEvent.AVATAR_STOP_TALKING
-      | ServerEvent.USER_START_TALKING
-      | ServerEvent.USER_STOP_TALKING
-    >
-  | ServerEventData<ServerEvent.AVATAR_TALKING_MESSAGE, { message: string }>
-  | ServerEventData<ServerEvent.USER_TALKING_MESSAGE, { message: string }>;
+export type CommandEventType =
+  | CommandEventData<CommandEventsEnum.SESSION_UPDATE>
+  | CommandEventData<CommandEventsEnum.SESSION_STOP>
+  | CommandEventData<CommandEventsEnum.AVATAR_INTERRUPT>
+  | CommandEventData<CommandEventsEnum.AVATAR_INTERRUPT_VIDEO>
+  | CommandEventData<CommandEventsEnum.AVATAR_SPEAK_TEXT>
+  | CommandEventData<CommandEventsEnum.AVATAR_SPEAK_RESPONSE>
+  | CommandEventData<CommandEventsEnum.AVATAR_SPEAK_AUDIO>
+  | CommandEventData<CommandEventsEnum.AVATAR_START_LISTENING>
+  | CommandEventData<CommandEventsEnum.AVATAR_STOP_LISTENING>;
 
-export const getEventEmitterArgs = (
-  event: ServerEventType,
-): SessionEmitArgs | null => {
-  if ("type" in event) {
-    switch (event.type) {
-      case ServerEvent.AVATAR_START_TALKING: {
-        const payload: TaskEvent = { task_id: event.task_id };
-        return [SessionEvent.AVATAR_START_TALKING, payload];
-      }
-      case ServerEvent.AVATAR_STOP_TALKING: {
-        const payload: TaskEvent = { task_id: event.task_id };
-        return [SessionEvent.AVATAR_STOP_TALKING, payload];
-      }
-      case ServerEvent.AVATAR_TALKING_MESSAGE: {
-        const payload: TaskEvent<{ message: string }> = {
-          task_id: event.task_id,
-          message: event.message,
-        };
-        return [SessionEvent.AVATAR_MESSAGE, payload];
-      }
-      case ServerEvent.USER_TALKING_MESSAGE: {
-        const payload: TaskEvent<{ message: string }> = {
-          task_id: event.task_id,
-          message: event.message,
-        };
-        return [SessionEvent.USER_MESSAGE, payload];
-      }
-      case ServerEvent.USER_START_TALKING: {
-        const payload: TaskEvent = { task_id: event.task_id };
-        return [SessionEvent.USER_START_TALKING, payload];
-      }
-      case ServerEvent.USER_STOP_TALKING: {
-        const payload: TaskEvent = { task_id: event.task_id };
-        return [SessionEvent.USER_STOP_TALKING, payload];
-      }
-    }
-  }
-
-  return null;
-};
+export type AgentEventEmitArgs = {
+  [K in keyof AgentEventCallbacks]: [K, ...Parameters<AgentEventCallbacks[K]>];
+}[keyof AgentEventCallbacks];
