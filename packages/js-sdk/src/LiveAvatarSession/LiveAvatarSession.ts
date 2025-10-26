@@ -12,13 +12,14 @@ import TypedEmitter from "typed-emitter";
 import {
   SessionEvent,
   SessionEventCallbacks,
-  ServerEventType,
-  getEventEmitterArgs,
+  AgentEventCallbacks,
+  AgentEvent,
+  getAgentEventEmitArgs,
+  CommandEventsEnum,
 } from "./events";
 import {
   SessionState,
   SessionDisconnectReason,
-  DataMessage,
   SessionConfig,
   SessionInfo,
 } from "./types";
@@ -31,7 +32,9 @@ import { VoiceChat } from "../VoiceChat";
 import { LIVEKIT_DATA_CHANNEL_TOPIC } from "./const";
 import { SessionAPIClient } from "./SessionApiClient";
 
-export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<SessionEventCallbacks>) {
+export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
+  SessionEventCallbacks & AgentEventCallbacks
+>) {
   private readonly sessionClient: SessionAPIClient;
 
   // Additional session configurations that can be managed
@@ -41,7 +44,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
   private readonly _voiceChat: VoiceChat;
   private readonly connectionQualityIndicator: AbstractConnectionQualityIndicator<Room> =
     new ConnectionQualityIndicator((quality) =>
-      this.emit(SessionEvent.CONNECTION_QUALITY_CHANGED, quality),
+      this.emit(SessionEvent.SESSION_CONNECTION_QUALITY_CHANGED, quality),
     );
 
   private _sessionInfo: SessionInfo | null = null;
@@ -166,10 +169,10 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     }
 
     const data = {
-      type: DataMessage.USER_MESSAGE,
-      message,
+      event_type: CommandEventsEnum.AVATAR_SPEAK_RESPONSE,
+      text: message,
     };
-    this.publishData(data);
+    this.sendCommandEvent(data);
   }
 
   public repeat(message: string): void {
@@ -178,10 +181,10 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     }
 
     const data = {
-      type: DataMessage.AVATAR_REPEAT,
-      message,
+      event_type: CommandEventsEnum.AVATAR_SPEAK_TEXT,
+      text: message,
     };
-    this.publishData(data);
+    this.sendCommandEvent(data);
   }
 
   public startListening(): void {
@@ -190,9 +193,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     }
 
     const data = {
-      type: DataMessage.AVATAR_START_LISTENING,
+      event_type: CommandEventsEnum.AVATAR_START_LISTENING,
     };
-    this.publishData(data);
+    this.sendCommandEvent(data);
   }
 
   public stopListening(): void {
@@ -201,9 +204,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     }
 
     const data = {
-      type: DataMessage.AVATAR_STOP_LISTENING,
+      event_type: CommandEventsEnum.AVATAR_STOP_LISTENING,
     };
-    this.publishData(data);
+    this.sendCommandEvent(data);
   }
 
   public interrupt(): void {
@@ -212,9 +215,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     }
 
     const data = {
-      type: DataMessage.AVATAR_INTERRUPT,
+      event_type: CommandEventsEnum.AVATAR_INTERRUPT,
     };
-    this.publishData(data);
+    this.sendCommandEvent(data);
   }
 
   private trackEvents(): void {
@@ -231,7 +234,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
         const hasVideoTrack = mediaStream.getVideoTracks().length > 0;
         const hasAudioTrack = mediaStream.getAudioTracks().length > 0;
         if (hasVideoTrack && hasAudioTrack) {
-          this.emit(SessionEvent.STREAM_READY);
+          this.emit(SessionEvent.SESSION_STREAM_READY);
         }
       }
     });
@@ -241,7 +244,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
         return;
       }
 
-      let eventMsg: ServerEventType | null = null;
+      let eventMsg: AgentEvent | null = null;
       try {
         const messageString = new TextDecoder().decode(roomMessage);
         eventMsg = JSON.parse(messageString);
@@ -251,10 +254,10 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       if (!eventMsg) {
         return;
       }
-      const args = getEventEmitterArgs(eventMsg);
-      if (args) {
-        const [event, ...data] = args;
-        this.emit(event, ...data);
+      const emitArgs = getAgentEventEmitArgs(eventMsg);
+      if (emitArgs) {
+        const [event_type, ...event_data] = emitArgs;
+        this.emit(event_type, ...event_data);
       }
     });
 
@@ -283,7 +286,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
       return;
     }
     this._state = state;
-    this.emit(SessionEvent.STATE_CHANGED, state);
+    this.emit(SessionEvent.SESSION_STATE_CHANGED, state);
   }
 
   private cleanup(): void {
@@ -303,7 +306,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
 
   private postStop(reason: SessionDisconnectReason): void {
     this.state = SessionState.DISCONNECTED;
-    this.emit(SessionEvent.DISCONNECTED, reason);
+    this.emit(SessionEvent.SESSION_DISCONNECTED, reason);
   }
 
   private handleRoomDisconnect(): void {
@@ -311,8 +314,8 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<S
     this.postStop(SessionDisconnectReason.UNKNOWN_REASON);
   }
 
-  private publishData(message: object): void {
-    const data = new TextEncoder().encode(JSON.stringify(message));
+  private sendCommandEvent(commandEvent: object): void {
+    const data = new TextEncoder().encode(JSON.stringify(commandEvent));
     this.room.localParticipant.publishData(data, {
       reliable: true,
       topic: LIVEKIT_DATA_CHANNEL_TOPIC,

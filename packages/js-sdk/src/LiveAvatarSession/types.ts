@@ -27,14 +27,6 @@ export interface SessionInfo {
   max_session_duration: number | null;
 }
 
-export enum DataMessage {
-  USER_MESSAGE = "user_message",
-  AVATAR_INTERRUPT = "avatar_interrupt",
-  AVATAR_REPEAT = "avatar_repeat",
-  AVATAR_START_LISTENING = "avatar_start_listening",
-  AVATAR_STOP_LISTENING = "avatar_stop_listening",
-}
-
 export enum Language {
   af = "af",
   sq = "sq",
