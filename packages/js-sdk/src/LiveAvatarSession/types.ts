@@ -23,7 +23,7 @@ export interface SessionConfig {
 export interface SessionInfo {
   session_id: string;
   livekit_url: string;
-  room_token: string;
+  livekit_client_token: string;
   max_session_duration: number | null;
 }
 
