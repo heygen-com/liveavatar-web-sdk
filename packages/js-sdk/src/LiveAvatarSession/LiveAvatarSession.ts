@@ -105,9 +105,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
 
       this._sessionInfo = await this.sessionClient.startSession();
       const roomUrl = this._sessionInfo.livekit_url;
-      const roomToken = this._sessionInfo.room_token;
+      const livekitClientToken = this._sessionInfo.livekit_client_token;
 
-      await this.room.connect(roomUrl, roomToken);
+      await this.room.connect(roomUrl, livekitClientToken);
 
       this.connectionQualityIndicator.start(this.room);
 
