@@ -29,7 +29,10 @@ import {
   ConnectionQuality,
 } from "../QualityIndicator";
 import { VoiceChat } from "../VoiceChat";
-import { LIVEKIT_DATA_CHANNEL_TOPIC } from "./const";
+import {
+  LIVEKIT_COMMAND_CHANNEL_TOPIC,
+  LIVEKIT_SERVER_RESPONSE_CHANNEL_TOPIC,
+} from "./const";
 import { SessionAPIClient } from "./SessionApiClient";
 
 export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
@@ -240,7 +243,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     });
 
     this.room.on(RoomEvent.DataReceived, (roomMessage, _, __, topic) => {
-      if (topic !== LIVEKIT_DATA_CHANNEL_TOPIC) {
+      if (topic !== LIVEKIT_SERVER_RESPONSE_CHANNEL_TOPIC) {
         return;
       }
 
@@ -318,7 +321,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     const data = new TextEncoder().encode(JSON.stringify(commandEvent));
     this.room.localParticipant.publishData(data, {
       reliable: true,
-      topic: LIVEKIT_DATA_CHANNEL_TOPIC,
+      topic: LIVEKIT_COMMAND_CHANNEL_TOPIC,
     });
   }
 
