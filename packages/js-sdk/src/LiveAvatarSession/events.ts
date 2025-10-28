@@ -25,13 +25,8 @@ export enum AgentEventsEnum {
 
   USER_SPEAK_STARTED = "user.speak_started",
   USER_SPEAK_ENDED = "user.speak_ended",
-  // USER_TRANSCRIPTION_STARTED = "user.transcription_started",
-  // USER_TRANSCRIPTION_PARTIAL = "user.transcription_partial",
-  // USER_TRANSCRIPTION_FINAL = "user.transcription_final",
-
-  // AVATAR_TRANSCRIPTION_STARTED = "avatar.transcription_started",
-  // AVATAR_TRANSCRIPTION_PARTIAL = "avatar.transcription_partial",
-  // AVATAR_TRANSCRIPTION_FINAL = "avatar.transcription_final",
+  USER_TRANSCRIPTION = "user.transcription",
+  AVATAR_TRANSCRIPTION = "avatar.transcription",
 
   AVATAR_SPEAK_STARTED = "avatar.speak_started",
   AVATAR_SPEAK_ENDED = "avatar.speak_ended",
@@ -48,12 +43,8 @@ export type AgentEventData<
 export type AgentEvent =
   | AgentEventData<AgentEventsEnum.USER_SPEAK_STARTED>
   | AgentEventData<AgentEventsEnum.USER_SPEAK_ENDED>
-  // | AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION_STARTED>
-  // | AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION_PARTIAL>
-  // | AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION_FINAL>
-  // | AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_STARTED>
-  // | AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_PARTIAL>
-  // | AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_FINAL>
+  | AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION, { text: string }>
+  | AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION, { text: string }>
   | AgentEventData<AgentEventsEnum.AVATAR_SPEAK_STARTED>
   | AgentEventData<AgentEventsEnum.AVATAR_SPEAK_ENDED>;
 
@@ -70,24 +61,15 @@ export type AgentEventCallbacks = {
   [AgentEventsEnum.AVATAR_SPEAK_ENDED]: (
     event: AgentEventData<AgentEventsEnum.AVATAR_SPEAK_ENDED>,
   ) => void;
-  // [AgentEventsEnum.USER_TRANSCRIPTION_STARTED]: (
-  //   event: AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION_STARTED>
-  // ) => void;
-  // [AgentEventsEnum.USER_TRANSCRIPTION_PARTIAL]: (
-  //   event: AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION_PARTIAL>
-  // ) => void;
-  // [AgentEventsEnum.USER_TRANSCRIPTION_FINAL]: (
-  //   event: AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION_FINAL>
-  // ) => void;
-  // [AgentEventsEnum.AVATAR_TRANSCRIPTION_STARTED]: (
-  //   event: AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_STARTED>
-  // ) => void;
-  // [AgentEventsEnum.AVATAR_TRANSCRIPTION_PARTIAL]: (
-  //   event: AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_PARTIAL>
-  // ) => void;
-  // [AgentEventsEnum.AVATAR_TRANSCRIPTION_FINAL]: (
-  //   event: AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_FINAL>
-  // ) => void;
+  [AgentEventsEnum.USER_TRANSCRIPTION]: (
+    event: AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION, { text: string }>,
+  ) => void;
+  [AgentEventsEnum.AVATAR_TRANSCRIPTION]: (
+    event: AgentEventData<
+      AgentEventsEnum.AVATAR_TRANSCRIPTION,
+      { text: string }
+    >,
+  ) => void;
 };
 
 export const getAgentEventEmitArgs = (
@@ -108,6 +90,28 @@ export const getAgentEventEmitArgs = (
           event_type: event.event_type,
         };
         return [AgentEventsEnum.USER_SPEAK_ENDED, payload];
+      }
+      case AgentEventsEnum.USER_TRANSCRIPTION: {
+        const payload: AgentEventData<
+          AgentEventsEnum.USER_TRANSCRIPTION,
+          { text: string }
+        > = {
+          event_id: event.event_id,
+          event_type: event.event_type,
+          text: event.text,
+        };
+        return [AgentEventsEnum.USER_TRANSCRIPTION, payload];
+      }
+      case AgentEventsEnum.AVATAR_TRANSCRIPTION: {
+        const payload: AgentEventData<
+          AgentEventsEnum.AVATAR_TRANSCRIPTION,
+          { text: string }
+        > = {
+          event_id: event.event_id,
+          event_type: event.event_type,
+          text: event.text,
+        };
+        return [AgentEventsEnum.AVATAR_TRANSCRIPTION, payload];
       }
       default:
         console.warn("New unsupported event type:", event.event_type);
@@ -144,9 +148,9 @@ export type CommandEventType =
   | CommandEventData<CommandEventsEnum.SESSION_STOP>
   | CommandEventData<CommandEventsEnum.AVATAR_INTERRUPT>
   | CommandEventData<CommandEventsEnum.AVATAR_INTERRUPT_VIDEO>
-  | CommandEventData<CommandEventsEnum.AVATAR_SPEAK_TEXT>
-  | CommandEventData<CommandEventsEnum.AVATAR_SPEAK_RESPONSE>
-  | CommandEventData<CommandEventsEnum.AVATAR_SPEAK_AUDIO>
+  | CommandEventData<CommandEventsEnum.AVATAR_SPEAK_TEXT, { text: string }>
+  | CommandEventData<CommandEventsEnum.AVATAR_SPEAK_RESPONSE, { text: string }>
+  // | CommandEventData<CommandEventsEnum.AVATAR_SPEAK_AUDIO>
   | CommandEventData<CommandEventsEnum.AVATAR_START_LISTENING>
   | CommandEventData<CommandEventsEnum.AVATAR_STOP_LISTENING>;
 
