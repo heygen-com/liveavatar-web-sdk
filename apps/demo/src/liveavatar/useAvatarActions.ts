@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useLiveAvatarContext } from "./context";
 
-export const useAvatarActions = () => {
+export const useAvatarActions = (mode: "FULL" | "CUSTOM") => {
   const { sessionRef } = useLiveAvatarContext();
 
   const interrupt = useCallback(() => {
@@ -9,10 +9,19 @@ export const useAvatarActions = () => {
   }, [sessionRef]);
 
   const repeat = useCallback(
-    (message: string) => {
-      return sessionRef.current.repeat(message);
+    async (message: string) => {
+      if (mode === "FULL") {
+        return sessionRef.current.repeat(message);
+      } else if (mode === "CUSTOM") {
+        const res = await fetch("/api/elevenlabs-text-to-speech", {
+          method: "POST",
+          body: JSON.stringify({ text: message }),
+        });
+        const { audio } = await res.json();
+        return sessionRef.current.repeatAudio(audio);
+      }
     },
-    [sessionRef],
+    [sessionRef, mode],
   );
 
   const startListening = useCallback(() => {

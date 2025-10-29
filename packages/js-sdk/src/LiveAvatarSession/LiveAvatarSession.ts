@@ -213,6 +213,24 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     this.sendCommandEvent(data as CommandEvent);
   }
 
+  public repeatAudio(audio: string): void {
+    if (!this.assertConnected()) {
+      return;
+    }
+    if (!this._sessionEventSocket) {
+      console.warn(
+        "Cannot repeat audio. Please check you're using a supported mode.",
+      );
+      return;
+    }
+
+    const data = {
+      event_type: CommandEventsEnum.AVATAR_SPEAK_AUDIO,
+      audio: audio,
+    };
+    this.sendCommandEvent(data as CommandEvent);
+  }
+
   public startListening(): void {
     if (!this.assertConnected()) {
       return;

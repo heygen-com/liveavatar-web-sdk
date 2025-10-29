@@ -5,6 +5,7 @@ import { LiveAvatarSession } from "./LiveAvatarSession";
 
 export const LiveAvatarDemo = () => {
   const [sessionToken, setSessionToken] = useState("");
+  const [mode, setMode] = useState<"FULL" | "CUSTOM">("FULL");
 
   const handleStart = async () => {
     const res = await fetch("/api/start-session", {
@@ -13,6 +14,7 @@ export const LiveAvatarDemo = () => {
     const { session_token } = await res.json();
 
     setSessionToken(session_token);
+    setMode("FULL");
   };
 
   const handleStartCustom = async () => {
@@ -21,6 +23,7 @@ export const LiveAvatarDemo = () => {
     });
     const { session_token } = await res.json();
     setSessionToken(session_token);
+    setMode("CUSTOM");
   };
 
   const onSessionStopped = () => {
@@ -48,6 +51,7 @@ export const LiveAvatarDemo = () => {
         </>
       ) : (
         <LiveAvatarSession
+          mode={mode}
           sessionAccessToken={sessionToken}
           onSessionStopped={onSessionStopped}
         />
