@@ -126,7 +126,7 @@ export enum CommandEventsEnum {
   SESSION_STOP = "session.stop",
 
   AVATAR_INTERRUPT = "avatar.interrupt",
-  AVATAR_INTERRUPT_VIDEO = "avatar.interrupt_video",
+  // AVATAR_INTERRUPT_VIDEO = "avatar.interrupt_video",
 
   AVATAR_SPEAK_TEXT = "avatar.speak_text",
   AVATAR_SPEAK_RESPONSE = "avatar.speak_response",
@@ -140,17 +140,17 @@ type CommandEventData<
   T extends CommandEventsEnum,
   U extends object = object,
 > = {
-  type: T;
+  event_type: T;
 } & U;
 
-export type CommandEventType =
+export type CommandEvent =
   | CommandEventData<CommandEventsEnum.SESSION_UPDATE>
   | CommandEventData<CommandEventsEnum.SESSION_STOP>
   | CommandEventData<CommandEventsEnum.AVATAR_INTERRUPT>
-  | CommandEventData<CommandEventsEnum.AVATAR_INTERRUPT_VIDEO>
+  // | CommandEventData<CommandEventsEnum.AVATAR_INTERRUPT_VIDEO>
   | CommandEventData<CommandEventsEnum.AVATAR_SPEAK_TEXT, { text: string }>
   | CommandEventData<CommandEventsEnum.AVATAR_SPEAK_RESPONSE, { text: string }>
-  // | CommandEventData<CommandEventsEnum.AVATAR_SPEAK_AUDIO>
+  | CommandEventData<CommandEventsEnum.AVATAR_SPEAK_AUDIO, { audio: string }>
   | CommandEventData<CommandEventsEnum.AVATAR_START_LISTENING>
   | CommandEventData<CommandEventsEnum.AVATAR_STOP_LISTENING>;
 
