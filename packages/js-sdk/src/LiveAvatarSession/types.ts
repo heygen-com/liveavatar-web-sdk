@@ -22,9 +22,13 @@ export interface SessionConfig {
 
 export interface SessionInfo {
   session_id: string;
-  livekit_url: string;
-  livekit_client_token: string;
   max_session_duration: number | null;
+  // For FULL mode will always be present
+  // For CUSTOM mode, may be null
+  livekit_url?: string;
+  livekit_client_token?: string;
+  // For CUSTOM mode with WebSocket support
+  ws_url?: string;
 }
 
 export enum Language {

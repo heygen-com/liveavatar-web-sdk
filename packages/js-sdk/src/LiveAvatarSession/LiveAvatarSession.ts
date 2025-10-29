@@ -15,6 +15,7 @@ import {
   AgentEventCallbacks,
   AgentEvent,
   getAgentEventEmitArgs,
+  CommandEvent,
   CommandEventsEnum,
 } from "./events";
 import {
@@ -51,6 +52,8 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     );
 
   private _sessionInfo: SessionInfo | null = null;
+  private _sessionEventSocket: WebSocket | null = null;
+
   private _state: SessionState = SessionState.INACTIVE;
   private _remoteAudioTrack: RemoteAudioTrack | null = null;
   private _remoteVideoTrack: RemoteVideoTrack | null = null;
@@ -103,16 +106,25 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
 
     try {
       this.state = SessionState.CONNECTING;
-      // Track the different events from the room, server, etc.
-      this.trackEvents();
 
       this._sessionInfo = await this.sessionClient.startSession();
-      const roomUrl = this._sessionInfo.livekit_url;
+      const livekitRoomUrl = this._sessionInfo.livekit_url;
       const livekitClientToken = this._sessionInfo.livekit_client_token;
+      const websocketUrl = this._sessionInfo.ws_url;
 
-      await this.room.connect(roomUrl, livekitClientToken);
+      // Connect to LiveKit room if provided
+      if (livekitRoomUrl && livekitClientToken) {
+        // Track the different events from the room, server, and websocket
+        this.trackEvents();
+        await this.room.connect(livekitRoomUrl, livekitClientToken);
+        this.connectionQualityIndicator.start(this.room);
+      }
 
-      this.connectionQualityIndicator.start(this.room);
+      // Connect to WebSocket if provided
+      if (websocketUrl) {
+        await this.connectWebSocket(websocketUrl);
+        this.setupWebSocketManagement();
+      }
 
       // Run configurations as needed
       await this.configureSession();
@@ -132,13 +144,24 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
 
     this.state = SessionState.DISCONNECTING;
     this.cleanup();
-    this.room.disconnect();
+
+    // Disconnect from room if connected
+    if (this.room.state === "connected") {
+      this.room.disconnect();
+    }
+
+    // Close WebSocket if connected
+    if (
+      this._sessionEventSocket &&
+      this._sessionEventSocket.readyState === WebSocket.OPEN
+    ) {
+      this._sessionEventSocket.close();
+    }
 
     try {
       await this.sessionClient.stopSession();
       this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
     } catch (error) {
-      console.error("Session stop error on server:", error);
       this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
       throw error;
     }
@@ -175,7 +198,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       event_type: CommandEventsEnum.AVATAR_SPEAK_RESPONSE,
       text: message,
     };
-    this.sendCommandEvent(data);
+    this.sendCommandEvent(data as CommandEvent);
   }
 
   public repeat(message: string): void {
@@ -187,7 +210,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       event_type: CommandEventsEnum.AVATAR_SPEAK_TEXT,
       text: message,
     };
-    this.sendCommandEvent(data);
+    this.sendCommandEvent(data as CommandEvent);
   }
 
   public startListening(): void {
@@ -198,7 +221,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     const data = {
       event_type: CommandEventsEnum.AVATAR_START_LISTENING,
     };
-    this.sendCommandEvent(data);
+    this.sendCommandEvent(data as CommandEvent);
   }
 
   public stopListening(): void {
@@ -209,7 +232,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     const data = {
       event_type: CommandEventsEnum.AVATAR_STOP_LISTENING,
     };
-    this.sendCommandEvent(data);
+    this.sendCommandEvent(data as CommandEvent);
   }
 
   public interrupt(): void {
@@ -220,7 +243,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     const data = {
       event_type: CommandEventsEnum.AVATAR_INTERRUPT,
     };
-    this.sendCommandEvent(data);
+    this.sendCommandEvent(data as CommandEvent);
   }
 
   private trackEvents(): void {
@@ -276,6 +299,84 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     });
   }
 
+  private async connectWebSocket(websocketUrl: string): Promise<void> {
+    return new Promise((resolve, _reject) => {
+      this._sessionEventSocket = new WebSocket(websocketUrl);
+      this._sessionEventSocket.onopen = () => {
+        resolve();
+      };
+    });
+  }
+
+  private setupWebSocketManagement(): void {
+    if (!this._sessionEventSocket) {
+      return;
+    }
+
+    this._sessionEventSocket.addEventListener(
+      "message",
+      (event: MessageEvent) => {
+        this.handleWebSocketMessage(event);
+      },
+    );
+
+    this._sessionEventSocket.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    this._sessionEventSocket.onclose = (event) => {
+      console.warn(
+        "WebSocket closed - code:",
+        event.code,
+        "reason:",
+        event.reason,
+        "wasClean:",
+        event.wasClean,
+      );
+      this.handleWebSocketDisconnect();
+    };
+  }
+
+  private handleWebSocketMessage(event: MessageEvent): void {
+    let eventMsg: AgentEvent | null = null;
+    try {
+      eventMsg = JSON.parse(event.data);
+    } catch (e) {
+      console.error("Failed to parse WebSocket message:", e);
+      return;
+    }
+
+    if (!eventMsg) {
+      return;
+    }
+
+    const emitArgs = getAgentEventEmitArgs(eventMsg);
+    if (emitArgs) {
+      const [event_type, ...event_data] = emitArgs;
+      this.emit(event_type, ...event_data);
+    }
+  }
+
+  private handleWebSocketDisconnect(): void {
+    if (
+      this.state === SessionState.DISCONNECTING ||
+      this.state === SessionState.DISCONNECTED
+    ) {
+      return;
+    }
+
+    if (
+      this._sessionEventSocket &&
+      this._sessionEventSocket.readyState === WebSocket.OPEN
+    ) {
+      this._sessionEventSocket.close();
+    }
+
+    this._sessionEventSocket = null;
+    this.cleanup();
+    this.postStop(SessionDisconnectReason.UNKNOWN_REASON);
+  }
+
   private async configureSession(): Promise<void> {
     if (this.config.voiceChat) {
       await this.voiceChat.start(
@@ -305,6 +406,23 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     this._remoteVideoTrack = null;
     this.room.localParticipant.removeAllListeners();
     this.room.removeAllListeners();
+
+    // Clean up WebSocket
+    if (this._sessionEventSocket) {
+      // Remove event listeners to prevent callbacks during cleanup
+      this._sessionEventSocket.onopen = null;
+      this._sessionEventSocket.onmessage = null;
+      this._sessionEventSocket.onerror = null;
+      this._sessionEventSocket.onclose = null;
+
+      if (
+        this._sessionEventSocket.readyState === WebSocket.OPEN ||
+        this._sessionEventSocket.readyState === WebSocket.CONNECTING
+      ) {
+        this._sessionEventSocket.close();
+      }
+      this._sessionEventSocket = null;
+    }
   }
 
   private postStop(reason: SessionDisconnectReason): void {
@@ -317,12 +435,92 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     this.postStop(SessionDisconnectReason.UNKNOWN_REASON);
   }
 
-  private sendCommandEvent(commandEvent: object): void {
-    const data = new TextEncoder().encode(JSON.stringify(commandEvent));
-    this.room.localParticipant.publishData(data, {
-      reliable: true,
-      topic: LIVEKIT_COMMAND_CHANNEL_TOPIC,
+  private sendCommandEvent(commandEvent: CommandEvent): void {
+    // Use WebSocket if available, otherwise use LiveKit data channel
+    if (
+      this._sessionEventSocket &&
+      this._sessionEventSocket.readyState === WebSocket.OPEN
+    ) {
+      this.sendCommandEventToWebSocket(commandEvent);
+    } else if (this.room.state === "connected") {
+      const data = new TextEncoder().encode(JSON.stringify(commandEvent));
+      this.room.localParticipant.publishData(data, {
+        reliable: true,
+        topic: LIVEKIT_COMMAND_CHANNEL_TOPIC,
+      });
+    } else {
+      console.warn("No active connection to send command event");
+    }
+  }
+
+  private generateEventId(): string {
+    // Use native browser crypto API
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    // Fallback for older browsers
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
     });
+  }
+
+  private sendCommandEventToWebSocket(commandEvent: CommandEvent): void {
+    if (
+      !this._sessionEventSocket ||
+      this._sessionEventSocket.readyState !== WebSocket.OPEN
+    ) {
+      console.warn("WebSocket not open to send command event");
+      return;
+    }
+
+    const event_type = commandEvent.event_type;
+    const event_id = this.generateEventId();
+    switch (event_type) {
+      case CommandEventsEnum.AVATAR_SPEAK_AUDIO:
+        this._sessionEventSocket.send(
+          JSON.stringify({
+            type: "agent.speak",
+            event_id: event_id,
+            audio: commandEvent.audio,
+          }),
+        );
+        this._sessionEventSocket.send(
+          JSON.stringify({
+            type: "agent.speak_end",
+            event_id: event_id,
+          }),
+        );
+        return;
+      case CommandEventsEnum.AVATAR_INTERRUPT:
+        this._sessionEventSocket.send(
+          JSON.stringify({
+            type: "agent.interrupt",
+            event_id: event_id,
+          }),
+        );
+        return;
+      case CommandEventsEnum.AVATAR_START_LISTENING:
+        this._sessionEventSocket.send(
+          JSON.stringify({
+            type: "agent.start_listening",
+            event_id: event_id,
+          }),
+        );
+        return;
+      case CommandEventsEnum.AVATAR_STOP_LISTENING:
+        this._sessionEventSocket.send(
+          JSON.stringify({
+            type: "agent.stop_listening",
+            event_id: event_id,
+          }),
+        );
+        return;
+      default:
+        console.warn("Unsupported command event type:", event_type);
+        break;
+    }
   }
 
   private assertConnected(): boolean {
