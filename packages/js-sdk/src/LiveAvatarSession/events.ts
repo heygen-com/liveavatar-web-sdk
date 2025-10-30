@@ -102,6 +102,20 @@ export const getAgentEventEmitArgs = (
         };
         return [AgentEventsEnum.USER_TRANSCRIPTION, payload];
       }
+      case AgentEventsEnum.AVATAR_SPEAK_STARTED: {
+        const payload: AgentEventData<AgentEventsEnum.AVATAR_SPEAK_STARTED> = {
+          event_id: event.event_id,
+          event_type: event.event_type,
+        };
+        return [AgentEventsEnum.AVATAR_SPEAK_STARTED, payload];
+      }
+      case AgentEventsEnum.AVATAR_SPEAK_ENDED: {
+        const payload: AgentEventData<AgentEventsEnum.AVATAR_SPEAK_ENDED> = {
+          event_id: event.event_id,
+          event_type: event.event_type,
+        };
+        return [AgentEventsEnum.AVATAR_SPEAK_ENDED, payload];
+      }
       case AgentEventsEnum.AVATAR_TRANSCRIPTION: {
         const payload: AgentEventData<
           AgentEventsEnum.AVATAR_TRANSCRIPTION,
@@ -114,7 +128,7 @@ export const getAgentEventEmitArgs = (
         return [AgentEventsEnum.AVATAR_TRANSCRIPTION, payload];
       }
       default:
-        console.warn("New unsupported event type:", event.event_type);
+        console.warn("New unsupported event type");
         return null;
     }
   }
