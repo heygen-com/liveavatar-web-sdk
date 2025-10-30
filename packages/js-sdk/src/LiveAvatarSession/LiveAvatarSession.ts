@@ -35,6 +35,7 @@ import {
   LIVEKIT_SERVER_RESPONSE_CHANNEL_TOPIC,
 } from "./const";
 import { SessionAPIClient } from "./SessionApiClient";
+import { splitPcm24kStringToChunks } from "../audio_utils";
 
 export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   SessionEventCallbacks & AgentEventCallbacks
@@ -48,7 +49,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   private readonly _voiceChat: VoiceChat;
   private readonly connectionQualityIndicator: AbstractConnectionQualityIndicator<Room> =
     new ConnectionQualityIndicator((quality) =>
-      this.emit(SessionEvent.SESSION_CONNECTION_QUALITY_CHANGED, quality),
+      this.emit(SessionEvent.SESSION_CONNECTION_QUALITY_CHANGED, quality)
     );
 
   private _sessionInfo: SessionInfo | null = null;
@@ -65,7 +66,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     this.config = config ?? {};
     this.sessionClient = new SessionAPIClient(
       sessionAccessToken,
-      this.config.apiUrl,
+      this.config.apiUrl
     );
 
     this.room = new Room({
@@ -144,27 +145,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
 
     this.state = SessionState.DISCONNECTING;
     this.cleanup();
-
-    // Disconnect from room if connected
-    if (this.room.state === "connected") {
-      this.room.disconnect();
-    }
-
-    // Close WebSocket if connected
-    if (
-      this._sessionEventSocket &&
-      this._sessionEventSocket.readyState === WebSocket.OPEN
-    ) {
-      this._sessionEventSocket.close();
-    }
-
-    try {
-      await this.sessionClient.stopSession();
-      this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
-    } catch (error) {
-      this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
-      throw error;
-    }
+    this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
   }
 
   public async keepAlive(): Promise<void> {
@@ -219,7 +200,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     }
     if (!this._sessionEventSocket) {
       console.warn(
-        "Cannot repeat audio. Please check you're using a supported mode.",
+        "Cannot repeat audio. Please check you're using a supported mode."
       );
       return;
     }
@@ -335,7 +316,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       "message",
       (event: MessageEvent) => {
         this.handleWebSocketMessage(event);
-      },
+      }
     );
 
     this._sessionEventSocket.onerror = (error) => {
@@ -349,7 +330,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
         "reason:",
         event.reason,
         "wasClean:",
-        event.wasClean,
+        event.wasClean
       );
       this.handleWebSocketDisconnect();
     };
@@ -398,7 +379,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   private async configureSession(): Promise<void> {
     if (this.config.voiceChat) {
       await this.voiceChat.start(
-        typeof this.config.voiceChat === "boolean" ? {} : this.config.voiceChat,
+        typeof this.config.voiceChat === "boolean" ? {} : this.config.voiceChat
       );
     }
   }
@@ -411,7 +392,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     this.emit(SessionEvent.SESSION_STATE_CHANGED, state);
   }
 
-  private cleanup(): void {
+  private async cleanup(): Promise<void> {
     this.connectionQualityIndicator.stop();
     this.voiceChat.stop();
     if (this._remoteAudioTrack) {
@@ -441,6 +422,12 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       }
       this._sessionEventSocket = null;
     }
+    // Disconnect from room if connected
+    if (this.room.state === "connected") {
+      this.room.disconnect();
+    }
+    // Kill the session on the server
+    await this.sessionClient.stopSession();
   }
 
   private postStop(reason: SessionDisconnectReason): void {
@@ -495,20 +482,24 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
 
     const event_type = commandEvent.event_type;
     const event_id = this.generateEventId();
+    let audioChunks: string[] = [];
     switch (event_type) {
       case CommandEventsEnum.AVATAR_SPEAK_AUDIO:
-        this._sessionEventSocket.send(
-          JSON.stringify({
-            type: "agent.speak",
-            event_id: event_id,
-            audio: commandEvent.audio,
-          }),
-        );
+        audioChunks = splitPcm24kStringToChunks(commandEvent.audio);
+        for (const audioChunk of audioChunks) {
+          this._sessionEventSocket.send(
+            JSON.stringify({
+              type: "agent.speak",
+              event_id: event_id,
+              audio: audioChunk,
+            })
+          );
+        }
         this._sessionEventSocket.send(
           JSON.stringify({
             type: "agent.speak_end",
             event_id: event_id,
-          }),
+          })
         );
         return;
       case CommandEventsEnum.AVATAR_INTERRUPT:
@@ -516,7 +507,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
           JSON.stringify({
             type: "agent.interrupt",
             event_id: event_id,
-          }),
+          })
         );
         return;
       case CommandEventsEnum.AVATAR_START_LISTENING:
@@ -524,7 +515,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
           JSON.stringify({
             type: "agent.start_listening",
             event_id: event_id,
-          }),
+          })
         );
         return;
       case CommandEventsEnum.AVATAR_STOP_LISTENING:
@@ -532,7 +523,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
           JSON.stringify({
             type: "agent.stop_listening",
             event_id: event_id,
-          }),
+          })
         );
         return;
       default:
