@@ -23,7 +23,7 @@ export const useTextChat = (mode: "FULL" | "CUSTOM") => {
         return sessionRef.current.repeatAudio(audio);
       }
     },
-    [sessionRef, mode],
+    [sessionRef, mode]
   );
 
   return {
