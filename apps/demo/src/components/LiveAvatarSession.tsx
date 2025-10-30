@@ -128,7 +128,9 @@ const LiveAvatarSessionComponent: React.FC<{
       <div className="w-full h-full flex flex-col items-center justify-center gap-4">
         <p>Session state: {sessionState}</p>
         <p>Connection quality: {connectionQuality}</p>
-        <p>User talking: {isUserTalking ? "true" : "false"}</p>
+        {mode === "FULL" && (
+          <p>User talking: {isUserTalking ? "true" : "false"}</p>
+        )}
         <p>Avatar talking: {isAvatarTalking ? "true" : "false"}</p>
         {mode === "FULL" && VoiceChatComponents}
         <Button

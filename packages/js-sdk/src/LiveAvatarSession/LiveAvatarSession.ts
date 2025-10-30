@@ -17,6 +17,7 @@ import {
   getAgentEventEmitArgs,
   CommandEvent,
   CommandEventsEnum,
+  AgentEventsEnum,
 } from "./events";
 import {
   SessionState,
@@ -49,7 +50,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   private readonly _voiceChat: VoiceChat;
   private readonly connectionQualityIndicator: AbstractConnectionQualityIndicator<Room> =
     new ConnectionQualityIndicator((quality) =>
-      this.emit(SessionEvent.SESSION_CONNECTION_QUALITY_CHANGED, quality)
+      this.emit(SessionEvent.SESSION_CONNECTION_QUALITY_CHANGED, quality),
     );
 
   private _sessionInfo: SessionInfo | null = null;
@@ -66,7 +67,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     this.config = config ?? {};
     this.sessionClient = new SessionAPIClient(
       sessionAccessToken,
-      this.config.apiUrl
+      this.config.apiUrl,
     );
 
     this.room = new Room({
@@ -200,7 +201,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     }
     if (!this._sessionEventSocket) {
       console.warn(
-        "Cannot repeat audio. Please check you're using a supported mode."
+        "Cannot repeat audio. Please check you're using a supported mode.",
       );
       return;
     }
@@ -312,12 +313,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       return;
     }
 
-    this._sessionEventSocket.addEventListener(
-      "message",
-      (event: MessageEvent) => {
-        this.handleWebSocketMessage(event);
-      }
-    );
+    this._sessionEventSocket.onmessage = (event: MessageEvent) => {
+      this.handleWebSocketMessage(event);
+    };
 
     this._sessionEventSocket.onerror = (error) => {
       console.error("WebSocket error:", error);
@@ -330,29 +328,36 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
         "reason:",
         event.reason,
         "wasClean:",
-        event.wasClean
+        event.wasClean,
       );
       this.handleWebSocketDisconnect();
     };
   }
 
   private handleWebSocketMessage(event: MessageEvent): void {
-    let eventMsg: AgentEvent | null = null;
+    let eventData: any = null;
     try {
-      eventMsg = JSON.parse(event.data);
+      eventData = JSON.parse(event.data);
     } catch (e) {
       console.error("Failed to parse WebSocket message:", e);
       return;
     }
 
-    if (!eventMsg) {
+    if (!eventData) {
       return;
     }
 
-    const emitArgs = getAgentEventEmitArgs(eventMsg);
-    if (emitArgs) {
-      const [event_type, ...event_data] = emitArgs;
-      this.emit(event_type, ...event_data);
+    const { type, event_id } = eventData;
+    if (type === "agent.speak_started") {
+      this.emit(AgentEventsEnum.AVATAR_SPEAK_STARTED, {
+        event_type: AgentEventsEnum.AVATAR_SPEAK_STARTED,
+        event_id: event_id,
+      });
+    } else if (type === "agent.speak_ended") {
+      this.emit(AgentEventsEnum.AVATAR_SPEAK_ENDED, {
+        event_type: AgentEventsEnum.AVATAR_SPEAK_ENDED,
+        event_id: event_id,
+      });
     }
   }
 
@@ -379,7 +384,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   private async configureSession(): Promise<void> {
     if (this.config.voiceChat) {
       await this.voiceChat.start(
-        typeof this.config.voiceChat === "boolean" ? {} : this.config.voiceChat
+        typeof this.config.voiceChat === "boolean" ? {} : this.config.voiceChat,
       );
     }
   }
@@ -492,14 +497,14 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
               type: "agent.speak",
               event_id: event_id,
               audio: audioChunk,
-            })
+            }),
           );
         }
         this._sessionEventSocket.send(
           JSON.stringify({
             type: "agent.speak_end",
             event_id: event_id,
-          })
+          }),
         );
         return;
       case CommandEventsEnum.AVATAR_INTERRUPT:
@@ -507,7 +512,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
           JSON.stringify({
             type: "agent.interrupt",
             event_id: event_id,
-          })
+          }),
         );
         return;
       case CommandEventsEnum.AVATAR_START_LISTENING:
@@ -515,7 +520,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
           JSON.stringify({
             type: "agent.start_listening",
             event_id: event_id,
-          })
+          }),
         );
         return;
       case CommandEventsEnum.AVATAR_STOP_LISTENING:
@@ -523,7 +528,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
           JSON.stringify({
             type: "agent.stop_listening",
             event_id: event_id,
-          })
+          }),
         );
         return;
       default:
