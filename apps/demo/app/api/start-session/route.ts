@@ -1,10 +1,11 @@
-import { API_KEY, API_URL } from "../secrets";
-
-// Talk to Wayne's avatar
-const AVATAR_ID = "da25b1c5-d789-4683-b435-fed9f8d25e25";
-const VOICE_ID = "c2527536-6d1f-4412-a643-53a3497dada9";
-const CONTEXT_ID = "5b9dba8a-aa31-11f0-a6ee-066a7fa2e369";
-const LANGUAGE = "en";
+import {
+  API_KEY,
+  API_URL,
+  AVATAR_ID,
+  VOICE_ID,
+  CONTEXT_ID,
+  LANGUAGE,
+} from "../secrets";
 
 export async function POST() {
   let session_token = "";

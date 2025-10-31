@@ -1,7 +1,4 @@
-import { API_KEY, API_URL } from "../secrets";
-
-// Talk to Wayne's avatar
-const AVATAR_ID = "da25b1c5-d789-4683-b435-fed9f8d25e25";
+import { API_KEY, API_URL, AVATAR_ID } from "../secrets";
 
 export async function POST() {
   let session_token = "";
