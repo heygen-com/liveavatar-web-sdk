@@ -27,13 +27,20 @@ export async function POST() {
         },
       }),
     });
+    if (!res.ok) {
+      const resp = await res.json();
+      const errorMessage = resp?.message ?? "Failed to retrieve session token";
+      return new Response(JSON.stringify({ error: errorMessage }), {
+        status: res.status,
+      });
+    }
     const data = await res.json();
 
     session_token = data.data.session_token;
     session_id = data.data.session_id;
   } catch (error) {
     console.error("Error retrieving session token:", error);
-    return new Response("Failed to retrieve session token", {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
     });
   }

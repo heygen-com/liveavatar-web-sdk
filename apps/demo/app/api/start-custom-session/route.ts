@@ -15,22 +15,39 @@ export async function POST() {
         avatar_id: AVATAR_ID,
       }),
     });
+    if (!res.ok) {
+      const error = await res.json();
+      if (error.error) {
+        return new Response(JSON.stringify({ error: error.error }), {
+          status: res.status,
+        });
+      }
+
+      return new Response(
+        JSON.stringify({ error: "Failed to retrieve session token" }),
+        {
+          status: res.status,
+        },
+      );
+    }
     const data = await res.json();
     console.log(data);
 
     session_token = data.data.session_token;
     session_id = data.data.session_id;
-  } catch (error) {
-    console.error("Error retrieving session token:", error);
-    return new Response("Failed to retrieve session token", {
+  } catch (error: unknown) {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
     });
   }
 
   if (!session_token) {
-    return new Response("Failed to retrieve session token", {
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({ error: "Failed to retrieve session token" }),
+      {
+        status: 500,
+      },
+    );
   }
   return new Response(JSON.stringify({ session_token, session_id }), {
     status: 200,
