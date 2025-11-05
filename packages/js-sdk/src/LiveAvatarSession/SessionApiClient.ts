@@ -31,7 +31,6 @@ export class SessionAPIClient {
     try {
       const response = await fetch(`${this.apiUrl}${path}`, {
         ...params,
-        credentials: "include",
         headers: {
           Authorization: `Bearer ${this.sessionToken}`,
           "Content-Type": "application/json",
