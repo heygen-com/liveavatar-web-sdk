@@ -38,6 +38,8 @@ import {
 import { SessionAPIClient } from "./SessionApiClient";
 import { splitPcm24kStringToChunks } from "../audio_utils";
 
+const HEYGEN_PARTICIPANT_ID = "heygen";
+
 export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   SessionEventCallbacks & AgentEventCallbacks
 >) {
@@ -248,22 +250,30 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
 
   private trackEvents(): void {
     const mediaStream = new MediaStream();
-    this.room.on(RoomEvent.TrackSubscribed, (track) => {
-      if (track.kind === "video" || track.kind === "audio") {
-        if (track.kind === "video") {
-          this._remoteVideoTrack = track as RemoteVideoTrack;
-        } else {
-          this._remoteAudioTrack = track as RemoteAudioTrack;
+    this.room.on(
+      RoomEvent.TrackSubscribed,
+      (track, _publication, participant) => {
+        // We need to actively track the HeyGen participant's tracks
+        if (participant.identity !== HEYGEN_PARTICIPANT_ID) {
+          return;
         }
-        mediaStream.addTrack(track.mediaStreamTrack);
 
-        const hasVideoTrack = mediaStream.getVideoTracks().length > 0;
-        const hasAudioTrack = mediaStream.getAudioTracks().length > 0;
-        if (hasVideoTrack && hasAudioTrack) {
-          this.emit(SessionEvent.SESSION_STREAM_READY);
+        if (track.kind === "video" || track.kind === "audio") {
+          if (track.kind === "video") {
+            this._remoteVideoTrack = track as RemoteVideoTrack;
+          } else {
+            this._remoteAudioTrack = track as RemoteAudioTrack;
+          }
+          mediaStream.addTrack(track.mediaStreamTrack);
+
+          const hasVideoTrack = mediaStream.getVideoTracks().length > 0;
+          const hasAudioTrack = mediaStream.getAudioTracks().length > 0;
+          if (hasVideoTrack && hasAudioTrack) {
+            this.emit(SessionEvent.SESSION_STREAM_READY);
+          }
         }
-      }
-    });
+      },
+    );
 
     this.room.on(RoomEvent.DataReceived, (roomMessage, _, __, topic) => {
       if (topic !== LIVEKIT_SERVER_RESPONSE_CHANNEL_TOPIC) {
@@ -287,7 +297,12 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       }
     });
 
+    this.room.on(RoomEvent.ParticipantConnected, (participant) => {
+      console.warn("participantConnected", participant);
+    });
+
     this.room.on(RoomEvent.TrackUnsubscribed, (track) => {
+      console.warn("trackUnsubscribed", track);
       const mediaTrack = track.mediaStreamTrack;
       if (mediaTrack) {
         mediaStream.removeTrack(mediaTrack);
