@@ -29,7 +29,8 @@ export async function POST() {
     });
     if (!res.ok) {
       const resp = await res.json();
-      const errorMessage = resp?.message ?? "Failed to retrieve session token";
+      const errorMessage =
+        resp.data[0].message ?? "Failed to retrieve session token";
       return new Response(JSON.stringify({ error: errorMessage }), {
         status: res.status,
       });
