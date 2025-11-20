@@ -12,3 +12,4 @@ git update-index --again
 
 pnpm run lint
 pnpm run typecheck
+pnpm run test
