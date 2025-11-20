@@ -25,7 +25,8 @@
     "prettier": "prettier --write \"**/*.{ts,tsx,md}\"",
     "prettier:check": "prettier --check \"**/*.{ts,tsx,md}\"",
     "typecheck": "turbo run typecheck",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test": "turbo run test"
   },
   "dependencies": {
     "eslint": "^9.31.0",

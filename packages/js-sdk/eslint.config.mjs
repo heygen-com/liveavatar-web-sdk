@@ -45,7 +45,7 @@ const tsEslintConfig = tsEslint.config(
       'prefer-const': 'error',
       'prefer-arrow-callback': 'error',
       'prefer-template': 'error',
-    },
+    }
   }
 );
 
@@ -59,7 +59,25 @@ export default [
       'node_modules/**',
       'eslint.config.mjs',
       'rollup.config.js',
+      'vitest.config.js',
     ],
   },
   ...[].concat(tsEslintConfig),
+  {
+    files: [
+      '**/*.test.ts',
+      'src/test/**/*.ts',
+    ],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/naming-convention': 'off',
+      '@typescript-eslint/no-unused-vars': 'error',
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'no-debugger': 'warn',
+      'no-unused-expressions': 'off',
+      'prefer-const': 'warn',
+      'prefer-template': 'warn',
+    },
+  },
 ];
