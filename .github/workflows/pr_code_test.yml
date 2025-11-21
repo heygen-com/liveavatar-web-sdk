@@ -1,0 +1,30 @@
+name: Code Test
+
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  test-code:
+    name: Test Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: Install dependencies
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 2
+          command: |
+            pnpm i turbo -w
+            pnpm i --no-optional
+          on_retry_command: |
+            npm i -g pnpm@9.0.0
+
+      - name: test
+        run: pnpm run test
