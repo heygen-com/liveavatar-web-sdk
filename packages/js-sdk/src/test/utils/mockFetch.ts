@@ -10,6 +10,9 @@ type MockCfg = {
 };
 
 function matchUrl(target: string, pattern: string): boolean {
+  if (pattern.startsWith("http")) {
+    return target === pattern;
+  }
   return target === `${API_URL}${pattern}`;
 }
 
