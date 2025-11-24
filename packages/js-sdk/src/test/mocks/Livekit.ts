@@ -5,17 +5,53 @@ import {
   ConnectionState,
   ParticipantEvent,
   RoomEvent,
+  TrackEvent,
+  TrackPublication,
 } from "livekit-client";
 import { testContext } from "../utils/testContext";
+import { LIVEKIT_SERVER_RESPONSE_CHANNEL_TOPIC } from "../../LiveAvatarSession/const";
 
-export class LocalParticipantMock extends EventEmitter {
+export class LocalAudioTrackMock extends EventEmitter {
+  isMuted = false;
+
   constructor() {
     super();
   }
-  publishTrack = vi.fn<() => Promise<void>>();
-  getTrackPublications() {
-    return [];
+
+  async mute() {
+    this.isMuted = true;
+    this.emit(TrackEvent.Muted);
   }
+
+  async unmute() {
+    this.isMuted = false;
+    this.emit(TrackEvent.Unmuted);
+  }
+
+  setDeviceId = vi.fn(async () => {
+    return true;
+  });
+
+  stop = vi.fn(async () => {
+    return true;
+  });
+}
+
+export class LocalParticipantMock extends EventEmitter {
+  trackPublications: TrackPublication[] = [];
+
+  constructor() {
+    super();
+  }
+  async publishTrack(track: LocalAudioTrackMock) {
+    this.trackPublications.push({
+      track: track as LocalAudioTrackMock,
+    } as unknown as TrackPublication);
+  }
+  getTrackPublications() {
+    return this.trackPublications;
+  }
+  publishData = vi.fn(() => {});
 
   _triggerConnectionQualityChanged = (quality: ConnectionQuality) => {
     this.emit(ParticipantEvent.ConnectionQualityChanged, quality);
@@ -56,15 +92,25 @@ export class RoomMock extends EventEmitter {
   };
 
   _triggerTrackSubscribed(kind: string) {
-    this.emit(RoomEvent.TrackSubscribed, {
-      kind,
-      mediaStreamTrack: new MediaStreamTrack(),
-    });
+    this.emit(
+      RoomEvent.TrackSubscribed,
+      { kind, mediaStreamTrack: { kind } },
+      null,
+      {
+        identity: "heygen",
+      },
+    );
   }
 
   _triggerDataReceived(data: any) {
     const message = new TextEncoder().encode(JSON.stringify(data));
-    this.emit(RoomEvent.DataReceived, message);
+    this.emit(
+      RoomEvent.DataReceived,
+      message,
+      null,
+      null,
+      LIVEKIT_SERVER_RESPONSE_CHANNEL_TOPIC,
+    );
   }
 
   _triggerConnectionStateChanged(state: ConnectionState) {
@@ -74,6 +120,14 @@ export class RoomMock extends EventEmitter {
   _triggerConnectionQualityChanged(quality: ConnectionQuality) {
     this.localParticipant._triggerConnectionQualityChanged(quality);
   }
+
+  _triggerDisconnected() {
+    this.emit(RoomEvent.Disconnected);
+  }
 }
+
+export const createLocalAudioTrack = async () => {
+  return new LocalAudioTrackMock();
+};
 
 // export const Room = vi.fn(RoomMock);

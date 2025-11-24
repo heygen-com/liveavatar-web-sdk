@@ -1,5 +1,9 @@
 import { vi } from "vitest";
-import { RoomMock, LocalParticipantMock } from "./mocks/Livekit";
+import {
+  RoomMock,
+  LocalParticipantMock,
+  createLocalAudioTrack,
+} from "./mocks/Livekit";
 import { WebRTCIssueDetectorMock } from "./mocks/WebRTCIssueDetector";
 
 vi.doMock(
@@ -13,6 +17,7 @@ vi.doMock(
       LocalParticipant: LocalParticipantMock,
       supportsAdaptiveStream: () => false,
       supportsDynacast: () => false,
+      createLocalAudioTrack: createLocalAudioTrack,
     };
   },
 );
@@ -28,3 +33,45 @@ vi.doMock(
     };
   },
 );
+
+Object.defineProperty(globalThis, "MediaStream", {
+  value: class MediaStream {
+    tracks: MediaStreamTrack[] = [];
+
+    constructor() {
+      this.tracks = [];
+    }
+
+    addTrack(track: MediaStreamTrack) {
+      this.tracks.push(track);
+    }
+
+    removeTrack(track: MediaStreamTrack) {
+      this.tracks = this.tracks.filter((t) => t !== track);
+    }
+
+    getTracks() {
+      return this.tracks;
+    }
+
+    getAudioTracks() {
+      return this.tracks.filter((t) => t.kind === "audio");
+    }
+
+    getVideoTracks() {
+      return this.tracks.filter((t) => t.kind === "video");
+    }
+  },
+});
+
+// Object.defineProperty(globalThis, 'navigator', {
+//   value: {
+//     mediaDevices: {
+//       getUserMedia: vi.fn(async (constraints: MediaStreamConstraints) => {
+//         return new Promise((resolve, reject) => {
+//           resolve(new MediaStream());
+//         });
+//       }),
+//     },
+//   },
+// });
