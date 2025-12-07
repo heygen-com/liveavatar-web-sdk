@@ -5,7 +5,7 @@ export async function POST(request: Request) {
     const avatarId = body.avatarId;
 
     // Get environment variables
-    const apiKey = process.env.HEYGEN_;
+    const apiKey = process.env.HEYGEN_API_KEY;
     const defaultAvatarId = process.env.HEYGEN_AVATAR_ID;
 
     // Validate API key

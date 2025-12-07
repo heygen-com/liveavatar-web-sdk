@@ -19,6 +19,12 @@ export const useTextChat = (mode: "FULL" | "CUSTOM") => {
           body: JSON.stringify({ text: chatResponseText }),
         });
         const { audio } = await res.json();
+
+        if (!audio) {
+          console.error("No audio returned from ElevenLabs API");
+          throw new Error("Failed to generate audio");
+        }
+
         // Have the avatar repeat the audio
         return sessionRef.current.repeatAudio(audio);
       }
