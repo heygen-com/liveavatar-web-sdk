@@ -36,21 +36,11 @@ const LiveAvatarSessionComponent: React.FC<{
     isStreamReady,
     startSession,
     stopSession,
-    connectionQuality,
     keepAlive,
     attachElement,
   } = useSession();
-  const {
-    isAvatarTalking,
-    isUserTalking,
-    isMuted,
-    isActive,
-    isLoading,
-    start,
-    stop,
-    mute,
-    unmute,
-  } = useVoiceChat();
+  const { isMuted, isActive, isLoading, start, stop, mute, unmute } =
+    useVoiceChat();
 
   const { interrupt, repeat, startListening, stopListening } =
     useAvatarActions(mode);
@@ -78,9 +68,6 @@ const LiveAvatarSessionComponent: React.FC<{
 
   const VoiceChatComponents = (
     <>
-      <p>Voice Chat Active: {isActive ? "true" : "false"}</p>
-      <p>Voice Chat Loading: {isLoading ? "true" : "false"}</p>
-      {isActive && <p>Muted: {isMuted ? "true" : "false"}</p>}
       <Button
         onClick={() => {
           if (isActive) {
@@ -126,12 +113,6 @@ const LiveAvatarSessionComponent: React.FC<{
         </button>
       </div>
       <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-        <p>Session state: {sessionState}</p>
-        <p>Connection quality: {connectionQuality}</p>
-        {mode === "FULL" && (
-          <p>User talking: {isUserTalking ? "true" : "false"}</p>
-        )}
-        <p>Avatar talking: {isAvatarTalking ? "true" : "false"}</p>
         {mode === "FULL" && VoiceChatComponents}
         <Button
           onClick={() => {
