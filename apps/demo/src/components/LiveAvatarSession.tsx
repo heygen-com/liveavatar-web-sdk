@@ -59,7 +59,7 @@ const LiveAvatarSessionComponent: React.FC<{
   }, [startSession, sessionState]);
 
   return (
-    <div className="w-[900px] max-w-full h-full flex flex-col items-center justify-center gap-4 py-4">
+    <div className="w-[1440px] max-w-full h-full flex flex-col items-center justify-center gap-4 py-4">
       <div className="relative w-full aspect-video overflow-hidden flex flex-col items-center justify-center">
         <video
           ref={videoRef}
