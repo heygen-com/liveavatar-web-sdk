@@ -66,7 +66,7 @@ To deploy to Vercel with HeyGen integration:
    - **Name**: `HEYGEN_API_KEY`
    - **Value**: Your HeyGen API key
    - **Environment**: Select **Production** and **Preview** (and **Development** if needed)
-   - Check **Encrypted** to mark as sensitive
+   - **Sensitive**: Yes (automatically encrypted)
    - Click **Save**
 4. Optionally, add `HEYGEN_AVATAR_ID`:
    - **Name**: `HEYGEN_AVATAR_ID`
@@ -74,7 +74,13 @@ To deploy to Vercel with HeyGen integration:
    - **Environment**: Select **Production** and **Preview** (and **Development** if needed)
    - Click **Save**
 
-5. Redeploy your application to apply the new environment variables
+5. **IMPORTANT**: After adding environment variables, you **must** trigger a new deployment:
+   - Go to **Deployments** tab
+   - Click on the latest deployment
+   - Click **⋯** (three dots menu) → **Redeploy**
+   - Or push a new commit to trigger automatic deployment
+   
+   ⚠️ **Note**: Simply adding environment variables does NOT automatically apply them to existing deployments. A redeploy is required.
 
 **Confirmation phrase**: After adding secrets to Vercel, reply with: **"Secrets added to Vercel"**
 
@@ -131,10 +137,46 @@ If the avatar fails to load, collect the following information for debugging:
    - Look for errors from the `/api/heygen/token` endpoint
    - Check for authentication or API errors from HeyGen
 
-Common issues:
-- **"HEYGEN_API_KEY not configured"**: The environment variable is not set correctly
-- **"Failed to retrieve token from HeyGen API"**: API key may be invalid or expired
-- **"Failed to load HeyGen SDK"**: Network issue or SDK loading problem
+#### Common Issues
+
+**"HEYGEN_API_KEY not configured"**
+- The environment variable is not set in Vercel
+- **Solution**: 
+  1. Go to Vercel → Project → Settings → Environment Variables
+  2. Verify `HEYGEN_API_KEY` exists and has a value
+  3. Check it's enabled for the correct environment (Production/Preview)
+  4. Trigger a new deployment (see Vercel Deployment section above)
+
+**"Failed to retrieve token from HeyGen API"**
+- API key may be invalid, expired, or incorrectly copied
+- **Solution**:
+  1. Verify your API key at [HeyGen Settings](https://app.heygen.com/settings/api)
+  2. Copy the key again carefully (no extra spaces)
+  3. Update the environment variable in Vercel
+  4. Redeploy the application
+
+**Vercel Deployment Fails**
+- Build may fail if environment variables are accessed during build time
+- **Solution**: 
+  1. Environment variables are only available at runtime in API routes
+  2. Do NOT use `HEYGEN_API_KEY` in client components or during build
+  3. Check Vercel deployment logs for specific error messages
+  4. Ensure the monorepo structure is correctly configured (`apps/demo` as root directory)
+
+**Environment Variables Not Applied**
+- Variables added after deployment are not automatically available
+- **Solution**:
+  1. After adding/changing environment variables in Vercel
+  2. Go to Deployments → Click latest deployment
+  3. Click ⋯ menu → **Redeploy**
+  4. Wait for new deployment to complete
+
+**"Failed to load HeyGen SDK"**
+- Network issue or SDK loading problem
+- **Solution**:
+  1. Check browser network tab for failed SDK requests
+  2. Verify CDN is accessible: https://cdn.heygen.com/live-avatar/websdk/heygen-liveavatar.min.js
+  3. Check for content security policy issues in browser console
 
 ## Architecture
 
