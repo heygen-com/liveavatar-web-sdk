@@ -5,6 +5,7 @@ import {
   LiveAvatarContextProvider,
   useSession,
   useTextChat,
+  useVoiceChat,
 } from "../liveavatar";
 import { SessionState } from "@heygen/liveavatar-web-sdk";
 import { useAvatarActions } from "../liveavatar/useAvatarActions";
@@ -32,6 +33,7 @@ const LiveAvatarSessionComponent: React.FC<{
   const [message, setMessage] = useState("");
   const { sessionState, isStreamReady, startSession, attachElement } =
     useSession();
+  const { isMuted, isActive, mute, unmute } = useVoiceChat();
 
   const { interrupt } = useAvatarActions(mode);
 
@@ -57,7 +59,7 @@ const LiveAvatarSessionComponent: React.FC<{
   }, [startSession, sessionState]);
 
   return (
-    <div className="w-[1080px] max-w-full h-full flex flex-col items-center justify-center gap-4 py-4">
+    <div className="w-[900px] max-w-full h-full flex flex-col items-center justify-center gap-4 py-4">
       <div className="relative w-full aspect-video overflow-hidden flex flex-col items-center justify-center">
         <video
           ref={videoRef}
@@ -75,6 +77,19 @@ const LiveAvatarSessionComponent: React.FC<{
           >
             Interrupt
           </Button>
+          {isActive && (
+            <Button
+              onClick={() => {
+                if (isMuted) {
+                  unmute();
+                } else {
+                  mute();
+                }
+              }}
+            >
+              {isMuted ? "Unmute" : "Mute"}
+            </Button>
+          )}
         </div>
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
           <input
