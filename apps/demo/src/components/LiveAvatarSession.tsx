@@ -5,7 +5,6 @@ import {
   LiveAvatarContextProvider,
   useSession,
   useTextChat,
-  useVoiceChat,
 } from "../liveavatar";
 import { SessionState } from "@heygen/liveavatar-web-sdk";
 import { useAvatarActions } from "../liveavatar/useAvatarActions";
@@ -31,19 +30,10 @@ const LiveAvatarSessionComponent: React.FC<{
   onSessionStopped: () => void;
 }> = ({ mode, onSessionStopped }) => {
   const [message, setMessage] = useState("");
-  const {
-    sessionState,
-    isStreamReady,
-    startSession,
-    stopSession,
-    keepAlive,
-    attachElement,
-  } = useSession();
-  const { isMuted, isActive, isLoading, start, stop, mute, unmute } =
-    useVoiceChat();
+  const { sessionState, isStreamReady, startSession, attachElement } =
+    useSession();
 
-  const { interrupt, repeat, startListening, stopListening } =
-    useAvatarActions(mode);
+  const { interrupt } = useAvatarActions(mode);
 
   const { sendMessage } = useTextChat(mode);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -66,36 +56,6 @@ const LiveAvatarSessionComponent: React.FC<{
     }
   }, [startSession, sessionState]);
 
-  const VoiceChatComponents = (
-    <>
-      <Button
-        onClick={() => {
-          if (isActive) {
-            stop();
-          } else {
-            start();
-          }
-        }}
-        disabled={isLoading}
-      >
-        {isActive ? "Stop Voice Chat" : "Start Voice Chat"}
-      </Button>
-      {isActive && (
-        <Button
-          onClick={() => {
-            if (isMuted) {
-              unmute();
-            } else {
-              mute();
-            }
-          }}
-        >
-          {isMuted ? "Unmute" : "Mute"}
-        </Button>
-      )}
-    </>
-  );
-
   return (
     <div className="w-[1080px] max-w-full h-full flex flex-col items-center justify-center gap-4 py-4">
       <div className="relative w-full aspect-video overflow-hidden flex flex-col items-center justify-center">
@@ -105,37 +65,9 @@ const LiveAvatarSessionComponent: React.FC<{
           playsInline
           className="w-full h-full object-contain"
         />
-        <button
-          className="absolute bottom-4 right-4 bg-white text-black px-4 py-2 rounded-md"
-          onClick={() => stopSession()}
-        >
-          Stop
-        </button>
       </div>
       <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-        {mode === "FULL" && VoiceChatComponents}
-        <Button
-          onClick={() => {
-            keepAlive();
-          }}
-        >
-          Keep Alive
-        </Button>
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
-          <Button
-            onClick={() => {
-              startListening();
-            }}
-          >
-            Start Listening
-          </Button>
-          <Button
-            onClick={() => {
-              stopListening();
-            }}
-          >
-            Stop Listening
-          </Button>
           <Button
             onClick={() => {
               interrupt();
@@ -158,14 +90,6 @@ const LiveAvatarSessionComponent: React.FC<{
             }}
           >
             Send
-          </Button>
-          <Button
-            onClick={() => {
-              repeat(message);
-              setMessage("");
-            }}
-          >
-            Repeat
           </Button>
         </div>
       </div>
