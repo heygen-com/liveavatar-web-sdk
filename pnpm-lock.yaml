@@ -79,12 +79,18 @@ importers:
       '@types/react-dom':
         specifier: 19.1.1
         version: 19.1.1(@types/react@19.1.0)
+      '@vitest/coverage-v8':
+        specifier: 4.0.10
+        version: 4.0.10(vitest@4.0.10(@types/node@22.15.3)(happy-dom@20.0.10)(jiti@1.21.7)(yaml@2.8.1))
       autoprefixer:
         specifier: 10.4.19
         version: 10.4.19(postcss@8.4.38)
       eslint:
         specifier: ^9.31.0
         version: 9.31.0(jiti@1.21.7)
+      happy-dom:
+        specifier: ^20.0.10
+        version: 20.0.10
       postcss:
         specifier: 8.4.38
         version: 8.4.38
@@ -94,6 +100,9 @@ importers:
       typescript:
         specifier: 5.8.2
         version: 5.8.2
+      vitest:
+        specifier: ^4.0.10
+        version: 4.0.10(@types/node@22.15.3)(happy-dom@20.0.10)(jiti@1.21.7)(yaml@2.8.1)
 
   packages/eslint-config:
     devDependencies:
@@ -3085,7 +3094,7 @@ snapshots:
     dependencies:
       '@typescript-eslint/tsconfig-utils': 8.37.0(typescript@5.8.2)
       '@typescript-eslint/types': 8.37.0
-      debug: 4.4.1
+      debug: 4.4.3
       typescript: 5.8.2
     transitivePeerDependencies:
       - supports-color
@@ -3094,7 +3103,7 @@ snapshots:
     dependencies:
       '@typescript-eslint/tsconfig-utils': 8.37.0(typescript@5.8.3)
       '@typescript-eslint/types': 8.37.0
-      debug: 4.4.1
+      debug: 4.4.3
       typescript: 5.8.3
     transitivePeerDependencies:
       - supports-color
@@ -4112,7 +4121,7 @@ snapshots:
 
   istanbul-lib-source-maps@5.0.6:
     dependencies:
-      '@jridgewell/trace-mapping': 0.3.30
+      '@jridgewell/trace-mapping': 0.3.31
       debug: 4.4.3
       istanbul-lib-coverage: 3.2.2
     transitivePeerDependencies:

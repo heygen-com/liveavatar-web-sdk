@@ -16,31 +16,46 @@ export async function POST() {
       }),
     });
     if (!res.ok) {
-      const error = await res.json();
-      if (error.error) {
-        const resp = await res.json();
-        const errorMessage =
-          resp.data[0].message ?? "Failed to retrieve session token";
-        return new Response(JSON.stringify({ error: errorMessage }), {
-          status: res.status,
-        });
+      // Read response body only once using text, then parse
+      const bodyText = await res.text();
+      console.error(`Upstream error: status=${res.status}, body=${bodyText}`);
+
+      // Try to parse as JSON and extract error message defensively
+      let errorMessage = "Failed to retrieve session token";
+      try {
+        const resp = JSON.parse(bodyText);
+        // Check multiple possible error message shapes
+        errorMessage =
+          resp?.data?.[0]?.message ??
+          resp?.data?.message ??
+          resp?.message ??
+          resp?.error ??
+          errorMessage;
+      } catch {
+        // If parsing fails, use bodyText or default message
+        errorMessage = bodyText || errorMessage;
       }
 
-      return new Response(
-        JSON.stringify({ error: "Failed to retrieve session token" }),
-        {
-          status: res.status,
+      return new Response(JSON.stringify({ error: errorMessage }), {
+        status: res.status,
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+      });
     }
     const data = await res.json();
     console.log(data);
 
-    session_token = data.data.session_token;
-    session_id = data.data.session_id;
+    // Use optional chaining to safely access nested properties
+    session_token = data?.data?.session_token ?? "";
+    session_id = data?.data?.session_id ?? "";
   } catch (error: unknown) {
+    console.error("Error retrieving session token:", error);
     return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
+      headers: {
+        "Content-Type": "application/json",
+      },
     });
   }
 
@@ -49,6 +64,9 @@ export async function POST() {
       JSON.stringify({ error: "Failed to retrieve session token" }),
       {
         status: 500,
+        headers: {
+          "Content-Type": "application/json",
+        },
       },
     );
   }
