@@ -70,9 +70,10 @@ This project uses a pnpm workspace monorepo. Vercel requires specific configurat
    - **Install Command**: Leave empty to use `vercel.json` configuration  
    - **Framework**: Next.js
 
-2. **vercel.json**: Already configured in `apps/demo/vercel.json` to handle the monorepo build correctly with:
-   - `--ignore-scripts` flag to skip git hooks (husky) installation
-   - Build command that navigates to monorepo root and builds all dependencies
+2. **vercel.json**: Already configured in `apps/demo/vercel.json` to handle the monorepo build correctly:
+   - Build command navigates to monorepo root and builds all dependencies
+   - Prepare script uses `husky || true` to handle missing husky gracefully in CI
+   - All devDependencies install properly for building workspace packages
 
 3. **Important**: After pushing changes, Vercel should automatically deploy. If you still see build errors, try:
    - Clear Vercel's build cache: Settings → General → Clear Cache
@@ -196,13 +197,17 @@ If the avatar fails to load, collect the following information for debugging:
 **"husky: command not found" or "ELIFECYCLE Command failed"**
 - Husky (git hooks) tries to run during `pnpm install` in Vercel's CI environment
 - **Solution**:
-  1. This is fixed by using `--ignore-scripts` flag in `vercel.json`
-  2. The `--ignore-scripts` flag completely skips the prepare script that runs husky
-  3. If you still see this error after the latest commit:
-     - Verify `vercel.json` uses `pnpm install --ignore-scripts`
-     - Clear Vercel build cache: Settings → General → Clear Cache
-     - Trigger a fresh deployment
-  4. Current configuration: `"buildCommand": "cd ../.. && pnpm install --ignore-scripts && pnpm run build --filter=demo"`
+  1. This is fixed by making the prepare script fail gracefully with `husky || true`
+  2. The `|| true` ensures the prepare script doesn't fail even if husky command is not found
+  3. Build dependencies like rollup are properly installed since scripts run normally
+  4. Current configuration in root `package.json`: `"prepare": "husky || true"`
+
+**"rollup: command not found" during SDK build**
+- Build tools not installed because `--ignore-scripts` was preventing devDependencies installation
+- **Solution**:
+  1. Fixed by removing `--ignore-scripts` and using `husky || true` instead
+  2. All devDependencies now install correctly
+  3. SDK package builds successfully with rollup available
 
 **Environment Variables Not Applied**
 - Variables added after deployment are not automatically available
