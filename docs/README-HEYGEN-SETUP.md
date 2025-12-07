@@ -187,6 +187,14 @@ If the avatar fails to load, collect the following information for debugging:
   5. If still failing, check Vercel build logs and ensure pnpm is being used
   6. Verify the build command includes `--filter=demo` to build the correct workspace
 
+**"husky: command not found" or "ELIFECYCLE Command failed"**
+- Husky (git hooks) tries to run during `pnpm install` in Vercel's CI environment
+- **Solution**:
+  1. This is fixed by setting `HUSKY=0` in `vercel.json` build commands
+  2. The environment variable tells Husky to skip git hooks installation in CI
+  3. If you see this error, verify `vercel.json` has `HUSKY=0` in both `buildCommand` and `installCommand`
+  4. Example: `"buildCommand": "cd ../.. && HUSKY=0 pnpm install && pnpm run build --filter=demo"`
+
 **Environment Variables Not Applied**
 - Variables added after deployment are not automatically available
 - **Solution**:
