@@ -60,21 +60,35 @@ To add secrets for GitHub Actions workflows:
 
 To deploy to Vercel with HeyGen integration:
 
-1. Go to your Vercel project dashboard
-2. Click **Settings** → **Environment Variables**
-3. Add the following variables:
+#### Monorepo Configuration
+
+This project uses a pnpm workspace monorepo. Vercel requires specific configuration:
+
+1. **Project Settings**:
+   - **Root Directory**: Set to `apps/demo` (the Next.js app location)
+   - **Build Command**: Should be automatically detected from `vercel.json`
+   - **Install Command**: `pnpm install`
+   - **Framework**: Next.js
+
+2. **vercel.json**: Already configured in `apps/demo/vercel.json` to handle the monorepo build correctly.
+
+#### Environment Variables
+
+3. Go to your Vercel project dashboard
+4. Click **Settings** → **Environment Variables**
+5. Add the following variables:
    - **Name**: `HEYGEN_API_KEY`
    - **Value**: Your HeyGen API key
    - **Environment**: Select **Production** and **Preview** (and **Development** if needed)
    - **Sensitive**: Yes (automatically encrypted)
    - Click **Save**
-4. Optionally, add `HEYGEN_AVATAR_ID`:
+6. Optionally, add `HEYGEN_AVATAR_ID`:
    - **Name**: `HEYGEN_AVATAR_ID`
    - **Value**: Your avatar ID
    - **Environment**: Select **Production** and **Preview** (and **Development** if needed)
    - Click **Save**
 
-5. **IMPORTANT**: After adding environment variables, you **must** trigger a new deployment:
+7. **IMPORTANT**: After adding environment variables, you **must** trigger a new deployment:
    - Go to **Deployments** tab
    - Click on the latest deployment
    - Click **⋯** (three dots menu) → **Redeploy**
@@ -162,6 +176,16 @@ If the avatar fails to load, collect the following information for debugging:
   2. Do NOT use `HEYGEN_API_KEY` in client components or during build
   3. Check Vercel deployment logs for specific error messages
   4. Ensure the monorepo structure is correctly configured (`apps/demo` as root directory)
+
+**"ENOENT: no such file or directory, lstat '/vercel/path0/packages/js-sdk/lib/index.esm.js'"**
+- Vercel build fails because workspace package build outputs are missing
+- **Solution**:
+  1. This is fixed by `vercel.json` configuration in `apps/demo/`
+  2. Ensure Vercel project **Root Directory** is set to `apps/demo`
+  3. The `vercel.json` configures the build to run from monorepo root
+  4. Turbo will build dependencies (`@heygen/liveavatar-web-sdk`) before building the app
+  5. If still failing, check Vercel build logs and ensure pnpm is being used
+  6. Verify the build command includes `--filter=demo` to build the correct workspace
 
 **Environment Variables Not Applied**
 - Variables added after deployment are not automatically available
