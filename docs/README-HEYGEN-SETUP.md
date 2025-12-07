@@ -71,7 +71,8 @@ This project uses a pnpm workspace monorepo. Vercel requires specific configurat
    - **Framework**: Next.js
 
 2. **vercel.json**: Already configured in `apps/demo/vercel.json` to handle the monorepo build correctly:
-   - Build command navigates to monorepo root and builds all dependencies
+   - `installCommand` runs `pnpm install` to install all workspace dependencies
+   - `buildCommand` navigates to monorepo root and runs build (without reinstalling)
    - Prepare script uses `husky || true` to handle missing husky gracefully in CI
    - All devDependencies install properly for building workspace packages
 
@@ -203,11 +204,12 @@ If the avatar fails to load, collect the following information for debugging:
   4. Current configuration in root `package.json`: `"prepare": "husky || true"`
 
 **"rollup: command not found" during SDK build**
-- Build tools not installed because `--ignore-scripts` was preventing devDependencies installation
+- Build tools not installed or being pruned by second `pnpm install` in buildCommand
 - **Solution**:
-  1. Fixed by removing `--ignore-scripts` and using `husky || true` instead
-  2. All devDependencies now install correctly
-  3. SDK package builds successfully with rollup available
+  1. Fixed by removing redundant `pnpm install` from buildCommand
+  2. Vercel's installCommand handles all dependency installation
+  3. buildCommand only runs the build, preventing dependency pruning
+  4. Current config: `"buildCommand": "cd ../.. && pnpm run build --filter=demo"`
 
 **Environment Variables Not Applied**
 - Variables added after deployment are not automatically available
