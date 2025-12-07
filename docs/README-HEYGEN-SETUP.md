@@ -66,11 +66,17 @@ This project uses a pnpm workspace monorepo. Vercel requires specific configurat
 
 1. **Project Settings**:
    - **Root Directory**: Set to `apps/demo` (the Next.js app location)
-   - **Build Command**: Should be automatically detected from `vercel.json`
-   - **Install Command**: `pnpm install`
+   - **Build Command**: Leave empty to use `vercel.json` configuration
+   - **Install Command**: Leave empty to use `vercel.json` configuration  
    - **Framework**: Next.js
 
-2. **vercel.json**: Already configured in `apps/demo/vercel.json` to handle the monorepo build correctly.
+2. **vercel.json**: Already configured in `apps/demo/vercel.json` to handle the monorepo build correctly with:
+   - `--ignore-scripts` flag to skip git hooks (husky) installation
+   - Build command that navigates to monorepo root and builds all dependencies
+
+3. **Important**: After pushing changes, Vercel should automatically deploy. If you still see build errors, try:
+   - Clear Vercel's build cache: Settings → General → Clear Cache
+   - Trigger a fresh deployment from the Deployments tab
 
 #### Environment Variables
 
@@ -190,10 +196,13 @@ If the avatar fails to load, collect the following information for debugging:
 **"husky: command not found" or "ELIFECYCLE Command failed"**
 - Husky (git hooks) tries to run during `pnpm install` in Vercel's CI environment
 - **Solution**:
-  1. This is fixed by setting `HUSKY=0` in `vercel.json` build commands
-  2. The environment variable tells Husky to skip git hooks installation in CI
-  3. If you see this error, verify `vercel.json` has `HUSKY=0` in both `buildCommand` and `installCommand`
-  4. Example: `"buildCommand": "cd ../.. && HUSKY=0 pnpm install && pnpm run build --filter=demo"`
+  1. This is fixed by using `--ignore-scripts` flag in `vercel.json`
+  2. The `--ignore-scripts` flag completely skips the prepare script that runs husky
+  3. If you still see this error after the latest commit:
+     - Verify `vercel.json` uses `pnpm install --ignore-scripts`
+     - Clear Vercel build cache: Settings → General → Clear Cache
+     - Trigger a fresh deployment
+  4. Current configuration: `"buildCommand": "cd ../.. && pnpm install --ignore-scripts && pnpm run build --filter=demo"`
 
 **Environment Variables Not Applied**
 - Variables added after deployment are not automatically available
