@@ -31,6 +31,7 @@ const LiveAvatarSessionComponent: React.FC<{
   onSessionStopped: () => void;
 }> = ({ mode, onSessionStopped }) => {
   const [message, setMessage] = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const { sessionState, isStreamReady, startSession, attachElement } =
     useSession();
   const { isMuted, isActive, mute, unmute } = useVoiceChat();
@@ -39,6 +40,7 @@ const LiveAvatarSessionComponent: React.FC<{
 
   const { sendMessage } = useTextChat(mode);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (sessionState === SessionState.DISCONNECTED) {
@@ -58,8 +60,36 @@ const LiveAvatarSessionComponent: React.FC<{
     }
   }, [startSession, sessionState]);
 
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = async () => {
+    if (!containerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error("Error toggling fullscreen:", err);
+    }
+  };
+
   return (
-    <div className="w-[1440px] max-w-full h-full flex flex-col items-center justify-center gap-4 py-4">
+    <div
+      ref={containerRef}
+      className="w-[1440px] max-w-full h-full flex flex-col items-center justify-center gap-4 py-4 bg-black"
+    >
       <div className="relative w-full aspect-video overflow-hidden flex flex-col items-center justify-center">
         <video
           ref={videoRef}
@@ -90,6 +120,9 @@ const LiveAvatarSessionComponent: React.FC<{
               {isMuted ? "Unmute" : "Mute"}
             </Button>
           )}
+          <Button onClick={toggleFullscreen}>
+            {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          </Button>
         </div>
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
           <input
