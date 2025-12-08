@@ -69,7 +69,7 @@ const LiveAvatarSessionComponent: React.FC<{
         ref={videoRef}
         autoPlay
         playsInline
-        className="absolute inset-0 w-screen h-screen object-cover"
+        className="absolute inset-0 object-cover"
       />
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
         <div className="flex flex-col items-center justify-center gap-4">
