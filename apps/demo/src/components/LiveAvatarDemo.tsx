@@ -40,7 +40,7 @@ export const LiveAvatarDemo = () => {
           )}
           <button
             onClick={handleStart}
-            className="relative w-[1080px] aspect-[9/16] overflow-hidden border-0 p-0 cursor-pointer"
+            className="relative w-[500px] aspect-square overflow-hidden border-0 p-0 cursor-pointer"
           >
             <img
               src="https://i.postimg.cc/dtzVr981/IMG-6934.jpg"
