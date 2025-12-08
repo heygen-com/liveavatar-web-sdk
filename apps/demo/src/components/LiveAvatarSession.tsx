@@ -31,29 +31,11 @@ const LiveAvatarSessionComponent: React.FC<{
   onSessionStopped: () => void;
 }> = ({ mode, onSessionStopped }) => {
   const [message, setMessage] = useState("");
-  const {
-    sessionState,
-    isStreamReady,
-    startSession,
-    stopSession,
-    connectionQuality,
-    keepAlive,
-    attachElement,
-  } = useSession();
-  const {
-    isAvatarTalking,
-    isUserTalking,
-    isMuted,
-    isActive,
-    isLoading,
-    start,
-    stop,
-    mute,
-    unmute,
-  } = useVoiceChat();
+  const { sessionState, isStreamReady, startSession, attachElement } =
+    useSession();
+  const { isMuted, isActive, mute, unmute } = useVoiceChat();
 
-  const { interrupt, repeat, startListening, stopListening } =
-    useAvatarActions(mode);
+  const { interrupt } = useAvatarActions(mode);
 
   const { sendMessage } = useTextChat(mode);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -76,85 +58,23 @@ const LiveAvatarSessionComponent: React.FC<{
     }
   }, [startSession, sessionState]);
 
-  const VoiceChatComponents = (
-    <>
-      <p>Voice Chat Active: {isActive ? "true" : "false"}</p>
-      <p>Voice Chat Loading: {isLoading ? "true" : "false"}</p>
-      {isActive && <p>Muted: {isMuted ? "true" : "false"}</p>}
-      <Button
-        onClick={() => {
-          if (isActive) {
-            stop();
-          } else {
-            start();
-          }
-        }}
-        disabled={isLoading}
-      >
-        {isActive ? "Stop Voice Chat" : "Start Voice Chat"}
-      </Button>
-      {isActive && (
-        <Button
-          onClick={() => {
-            if (isMuted) {
-              unmute();
-            } else {
-              mute();
-            }
-          }}
-        >
-          {isMuted ? "Unmute" : "Mute"}
-        </Button>
-      )}
-    </>
-  );
+  // Hide authenticating screen - only show when stream is ready
+  if (!isStreamReady) {
+    return null;
+  }
 
   return (
-    <div className="w-[1080px] max-w-full h-full flex flex-col items-center justify-center gap-4 py-4">
-      <div className="relative w-full aspect-video overflow-hidden flex flex-col items-center justify-center">
+    <div className="w-screen h-screen flex flex-col items-center justify-center gap-4 bg-black">
+      <div className="relative w-[1080px] aspect-[9/16] overflow-hidden flex flex-col items-center justify-center">
         <video
           ref={videoRef}
           autoPlay
           playsInline
           className="w-full h-full object-contain"
         />
-        <button
-          className="absolute bottom-4 right-4 bg-white text-black px-4 py-2 rounded-md"
-          onClick={() => stopSession()}
-        >
-          Stop
-        </button>
       </div>
       <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-        <p>Session state: {sessionState}</p>
-        <p>Connection quality: {connectionQuality}</p>
-        {mode === "FULL" && (
-          <p>User talking: {isUserTalking ? "true" : "false"}</p>
-        )}
-        <p>Avatar talking: {isAvatarTalking ? "true" : "false"}</p>
-        {mode === "FULL" && VoiceChatComponents}
-        <Button
-          onClick={() => {
-            keepAlive();
-          }}
-        >
-          Keep Alive
-        </Button>
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
-          <Button
-            onClick={() => {
-              startListening();
-            }}
-          >
-            Start Listening
-          </Button>
-          <Button
-            onClick={() => {
-              stopListening();
-            }}
-          >
-            Stop Listening
-          </Button>
           <Button
             onClick={() => {
               interrupt();
@@ -162,6 +82,19 @@ const LiveAvatarSessionComponent: React.FC<{
           >
             Interrupt
           </Button>
+          {isActive && (
+            <Button
+              onClick={() => {
+                if (isMuted) {
+                  unmute();
+                } else {
+                  mute();
+                }
+              }}
+            >
+              {isMuted ? "Unmute" : "Mute"}
+            </Button>
+          )}
         </div>
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
           <input
@@ -177,14 +110,6 @@ const LiveAvatarSessionComponent: React.FC<{
             }}
           >
             Send
-          </Button>
-          <Button
-            onClick={() => {
-              repeat(message);
-              setMessage("");
-            }}
-          >
-            Repeat
           </Button>
         </div>
       </div>

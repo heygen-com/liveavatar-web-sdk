@@ -28,9 +28,21 @@ export async function POST() {
       }),
     });
     if (!res.ok) {
-      const resp = await res.json();
-      const errorMessage =
-        resp.data[0].message ?? "Failed to retrieve session token";
+      let errorMessage = "Failed to retrieve session token";
+      try {
+        const resp = await res.json();
+        // Try different error response formats
+        if (resp.data && Array.isArray(resp.data) && resp.data[0]?.message) {
+          errorMessage = resp.data[0].message;
+        } else if (resp.message) {
+          errorMessage = resp.message;
+        } else if (resp.error) {
+          errorMessage = resp.error;
+        }
+      } catch (parseError) {
+        // If JSON parsing fails, use default error message
+        console.error("Failed to parse error response:", parseError);
+      }
       return new Response(JSON.stringify({ error: errorMessage }), {
         status: res.status,
       });
