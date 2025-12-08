@@ -1,45 +1,26 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   LiveAvatarContextProvider,
   useSession,
-  useTextChat,
   useVoiceChat,
 } from "../liveavatar";
 import { SessionState } from "@heygen/liveavatar-web-sdk";
 import { useAvatarActions } from "../liveavatar/useAvatarActions";
 
-const Button: React.FC<{
-  onClick: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-}> = ({ onClick, disabled, children }) => {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="bg-white text-black px-4 py-2 rounded-md"
-    >
-      {children}
-    </button>
-  );
-};
-
 const LiveAvatarSessionComponent: React.FC<{
   mode: "FULL" | "CUSTOM";
   onSessionStopped: () => void;
 }> = ({ mode, onSessionStopped }) => {
-  const [message, setMessage] = useState("");
   const {
     sessionState,
     isStreamReady,
     startSession,
     stopSession,
-    connectionQuality,
-    keepAlive,
     attachElement,
   } = useSession();
+
   const {
     isAvatarTalking,
     isUserTalking,
@@ -52,10 +33,7 @@ const LiveAvatarSessionComponent: React.FC<{
     unmute,
   } = useVoiceChat();
 
-  const { interrupt, repeat, startListening, stopListening } =
-    useAvatarActions(mode);
-
-  const { sendMessage } = useTextChat(mode);
+  const { interrupt } = useAvatarActions(mode);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -76,116 +54,214 @@ const LiveAvatarSessionComponent: React.FC<{
     }
   }, [startSession, sessionState]);
 
-  const VoiceChatComponents = (
-    <>
-      <p>Voice Chat Active: {isActive ? "true" : "false"}</p>
-      <p>Voice Chat Loading: {isLoading ? "true" : "false"}</p>
-      {isActive && <p>Muted: {isMuted ? "true" : "false"}</p>}
-      <Button
-        onClick={() => {
-          if (isActive) {
-            stop();
-          } else {
-            start();
-          }
-        }}
-        disabled={isLoading}
-      >
-        {isActive ? "Stop Voice Chat" : "Start Voice Chat"}
-      </Button>
-      {isActive && (
-        <Button
-          onClick={() => {
-            if (isMuted) {
-              unmute();
-            } else {
-              mute();
-            }
-          }}
-        >
-          {isMuted ? "Unmute" : "Mute"}
-        </Button>
-      )}
-    </>
-  );
-
   return (
-    <div className="w-[1080px] max-w-full h-full flex flex-col items-center justify-center gap-4 py-4">
-      <div className="relative w-full aspect-video overflow-hidden flex flex-col items-center justify-center">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          className="w-full h-full object-contain"
-        />
-        <button
-          className="absolute bottom-4 right-4 bg-white text-black px-4 py-2 rounded-md"
-          onClick={() => stopSession()}
-        >
-          Stop
-        </button>
-      </div>
-      <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-        <p>Session state: {sessionState}</p>
-        <p>Connection quality: {connectionQuality}</p>
-        {mode === "FULL" && (
-          <p>User talking: {isUserTalking ? "true" : "false"}</p>
+    <div className="fixed inset-0 bg-black">
+      {/* Video Full Screen */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        className="w-full h-full object-cover"
+      />
+
+      {/* Indicadores de status no topo */}
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-4">
+        {isUserTalking && (
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full">
+            <span className="w-3 h-3 bg-green-400 rounded-full animate-pulse" />
+            <span className="text-white text-sm font-medium">
+              Você está falando
+            </span>
+          </div>
         )}
-        <p>Avatar talking: {isAvatarTalking ? "true" : "false"}</p>
-        {mode === "FULL" && VoiceChatComponents}
-        <Button
-          onClick={() => {
-            keepAlive();
-          }}
-        >
-          Keep Alive
-        </Button>
-        <div className="w-full h-full flex flex-row items-center justify-center gap-4">
-          <Button
-            onClick={() => {
-              startListening();
-            }}
+        {isAvatarTalking && (
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full">
+            <span className="w-3 h-3 bg-blue-400 rounded-full animate-pulse" />
+            <span className="text-white text-sm font-medium">
+              Avatar falando
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Controles no rodapé */}
+      <div className="absolute bottom-0 left-0 right-0 p-6">
+        <div className="flex items-center justify-center gap-3">
+          {/* Botão de Microfone */}
+          {isActive && (
+            <button
+              onClick={() => (isMuted ? unmute() : mute())}
+              className={`
+                w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200
+                ${
+                  isMuted
+                    ? "bg-red-500 hover:bg-red-600"
+                    : "bg-white/20 hover:bg-white/30 backdrop-blur-md"
+                }
+              `}
+              title={isMuted ? "Ativar microfone" : "Desativar microfone"}
+            >
+              {isMuted ? (
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                  />
+                </svg>
+              )}
+            </button>
+          )}
+
+          {/* Botão Voice Chat On/Off */}
+          <button
+            onClick={() => (isActive ? stop() : start())}
+            disabled={isLoading}
+            className={`
+              px-6 py-3 rounded-full font-medium transition-all duration-200 flex items-center gap-2
+              ${isLoading ? "opacity-50 cursor-not-allowed" : ""}
+              ${
+                isActive
+                  ? "bg-white text-black hover:bg-gray-100"
+                  : "bg-green-500 text-white hover:bg-green-600"
+              }
+            `}
           >
-            Start Listening
-          </Button>
-          <Button
-            onClick={() => {
-              stopListening();
-            }}
+            {isLoading ? (
+              <>
+                <svg
+                  className="w-5 h-5 animate-spin"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                <span>Conectando...</span>
+              </>
+            ) : isActive ? (
+              <>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
+                  />
+                </svg>
+                <span>Parar Conversa</span>
+              </>
+            ) : (
+              <>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                  />
+                </svg>
+                <span>Iniciar Conversa</span>
+              </>
+            )}
+          </button>
+
+          {/* Botão Interromper */}
+          {isActive && isAvatarTalking && (
+            <button
+              onClick={() => interrupt()}
+              className="px-6 py-3 rounded-full font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all duration-200 flex items-center gap-2"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                />
+              </svg>
+              <span>Interromper</span>
+            </button>
+          )}
+
+          {/* Botão Encerrar */}
+          <button
+            onClick={() => stopSession()}
+            className="w-14 h-14 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center transition-all duration-200"
+            title="Encerrar sessão"
           >
-            Stop Listening
-          </Button>
-          <Button
-            onClick={() => {
-              interrupt();
-            }}
-          >
-            Interrupt
-          </Button>
-        </div>
-        <div className="w-full h-full flex flex-row items-center justify-center gap-4">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            className="w-[400px] bg-white text-black px-4 py-2 rounded-md"
-          />
-          <Button
-            onClick={() => {
-              sendMessage(message);
-              setMessage("");
-            }}
-          >
-            Send
-          </Button>
-          <Button
-            onClick={() => {
-              repeat(message);
-              setMessage("");
-            }}
-          >
-            Repeat
-          </Button>
+            <svg
+              className="w-6 h-6 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z"
+              />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
