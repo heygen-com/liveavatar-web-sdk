@@ -41,13 +41,13 @@ export const LiveAvatarDemo = () => {
           )}
           <button
             onClick={handleStart}
-            className="relative w-[600px] h-[500px] overflow-hidden border-0 p-0 cursor-pointer"
+            className="relative w-[800px] h-[800px] overflow-hidden border-0 p-0 cursor-pointer"
           >
             <Image
               src="https://i.postimg.cc/dtzVr981/IMG-6934.jpg"
               alt="Start Avatar Session"
               fill
-              className="object-cover"
+              className="object-contain"
             />
           </button>
         </>
