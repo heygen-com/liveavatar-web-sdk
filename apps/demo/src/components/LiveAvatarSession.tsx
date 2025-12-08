@@ -58,6 +58,11 @@ const LiveAvatarSessionComponent: React.FC<{
     }
   }, [startSession, sessionState]);
 
+  // Hide authenticating screen - only show when stream is ready
+  if (!isStreamReady) {
+    return null;
+  }
+
   return (
     <div className="w-screen h-screen flex flex-col items-center justify-center gap-4 bg-black">
       <div className="relative w-[1080px] aspect-[9/16] overflow-hidden flex flex-col items-center justify-center">

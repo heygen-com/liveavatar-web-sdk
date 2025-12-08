@@ -40,9 +40,13 @@ export const LiveAvatarDemo = () => {
           )}
           <button
             onClick={handleStart}
-            className="w-fit bg-white text-black px-4 py-2 rounded-md"
+            className="relative w-[1080px] aspect-[9/16] overflow-hidden border-0 p-0 cursor-pointer"
           >
-            Start Avatar Session
+            <img
+              src="https://i.postimg.cc/dtzVr981/IMG-6934.jpg"
+              alt="Start Avatar Session"
+              className="w-full h-full object-cover"
+            />
           </button>
         </>
       ) : (
