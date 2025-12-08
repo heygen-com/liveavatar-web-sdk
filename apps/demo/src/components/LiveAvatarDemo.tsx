@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { LiveAvatarSession } from "./LiveAvatarSession";
 
 export const LiveAvatarDemo = () => {
@@ -40,12 +41,13 @@ export const LiveAvatarDemo = () => {
           )}
           <button
             onClick={handleStart}
-            className="relative w-[500px] aspect-square overflow-hidden border-0 p-0 cursor-pointer"
+            className="relative w-[600px] h-[500px] overflow-hidden border-0 p-0 cursor-pointer"
           >
-            <img
+            <Image
               src="https://i.postimg.cc/dtzVr981/IMG-6934.jpg"
               alt="Start Avatar Session"
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
             />
           </button>
         </>
