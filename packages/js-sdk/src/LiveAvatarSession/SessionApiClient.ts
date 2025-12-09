@@ -4,7 +4,7 @@ import { SessionInfo } from "./types";
 const DEFAULT_ERROR_CODE = 500;
 const SUCCESS_CODE = 1000;
 
-class SessionApiError extends Error {
+export class SessionApiError extends Error {
   errorCode: number;
   status: number | null = null;
 

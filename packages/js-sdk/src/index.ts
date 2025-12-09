@@ -2,7 +2,11 @@
 export { LiveAvatarSession } from "./LiveAvatarSession";
 
 // types
-export type { SessionConfig, SessionInfo } from "./LiveAvatarSession";
+export type {
+  SessionConfig,
+  SessionInfo,
+  SessionApiError,
+} from "./LiveAvatarSession";
 export type { VoiceChat, VoiceChatConfig } from "./VoiceChat";
 
 // enums
