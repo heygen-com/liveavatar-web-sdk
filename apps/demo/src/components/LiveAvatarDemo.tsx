@@ -2,13 +2,18 @@
 
 import { useState } from "react";
 import { LiveAvatarSession } from "./LiveAvatarSession";
+import { Header } from "./Header";
+import { Loading } from "./Loading";
 
 export const LiveAvatarDemo = () => {
   const [sessionToken, setSessionToken] = useState("");
   const [mode, setMode] = useState<"FULL" | "CUSTOM">("FULL");
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingToken, setIsLoadingToken] = useState(false);
 
   const handleStart = async () => {
+    setIsLoadingToken(true);
+    setError(null);
     try {
       const res = await fetch("/api/start-session", {
         method: "POST",
@@ -16,13 +21,16 @@ export const LiveAvatarDemo = () => {
       if (!res.ok) {
         const error = await res.json();
         setError(error.error);
+        setIsLoadingToken(false);
         return;
       }
       const { session_token } = await res.json();
       setSessionToken(session_token);
       setMode("FULL");
+      setIsLoadingToken(false);
     } catch (error: unknown) {
       setError((error as Error).message);
+      setIsLoadingToken(false);
     }
   };
 
@@ -46,34 +54,35 @@ export const LiveAvatarDemo = () => {
   };
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-      {!sessionToken ? (
-        <>
+    <div className="app-container">
+      {!sessionToken && !isLoadingToken ? (
+        <div className="idle-screen screen-transition">
+          <Header />
+          <div className="idle-background"></div>
           {error && (
-            <div className="text-red-500">
+            <div className="error-message">
               {"Error getting session token: " + error}
             </div>
           )}
           <button
             onClick={handleStart}
-            className="w-fit bg-white text-black px-4 py-2 rounded-md"
+            className="start-conversation-button"
           >
-            Start Full Avatar Session
+            Iniciar conversa
           </button>
-
-          <button
-            onClick={handleStartCustom}
-            className="w-fit bg-white text-black px-4 py-2 rounded-md"
-          >
-            Start Custom Avatar Session
-          </button>
-        </>
+        </div>
+      ) : isLoadingToken ? (
+        <div className="loading-transition">
+          <Loading />
+        </div>
       ) : (
-        <LiveAvatarSession
-          mode={mode}
-          sessionAccessToken={sessionToken}
-          onSessionStopped={onSessionStopped}
-        />
+        <div className="conversation-transition">
+          <LiveAvatarSession
+            mode={mode}
+            sessionAccessToken={sessionToken}
+            onSessionStopped={onSessionStopped}
+          />
+        </div>
       )}
     </div>
   );

@@ -1,3 +1,329 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  /* Variáveis CSS para fácil customização */
+  --logo-size: 48px;
+  --kamen-size-width: 106px;
+  --kamen-size-height: 24px;
+  --logo-border-radius: 12px;
+  --chip-padding-x: 16px;
+  --chip-padding-y: 8px;
+  --chip-border-radius: 20px;
+  --chip-font-size: 12px;
+  --header-padding: 24px;
+  --button-padding-x: 40px;
+  --button-padding-y: 24px;
+  --button-border-radius: 12px;
+  --button-font-size: 20px;
+  --idle-background-opacity: 0.3;
+  --transition-duration: 0.5s;
+  --transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Modo retrato - viewport em portrait */
+html,
+body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: fixed;
+}
+
+/* Container principal */
+.app-container {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Header flutuante - usado em ambas as telas */
+.header-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  align-content: center;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--header-padding);
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.header-logo, .kamen-logo {
+  pointer-events: auto;
+}
+
+.logo-placeholder {
+  width: var(--logo-size);
+  height: var(--logo-size);
+  background-image: url('../public/bolha.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.kamen-placeholder {
+  width: var(--kamen-size-width);
+  height: var(--kamen-size-height);
+  background-image: url('../public/kamen.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.header-chip {
+  pointer-events: auto;
+  padding: var(--chip-padding-y) var(--chip-padding-x);
+  border-radius: var(--chip-border-radius);
+  font-size: var(--chip-font-size);
+  font-weight: 500;
+  text-transform: lowercase;
+  color: rgba(255, 255, 255, 0.9);
+  /* Efeito glassmorphism (liquid glass) */
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+/* Tela Idle */
+.idle-screen {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 60px;
+}
+
+.idle-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  /* Placeholder para background - substitua por imagem */
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  opacity: var(--idle-background-opacity);
+  background-image: url('../public/bg.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+.start-conversation-button {
+  position: fixed;
+  bottom: 80px;
+  padding: var(--button-padding-y) var(--button-padding-x);
+  border-radius: var(--button-border-radius);
+  font-size: var(--button-font-size);
+  font-weight: 600;
+  color: #000;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.start-conversation-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+}
+
+.start-conversation-button:active {
+  transform: translateY(0);
+}
+
+.error-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #ff4444;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 16px 24px;
+  border-radius: 8px;
+  z-index: 100;
+}
+
+/* Tela de Conversação */
+.conversation-screen {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+}
+
+.video-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.fullscreen-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Desabilitar interações indesejadas do navegador */
+  pointer-events: auto;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.end-conversation-button {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--button-padding-y) var(--button-padding-x);
+  border-radius: var(--button-border-radius);
+  font-size: var(--button-font-size);
+  font-weight: 600;
+  color: #000;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  z-index: 1000;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.end-conversation-button:hover {
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+}
+
+.end-conversation-button:active {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Controles ocultos - mantendo lógica funcional */
+.hidden-controls {
+  display: none !important;
+}
+
+/* Transições entre telas */
+.screen-transition {
+  animation: fadeIn var(--transition-duration) var(--transition-easing);
+}
+
+.loading-transition {
+  animation: fadeIn var(--transition-duration) var(--transition-easing);
+}
+
+.conversation-transition {
+  animation: fadeIn var(--transition-duration) var(--transition-easing);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Tela de Loading */
+.loading-screen {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  z-index: 1;
+}
+
+.loading-spinner {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 24px;
+}
+
+.spinner-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 3px solid transparent;
+  border-top-color: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+.spinner-ring:nth-child(1) {
+  animation-delay: -0.45s;
+}
+
+.spinner-ring:nth-child(2) {
+  animation-delay: -0.3s;
+  border-top-color: rgba(255, 255, 255, 0.6);
+  width: 70%;
+  height: 70%;
+  top: 15%;
+  left: 15%;
+}
+
+.spinner-ring:nth-child(3) {
+  animation-delay: -0.15s;
+  border-top-color: rgba(255, 255, 255, 0.4);
+  width: 50%;
+  height: 50%;
+  top: 25%;
+  left: 25%;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 16px;
+  font-weight: 500;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Fade-in do vídeo quando estiver pronto */
+.video-fade-in {
+  animation: videoFadeIn 0.8s var(--transition-easing);
+}
+
+@keyframes videoFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
