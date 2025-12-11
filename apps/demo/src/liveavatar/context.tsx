@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ConnectionQuality,
   LiveAvatarSession,
@@ -8,7 +15,7 @@ import {
   VoiceChatState,
   AgentEventsEnum,
 } from "@heygen/liveavatar-web-sdk";
-import { LiveAvatarSessionMessage } from "./types";
+import { LiveAvatarSessionMessage, CustomerData, WidgetState } from "./types";
 import { API_URL } from "../../app/api/secrets";
 
 type LiveAvatarContextProps = {
@@ -18,6 +25,7 @@ type LiveAvatarContextProps = {
   voiceChatState: VoiceChatState;
 
   sessionState: SessionState;
+  widgetState: WidgetState;
   isStreamReady: boolean;
   connectionQuality: ConnectionQuality;
 
@@ -25,6 +33,10 @@ type LiveAvatarContextProps = {
   isAvatarTalking: boolean;
 
   messages: LiveAvatarSessionMessage[];
+
+  // Personalization
+  userName: string | null;
+  customerData: CustomerData | null;
 };
 
 export const LiveAvatarContext = createContext<LiveAvatarContextProps>({
@@ -35,15 +47,20 @@ export const LiveAvatarContext = createContext<LiveAvatarContextProps>({
   isMuted: true,
   voiceChatState: VoiceChatState.INACTIVE,
   sessionState: SessionState.DISCONNECTED,
+  widgetState: WidgetState.INACTIVE,
   isStreamReady: false,
   isUserTalking: false,
   isAvatarTalking: false,
   messages: [],
+  userName: null,
+  customerData: null,
 });
 
 type LiveAvatarContextProviderProps = {
   children: React.ReactNode;
   sessionAccessToken: string;
+  userName?: string | null;
+  customerData?: CustomerData | null;
 };
 
 const useSessionState = (sessionRef: React.RefObject<LiveAvatarSession>) => {
@@ -126,57 +143,35 @@ const useTalkingState = (sessionRef: React.RefObject<LiveAvatarSession>) => {
   return { isUserTalking, isAvatarTalking };
 };
 
-// const useChatHistoryState = (
-//   sessionRef: React.RefObject<LiveAvatarSession>
-// ) => {
-//   const [messages, setMessages] = useState<LiveAvatarSessionMessage[]>([]);
-//   const currentSenderRef = useRef<MessageSender | null>(null);
-
-//   // useEffect(() => {
-//   //   if (sessionRef.current) {
-//   //     const handleMessage = (
-//   //       sender: MessageSender,
-//   //       { task_id, message }: { task_id: string; message: string }
-//   //     ) => {
-//   //       if (currentSenderRef.current === sender) {
-//   //         setMessages((prev) => [
-//   //           ...prev.slice(0, -1),
-//   //           {
-//   //             ...prev[prev.length - 1]!,
-//   //             message: [prev[prev.length - 1]!.message, message].join(""),
-//   //           },
-//   //         ]);
-//   //       } else {
-//   //         currentSenderRef.current = sender;
-//   //         setMessages((prev) => [
-//   //           ...prev,
-//   //           {
-//   //             id: task_id,
-//   //             sender: sender,
-//   //             message,
-//   //             timestamp: Date.now(),
-//   //           },
-//   //         ]);
-//   //       }
-//   //     };
-
-//   //     sessionRef.current.on(
-//   //       AgentEventsEnum.USER_SPEAK_STARTED,
-//   //       (data) => console.log("USER_SPEAK_STARTED", data)
-//   //       handleMessage(MessageSender.USER, {
-//   //   task_id: data.,
-//   //   message: data.text || "",
-//   // })
-//   //     );
-//   //   }
-//   // }, [sessionRef]);
-
-//   return { messages };
-// };
+/**
+ * Derive widget state from session state
+ */
+const useWidgetState = (
+  sessionState: SessionState,
+  isStreamReady: boolean,
+): WidgetState => {
+  return useMemo(() => {
+    if (
+      sessionState === SessionState.DISCONNECTED ||
+      sessionState === SessionState.INACTIVE
+    ) {
+      return WidgetState.INACTIVE;
+    }
+    if (sessionState === SessionState.CONNECTING || !isStreamReady) {
+      return WidgetState.CONNECTING;
+    }
+    if (sessionState === SessionState.CONNECTED && isStreamReady) {
+      return WidgetState.CONNECTED;
+    }
+    return WidgetState.INACTIVE;
+  }, [sessionState, isStreamReady]);
+};
 
 export const LiveAvatarContextProvider = ({
   children,
   sessionAccessToken,
+  userName = null,
+  customerData = null,
 }: LiveAvatarContextProviderProps) => {
   // Default voice chat on
   const config = {
@@ -192,13 +187,14 @@ export const LiveAvatarContextProvider = ({
 
   const { isMuted, voiceChatState } = useVoiceChatState(sessionRef);
   const { isUserTalking, isAvatarTalking } = useTalkingState(sessionRef);
-  // const { messages } = useChatHistoryState(sessionRef);
+  const widgetState = useWidgetState(sessionState, isStreamReady);
 
   return (
     <LiveAvatarContext.Provider
       value={{
         sessionRef,
         sessionState,
+        widgetState,
         isStreamReady,
         connectionQuality,
         isMuted,
@@ -206,6 +202,8 @@ export const LiveAvatarContextProvider = ({
         isUserTalking,
         isAvatarTalking,
         messages: [], // TODO - properly implement chat history
+        userName,
+        customerData,
       }}
     >
       {children}
