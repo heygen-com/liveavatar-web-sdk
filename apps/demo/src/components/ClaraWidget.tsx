@@ -491,14 +491,22 @@ export const ClaraWidget: React.FC<ClaraWidgetProps> = ({
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { fixedHeight, isInIframe } = useFixedHeight();
+  const { isDesktop } = useScreenSize();
 
   const handleStartCall = useCallback(async () => {
     setIsStarting(true);
     setError(null);
 
     try {
+      // Send device type to select appropriate avatar (mobile/desktop)
       const res = await fetch("/api/start-session", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deviceType: isDesktop ? "desktop" : "mobile",
+        }),
       });
 
       if (!res.ok) {
@@ -513,7 +521,7 @@ export const ClaraWidget: React.FC<ClaraWidgetProps> = ({
     } finally {
       setIsStarting(false);
     }
-  }, []);
+  }, [isDesktop]);
 
   const handleSessionStopped = useCallback(() => {
     setSessionToken(null);

@@ -1,6 +1,13 @@
 export const API_KEY = "YOUR_API_KEY";
 export const API_URL = "https://api.liveavatar.com";
-export const AVATAR_ID = "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a";
+
+// Avatar IDs - Responsive configuration
+// Mobile: Portrait aspect ratio (9:16) - optimized for vertical screens
+export const AVATAR_ID_MOBILE = "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a";
+// Desktop: Landscape aspect ratio (16:9) - optimized for horizontal screens
+export const AVATAR_ID_DESKTOP = "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a";
+// Default fallback (used when no device type specified)
+export const AVATAR_ID = AVATAR_ID_MOBILE;
 
 // FULL MODE Customizations
 // Wayne's avatar voice and context

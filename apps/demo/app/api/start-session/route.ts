@@ -1,15 +1,32 @@
 import {
   API_KEY,
   API_URL,
-  AVATAR_ID,
+  AVATAR_ID_MOBILE,
+  AVATAR_ID_DESKTOP,
   VOICE_ID,
   CONTEXT_ID,
   LANGUAGE,
 } from "../secrets";
 
-export async function POST() {
+export async function POST(request: Request) {
   let session_token = "";
   let session_id = "";
+
+  // Parse request body to get device type
+  let deviceType: "mobile" | "desktop" = "mobile";
+  try {
+    const body = await request.json();
+    if (body.deviceType === "desktop") {
+      deviceType = "desktop";
+    }
+  } catch {
+    // No body or invalid JSON, use default (mobile)
+  }
+
+  // Select avatar based on device type
+  const avatarId =
+    deviceType === "desktop" ? AVATAR_ID_DESKTOP : AVATAR_ID_MOBILE;
+
   try {
     const res = await fetch(`${API_URL}/v1/sessions/token`, {
       method: "POST",
@@ -19,7 +36,7 @@ export async function POST() {
       },
       body: JSON.stringify({
         mode: "FULL",
-        avatar_id: AVATAR_ID,
+        avatar_id: avatarId,
         avatar_persona: {
           voice_id: VOICE_ID,
           context_id: CONTEXT_ID,
