@@ -62,6 +62,22 @@ export async function POST(request: Request) {
     const data = await res.json();
     const audio = data.audio_base64;
 
+    if (!audio) {
+      console.error("No audio_base64 in ElevenLabs response:", data);
+      return new Response(
+        JSON.stringify({
+          error: "No audio data in response",
+          details: "ElevenLabs API did not return audio_base64",
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
+
     return new Response(JSON.stringify({ audio }), {
       status: 200,
       headers: {

@@ -8,10 +8,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint --max-warnings 0",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "next": "^15.4.2",
+    "next": "^15.5.7",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
@@ -22,10 +23,13 @@
     "@types/node": "^22.15.3",
     "@types/react": "19.1.0",
     "@types/react-dom": "19.1.1",
+    "@vitest/coverage-v8": "4.0.10",
+    "autoprefixer": "10.4.19",
     "eslint": "^9.31.0",
-    "typescript": "5.8.2",
+    "happy-dom": "^20.0.10",
     "postcss": "8.4.38",
     "tailwindcss": "^3.4.17",
-    "autoprefixer": "10.4.19"
+    "typescript": "5.8.2",
+    "vitest": "^4.0.10"
   }
 }
