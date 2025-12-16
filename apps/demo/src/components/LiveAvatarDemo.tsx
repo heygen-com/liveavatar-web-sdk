@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { LiveAvatarSession } from "./LiveAvatarSession";
 
 export const LiveAvatarDemo = () => {
   const [sessionToken, setSessionToken] = useState("");
-  const [mode, setMode] = useState<"FULL" | "CUSTOM">("FULL");
   const [error, setError] = useState<string | null>(null);
 
   const handleStart = async () => {
@@ -20,24 +20,9 @@ export const LiveAvatarDemo = () => {
       }
       const { session_token } = await res.json();
       setSessionToken(session_token);
-      setMode("FULL");
     } catch (error: unknown) {
       setError((error as Error).message);
     }
-  };
-
-  const handleStartCustom = async () => {
-    const res = await fetch("/api/start-custom-session", {
-      method: "POST",
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      setError(error.error);
-      return;
-    }
-    const { session_token } = await res.json();
-    setSessionToken(session_token);
-    setMode("CUSTOM");
   };
 
   const onSessionStopped = () => {
@@ -56,21 +41,19 @@ export const LiveAvatarDemo = () => {
           )}
           <button
             onClick={handleStart}
-            className="w-fit bg-white text-black px-4 py-2 rounded-md"
+            className="relative w-[800px] h-[800px] overflow-hidden border-0 p-0 cursor-pointer"
           >
-            Start Full Avatar Session
-          </button>
-
-          <button
-            onClick={handleStartCustom}
-            className="w-fit bg-white text-black px-4 py-2 rounded-md"
-          >
-            Start Custom Avatar Session
+            <Image
+              src="https://i.postimg.cc/dtzVr981/IMG-6934.jpg"
+              alt="Start Avatar Session"
+              fill
+              className="object-contain"
+            />
           </button>
         </>
       ) : (
         <LiveAvatarSession
-          mode={mode}
+          mode="FULL"
           sessionAccessToken={sessionToken}
           onSessionStopped={onSessionStopped}
         />
