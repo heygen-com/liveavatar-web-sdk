@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Transpile internal workspace packages
+  transpilePackages: ["@heygen/liveavatar-web-sdk"],
   async headers() {
     return [
       {
