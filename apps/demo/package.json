@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@heygen/liveavatar-web-sdk": "workspace:*",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-slot": "^1.2.4",
     "class-variance-authority": "^0.7.1",
@@ -22,7 +23,6 @@
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
-    "@heygen/liveavatar-web-sdk": "workspace:*",
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",

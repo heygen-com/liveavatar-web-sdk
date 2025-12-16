@@ -51,6 +51,9 @@ importers:
 
   apps/demo:
     dependencies:
+      '@heygen/liveavatar-web-sdk':
+        specifier: workspace:*
+        version: link:../../packages/js-sdk
       '@radix-ui/react-avatar':
         specifier: ^1.1.11
         version: 1.1.11(@types/react-dom@19.1.1(@types/react@19.1.0))(@types/react@19.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -79,9 +82,6 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
     devDependencies:
-      '@heygen/liveavatar-web-sdk':
-        specifier: workspace:*
-        version: link:../../packages/js-sdk
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
