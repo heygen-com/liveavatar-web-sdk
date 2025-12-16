@@ -3,12 +3,14 @@
 import { useState, useEffect } from "react";
 import { LiveAvatarDemo } from "../src/components/LiveAvatarDemo";
 import ClaraWidget from "../src/components/ClaraWidget";
+import ClaraVoiceAgent from "../src/components/ClaraVoiceAgent";
 import { CustomerData } from "../src/liveavatar/types";
 
-type DemoMode = "clara" | "original" | null;
+type DemoMode = "clara" | "clara-agent" | "original" | null;
 
 export default function Home() {
-  const [mode, setMode] = useState<DemoMode>(null);
+  // Default to "clara-agent" (ClaraVoiceAgent) as the primary experience
+  const [mode, setMode] = useState<DemoMode>("clara-agent");
   const [userName, setUserName] = useState<string | null>(null);
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
 
@@ -49,9 +51,17 @@ export default function Home() {
 
     // Auto-select mode from URL
     const demoMode = params.get("mode");
-    if (demoMode === "clara" || demoMode === "original") {
+    if (
+      demoMode === "clara" ||
+      demoMode === "clara-agent" ||
+      demoMode === "original"
+    ) {
       setMode(demoMode);
+    } else if (demoMode === "select") {
+      // Show mode selector
+      setMode(null);
     }
+    // If no mode param and default is set, keep the default (clara-agent)
   }, []);
 
   // Mode selection screen
@@ -63,7 +73,7 @@ export default function Home() {
             Live Avatar Web SDK Demo
           </h1>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-3 gap-6">
             {/* Clara Widget Option */}
             <button
               onClick={() => setMode("clara")}
@@ -73,21 +83,50 @@ export default function Home() {
                 <span className="text-2xl text-white">AI</span>
               </div>
               <h2 className="text-xl font-semibold text-slate-800 mb-2">
-                Clara Widget
+                Clara FULL
               </h2>
               <p className="text-slate-600 text-sm">
-                Modern glassmorphism UI with voice-first interaction, visual
-                feedback indicators, and personalization support.
+                HeyGen&apos;s built-in STT, LLM, and TTS pipeline with
+                voice-first interaction and visual feedback.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
-                  Glassmorphism
+                  HeyGen Pipeline
                 </span>
                 <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
                   Voice-first
                 </span>
-                <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                  Responsive
+              </div>
+            </button>
+
+            {/* Clara Voice Agent Option (Recommended) */}
+            <button
+              onClick={() => setMode("clara-agent")}
+              className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 text-left border-2 border-indigo-300 hover:border-indigo-500 relative"
+            >
+              {/* Recommended badge */}
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-500 text-white text-xs font-medium rounded-full">
+                Recommended
+              </div>
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <span className="text-2xl text-white">VA</span>
+              </div>
+              <h2 className="text-xl font-semibold text-slate-800 mb-2">
+                Clara Voice Agent
+              </h2>
+              <p className="text-slate-600 text-sm">
+                ElevenLabs Conversational AI with built-in VAD, STT, LLM and
+                TTS. Ultra-low latency (&lt;1s response).
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full">
+                  ElevenLabs
+                </span>
+                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                  VAD Included
+                </span>
+                <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-full">
+                  &lt;1s Latency
                 </span>
               </div>
             </button>
@@ -124,7 +163,9 @@ export default function Home() {
           {/* URL params hint */}
           <p className="text-center text-slate-500 text-sm mt-8">
             Tip: Add{" "}
-            <code className="bg-slate-200 px-1 rounded">?mode=clara</code> or{" "}
+            <code className="bg-slate-200 px-1 rounded">?mode=clara</code>,{" "}
+            <code className="bg-slate-200 px-1 rounded">?mode=clara-agent</code>
+            , or{" "}
             <code className="bg-slate-200 px-1 rounded">?mode=original</code> to
             skip this screen
           </p>
@@ -133,7 +174,7 @@ export default function Home() {
     );
   }
 
-  // Clara Widget mode
+  // Clara Widget mode (FULL - HeyGen pipeline)
   if (mode === "clara") {
     return (
       <div className="min-h-screen">
@@ -145,6 +186,22 @@ export default function Home() {
           &larr; Back to Selection
         </button>
         <ClaraWidget userName={userName} customerData={customerData} />
+      </div>
+    );
+  }
+
+  // Clara Voice Agent mode (ElevenLabs Conversational AI)
+  if (mode === "clara-agent") {
+    return (
+      <div className="min-h-screen">
+        {/* Back button */}
+        <button
+          onClick={() => setMode(null)}
+          className="fixed top-4 right-4 z-50 bg-white/80 backdrop-blur-sm text-slate-700 px-4 py-2 rounded-lg shadow-md hover:bg-white transition-colors text-sm"
+        >
+          &larr; Back to Selection
+        </button>
+        <ClaraVoiceAgent userName={userName} customerData={customerData} />
       </div>
     );
   }

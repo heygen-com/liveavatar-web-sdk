@@ -1,6 +1,17 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "ui": "tui",
+  "globalEnv": [
+    "HEYGEN_API_KEY",
+    "HEYGEN_AVATAR_ID_MOBILE",
+    "HEYGEN_AVATAR_ID_DESKTOP",
+    "HEYGEN_VOICE_ID",
+    "HEYGEN_CONTEXT_ID",
+    "HEYGEN_LANGUAGE",
+    "ELEVENLABS_API_KEY",
+    "ELEVENLABS_AGENT_ID",
+    "OPENAI_API_KEY"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
