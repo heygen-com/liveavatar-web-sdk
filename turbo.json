@@ -5,7 +5,8 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**", "lib/**", "dist/**"],
+      "env": ["HEYGEN_API_KEY", "HEYGEN_AVATAR_ID"]
     },
     "lint": {
       "dependsOn": ["^lint"]
