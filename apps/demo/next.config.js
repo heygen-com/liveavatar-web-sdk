@@ -2,6 +2,12 @@
 const nextConfig = {
   // Transpile internal workspace packages
   transpilePackages: ["@heygen/liveavatar-web-sdk"],
+  // Turbopack config for Node.js polyfills (events module used by SDK)
+  turbopack: {
+    resolveAlias: {
+      events: "events",
+    },
+  },
   async headers() {
     return [
       {
