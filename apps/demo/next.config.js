@@ -2,10 +2,13 @@
 const nextConfig = {
   // Transpile internal workspace packages
   transpilePackages: ["@heygen/liveavatar-web-sdk"],
-  // Turbopack config for Node.js polyfills (events module used by SDK)
+  // Turbopack config for module resolution
   turbopack: {
     resolveAlias: {
+      // Polyfill for Node.js events module
       events: "events",
+      // Direct alias to SDK build output (fixes Vercel workspace resolution)
+      "@heygen/liveavatar-web-sdk": "../../packages/js-sdk/lib/index.esm.js",
     },
   },
   async headers() {
