@@ -9,7 +9,7 @@ import {
   TrackPublication,
 } from "livekit-client";
 import { testContext } from "../utils/testContext";
-import { LIVEKIT_SERVER_RESPONSE_CHANNEL_TOPIC } from "../../LiveAvatarSession/const";
+import { LIVEKIT_SERVER_RESPONSE_CHANNEL_TOPIC } from "../../const";
 
 export class LocalAudioTrackMock extends EventEmitter {
   isMuted = false;
