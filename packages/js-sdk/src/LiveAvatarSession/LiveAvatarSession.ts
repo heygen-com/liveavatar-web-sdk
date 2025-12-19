@@ -34,7 +34,7 @@ import { VoiceChat } from "../VoiceChat";
 import {
   LIVEKIT_COMMAND_CHANNEL_TOPIC,
   LIVEKIT_SERVER_RESPONSE_CHANNEL_TOPIC,
-} from "./const";
+} from "../const";
 import { SessionAPIClient } from "./SessionApiClient";
 import { splitPcm24kStringToChunks } from "../audio_utils";
 
@@ -131,7 +131,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       }
 
       // Run configurations as needed
-      await this.configureSession();
+      await this.configureSession(this._sessionInfo);
       this.state = SessionState.CONNECTED;
     } catch (error) {
       console.error("Session start failed:", error);
@@ -396,7 +396,8 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     this.postStop(SessionDisconnectReason.UNKNOWN_REASON);
   }
 
-  private async configureSession(): Promise<void> {
+  private async configureSession(sessionInfo: SessionInfo): Promise<void> {
+    this.voiceChat.setMode(sessionInfo.voice_chat_mode);
     if (this.config.voiceChat) {
       await this.voiceChat.start(
         typeof this.config.voiceChat === "boolean" ? {} : this.config.voiceChat,

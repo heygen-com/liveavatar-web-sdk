@@ -35,6 +35,14 @@ export const useVoiceChat = () => {
     return voiceChatState === VoiceChatState.ACTIVE;
   }, [voiceChatState]);
 
+  const startPushToTalk = useCallback(async () => {
+    return await sessionRef.current.voiceChat.startPushToTalk();
+  }, [sessionRef]);
+
+  const stopPushToTalk = useCallback(async () => {
+    return await sessionRef.current.voiceChat.stopPushToTalk();
+  }, [sessionRef]);
+
   return {
     mute,
     unmute,
@@ -45,5 +53,7 @@ export const useVoiceChat = () => {
     isMuted,
     isUserTalking,
     isAvatarTalking,
+    startPushToTalk,
+    stopPushToTalk,
   };
 };

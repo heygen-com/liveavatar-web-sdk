@@ -128,7 +128,6 @@ export const getAgentEventEmitArgs = (
         return [AgentEventsEnum.AVATAR_TRANSCRIPTION, payload];
       }
       default:
-        console.warn("New unsupported event type");
         return null;
     }
   }
