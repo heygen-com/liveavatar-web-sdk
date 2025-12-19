@@ -204,23 +204,6 @@ export default function LoginPage() {
               </>
             )}
           </Button>
-
-          {/* Demo credentials hint */}
-          <div className="mt-6 p-4 rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100">
-            <p className="text-sm font-medium text-indigo-700 mb-1">
-              Demo Access
-            </p>
-            <p className="text-xs text-indigo-600/80">
-              Email:{" "}
-              <code className="bg-white/60 px-1.5 py-0.5 rounded">
-                demo@clara.ai
-              </code>
-            </p>
-            <p className="text-xs text-indigo-600/80">
-              Password:{" "}
-              <code className="bg-white/60 px-1.5 py-0.5 rounded">demo123</code>
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>
