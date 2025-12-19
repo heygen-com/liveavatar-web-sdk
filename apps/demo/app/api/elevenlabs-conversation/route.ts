@@ -1,6 +1,16 @@
+import { auth } from "@/auth";
 import { ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID } from "../secrets";
 
 export async function POST(request: Request) {
+  // Auth guard
+  const session = await auth();
+  if (!session?.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   console.log("=== ElevenLabs Conversation API Called ===");
   console.log("ELEVENLABS_API_KEY exists:", !!ELEVENLABS_API_KEY);
   console.log("ELEVENLABS_AGENT_ID:", ELEVENLABS_AGENT_ID);

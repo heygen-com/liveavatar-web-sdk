@@ -10,7 +10,11 @@
     "HEYGEN_LANGUAGE",
     "ELEVENLABS_API_KEY",
     "ELEVENLABS_AGENT_ID",
-    "OPENAI_API_KEY"
+    "OPENAI_API_KEY",
+    "AUTH_SECRET",
+    "AUTH_URL",
+    "AUTH_GOOGLE_ID",
+    "AUTH_GOOGLE_SECRET"
   ],
   "tasks": {
     "build": {

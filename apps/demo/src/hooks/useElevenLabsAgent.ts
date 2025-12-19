@@ -28,8 +28,8 @@ export interface UseElevenLabsAgentReturn extends ElevenLabsAgentState {
 }
 
 // Convert ArrayBuffer to base64 string
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
+function arrayBufferToBase64(buffer: ArrayBuffer | ArrayBufferLike): string {
+  const bytes = new Uint8Array(buffer as ArrayBuffer);
   let binary = "";
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCharCode(bytes[i]!);
@@ -94,6 +94,17 @@ function sendMessage(ws: WebSocket, message: object): void {
   }
 }
 
+// Get ElevenLabs input format string based on sample rate
+function getInputAudioFormat(sampleRate: number): string {
+  // ElevenLabs supports: pcm_8000, pcm_16000, pcm_22050, pcm_24000, pcm_44100, pcm_48000
+  const supportedRates = [8000, 16000, 22050, 24000, 44100, 48000];
+  // Find closest supported rate
+  const closest = supportedRates.reduce((prev, curr) =>
+    Math.abs(curr - sampleRate) < Math.abs(prev - sampleRate) ? curr : prev,
+  );
+  return `pcm_${closest}`;
+}
+
 export const useElevenLabsAgent = (
   config: UseElevenLabsAgentConfig = {},
 ): UseElevenLabsAgentReturn => {
@@ -119,7 +130,8 @@ export const useElevenLabsAgent = (
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const audioWorkletNodeRef = useRef<ScriptProcessorNode | null>(null);
+  const audioWorkletNodeRef = useRef<AudioWorkletNode | null>(null);
+  const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<string[]>([]);
 
@@ -130,11 +142,25 @@ export const useElevenLabsAgent = (
   // Track the sample rate from ElevenLabs (received in conversation_initiation_metadata)
   const elevenLabsSampleRateRef = useRef<number>(16000); // Default to 16kHz
 
+  // Track microphone sample rate for sending audio at native rate (no resample needed)
+  const micSampleRateRef = useRef<number>(48000);
+
+  // Reconnection state
+  const reconnectAttemptsRef = useRef<number>(0);
+  const maxReconnectAttempts = 3;
+  const shouldReconnectRef = useRef<boolean>(true);
+
   // Cleanup function
   const cleanup = useCallback(() => {
     if (audioWorkletNodeRef.current) {
       audioWorkletNodeRef.current.disconnect();
+      audioWorkletNodeRef.current.port.close();
       audioWorkletNodeRef.current = null;
+    }
+
+    if (mediaStreamSourceRef.current) {
+      mediaStreamSourceRef.current.disconnect();
+      mediaStreamSourceRef.current = null;
     }
 
     if (audioContextRef.current) {
@@ -180,6 +206,8 @@ export const useElevenLabsAgent = (
 
     // Set ref immediately to prevent race conditions
     isConnectingRef.current = true;
+    // Enable auto-reconnect when connecting
+    shouldReconnectRef.current = true;
 
     console.log("useElevenLabsAgent: connect() called");
     try {
@@ -211,18 +239,16 @@ export const useElevenLabsAgent = (
         // Update refs immediately
         isConnectedRef.current = true;
         isConnectingRef.current = false;
+        // Reset reconnect attempts on successful connection
+        reconnectAttemptsRef.current = 0;
+
         setState((prev) => ({
           ...prev,
           isConnected: true,
           isConnecting: false,
         }));
 
-        // Send conversation initiation message (required by ElevenLabs API)
-        sendMessage(ws, {
-          type: "conversation_initiation_client_data",
-        });
-
-        // Start microphone capture after connection
+        // Start microphone capture first to get actual sample rate
         startMicrophoneCapture();
       };
 
@@ -253,8 +279,27 @@ export const useElevenLabsAgent = (
         isConnectingRef.current = false;
         setState((prev) => ({ ...prev, isConnected: false }));
 
-        // Notify error handler if close was unexpected
-        if (event.code !== 1000 && event.code !== 1005) {
+        // Auto-reconnect on abnormal closure (1005, 1006)
+        if (
+          (event.code === 1005 || event.code === 1006) &&
+          shouldReconnectRef.current
+        ) {
+          if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+            reconnectAttemptsRef.current++;
+            const delay = Math.min(1000 * reconnectAttemptsRef.current, 5000);
+            console.log(
+              `[WS] Abnormal close (${event.code}), reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`,
+            );
+            setTimeout(() => {
+              if (shouldReconnectRef.current) {
+                connect();
+              }
+            }, delay);
+          } else {
+            console.log("[WS] Max reconnect attempts reached");
+            onError?.("Connection lost. Please refresh the page.");
+          }
+        } else if (event.code !== 1000) {
           onError?.(
             `WebSocket closed: ${event.code} - ${event.reason || "Unknown reason"}`,
           );
@@ -408,10 +453,12 @@ export const useElevenLabsAgent = (
             break;
 
           case "ping":
-            // Respond to ping with optional delay (per ElevenLabs docs)
+            // Respond to ping with the delay ElevenLabs requests (for timing sync)
+            // Note: ping_ms is NOT network latency - it's the delay to wait before pong
             if (wsRef.current) {
               const pingDelay = data.ping_event?.ping_ms || 0;
               const eventId = data.ping_event?.event_id || data.event_id;
+
               setTimeout(() => {
                 if (wsRef.current?.readyState === WebSocket.OPEN) {
                   sendMessage(wsRef.current, {
@@ -457,7 +504,7 @@ export const useElevenLabsAgent = (
     ],
   );
 
-  // Start microphone capture using Web Audio API for PCM output
+  // Start microphone capture using AudioWorkletNode (modern replacement for deprecated ScriptProcessorNode)
   const startMicrophoneCapture = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -472,59 +519,134 @@ export const useElevenLabsAgent = (
       audioStreamRef.current = stream;
 
       // Create AudioContext WITHOUT specifying sampleRate to get native system rate
-      // Browsers often ignore sampleRate constraint, so we get actual rate and resample
       const audioContext = new AudioContext();
       audioContextRef.current = audioContext;
 
       // Get the actual sample rate (typically 44100 or 48000)
       const actualSampleRate = audioContext.sampleRate;
+      micSampleRateRef.current = actualSampleRate;
       console.log("Microphone actual sample rate:", actualSampleRate);
 
+      // Send conversation initiation with correct audio format based on mic sample rate
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        const inputFormat = getInputAudioFormat(actualSampleRate);
+        console.log(
+          `[MIC] Configuring ElevenLabs with input format: ${inputFormat}`,
+        );
+        sendMessage(wsRef.current, {
+          type: "conversation_initiation_client_data",
+          conversation_config_override: {
+            agent: {
+              asr: {
+                user_input_audio_format: inputFormat,
+              },
+            },
+          },
+        });
+      }
+
+      // Try to use AudioWorkletNode (modern API), fallback to ScriptProcessorNode if not supported
+      let useWorklet = true;
+      try {
+        await audioContext.audioWorklet.addModule(
+          "/audio-worklet-processor.js",
+        );
+      } catch (workletError) {
+        console.warn(
+          "AudioWorklet not supported, falling back to ScriptProcessorNode:",
+          workletError,
+        );
+        useWorklet = false;
+      }
+
       const source = audioContext.createMediaStreamSource(stream);
+      mediaStreamSourceRef.current = source;
 
-      // Use ScriptProcessorNode for capturing PCM data
-      // Buffer size of 4096 gives good balance between latency and efficiency
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      audioWorkletNodeRef.current = processor;
+      if (useWorklet) {
+        // Modern AudioWorkletNode approach
+        const workletNode = new AudioWorkletNode(audioContext, "mic-processor");
+        audioWorkletNodeRef.current = workletNode;
 
-      let audioChunkCount = 0;
-      processor.onaudioprocess = (e) => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          const inputData = e.inputBuffer.getChannelData(0);
+        let audioChunkCount = 0;
+        workletNode.port.onmessage = (event) => {
+          if (
+            event.data.type === "audio" &&
+            wsRef.current?.readyState === WebSocket.OPEN
+          ) {
+            const float32Data = event.data.buffer as Float32Array;
 
-          // Convert Float32 to Int16 (PCM 16-bit)
-          let pcmData = float32ToInt16(inputData);
+            // Convert Float32 to Int16 (PCM 16-bit)
+            const pcmData = float32ToInt16(float32Data);
 
-          // RESAMPLE from actual sample rate to 16kHz for ElevenLabs
-          if (actualSampleRate !== 16000) {
-            pcmData = resampleAudio(pcmData, actualSampleRate, 16000);
+            // NO RESAMPLE - send at native rate, ElevenLabs configured to accept it
+            const base64Audio = arrayBufferToBase64(pcmData.buffer);
+
+            // Log every 100th chunk to avoid spam (doubled since we halved chunk size)
+            audioChunkCount++;
+            if (audioChunkCount % 100 === 1) {
+              console.log(
+                `[MIC-Worklet] Sending chunk #${audioChunkCount}, samples: ${pcmData.length}, rate: ${actualSampleRate}Hz`,
+              );
+            }
+
+            // Send to ElevenLabs as JSON with base64
+            sendMessage(wsRef.current, {
+              user_audio_chunk: base64Audio,
+            });
           }
+        };
 
-          // Convert to base64 (required by ElevenLabs API)
-          const base64Audio = arrayBufferToBase64(pcmData.buffer);
+        source.connect(workletNode);
+        // AudioWorkletNode doesn't need to connect to destination for input processing
+        console.log(
+          `[MIC] AudioWorkletNode started: ${actualSampleRate}Hz (no resample)`,
+        );
+      } else {
+        // Fallback: ScriptProcessorNode (deprecated but widely supported)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const processor = (audioContext as any).createScriptProcessor(
+          2048,
+          1,
+          1,
+        );
 
-          // Log every 50th chunk to avoid spam
-          audioChunkCount++;
-          if (audioChunkCount % 50 === 1) {
-            console.log(
-              `[MIC] Sending chunk #${audioChunkCount}, samples: ${pcmData.length}, base64 len: ${base64Audio.length}`,
-            );
+        let audioChunkCount = 0;
+        processor.onaudioprocess = (e: AudioProcessingEvent) => {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            const inputData = e.inputBuffer.getChannelData(0);
+
+            // Convert Float32 to Int16 (PCM 16-bit)
+            const pcmData = float32ToInt16(inputData);
+
+            // NO RESAMPLE - send at native rate
+            const base64Audio = arrayBufferToBase64(pcmData.buffer);
+
+            // Log every 100th chunk to avoid spam
+            audioChunkCount++;
+            if (audioChunkCount % 100 === 1) {
+              console.log(
+                `[MIC-ScriptProcessor] Sending chunk #${audioChunkCount}, samples: ${pcmData.length}, rate: ${actualSampleRate}Hz`,
+              );
+            }
+
+            // Send to ElevenLabs as JSON with base64
+            sendMessage(wsRef.current, {
+              user_audio_chunk: base64Audio,
+            });
           }
+        };
 
-          // Send to ElevenLabs as JSON with base64 (per official docs)
-          sendMessage(wsRef.current, {
-            user_audio_chunk: base64Audio,
-          });
-        }
-      };
-
-      source.connect(processor);
-      processor.connect(audioContext.destination);
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+        // Store reference for cleanup (cast to any since we're using legacy API)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (audioWorkletNodeRef as any).current = processor;
+        console.log(
+          `[MIC] ScriptProcessorNode started: ${actualSampleRate}Hz (no resample, legacy fallback)`,
+        );
+      }
 
       setState((prev) => ({ ...prev, isListening: true }));
-      console.log(
-        `Microphone started: ${actualSampleRate}Hz -> resampled to 16kHz`,
-      );
     } catch (error) {
       console.error("Failed to start microphone:", error);
       const errorMessage =
@@ -536,6 +658,8 @@ export const useElevenLabsAgent = (
 
   // Disconnect from ElevenLabs
   const disconnect = useCallback(() => {
+    // Disable auto-reconnect when user explicitly disconnects
+    shouldReconnectRef.current = false;
     cleanup();
   }, [cleanup]);
 

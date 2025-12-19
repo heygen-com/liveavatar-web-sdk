@@ -1,3 +1,4 @@
+import { auth } from "@/auth";
 import {
   API_KEY,
   API_URL,
@@ -6,6 +7,15 @@ import {
 } from "../secrets";
 
 export async function POST(request: Request) {
+  // Auth guard
+  const session = await auth();
+  if (!session?.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   let session_token = "";
   let session_id = "";
 
