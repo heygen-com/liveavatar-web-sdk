@@ -1,8 +1,45 @@
-import { API_KEY, API_URL, AVATAR_ID } from "../secrets";
+import { auth } from "@/auth";
+import {
+  API_KEY,
+  API_URL,
+  AVATAR_ID_MOBILE,
+  AVATAR_ID_DESKTOP,
+} from "../secrets";
 
-export async function POST() {
+export async function POST(request: Request) {
+  // Auth guard
+  const session = await auth();
+  if (!session?.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   let session_token = "";
   let session_id = "";
+
+  // Parse request body to get device type
+  let deviceType: "mobile" | "desktop" = "desktop";
+  try {
+    const body = await request.json();
+    if (body.deviceType === "mobile") {
+      deviceType = "mobile";
+    }
+  } catch {
+    // No body or invalid JSON, use default (desktop)
+  }
+
+  // Select avatar based on device type
+  const avatarId =
+    deviceType === "desktop" ? AVATAR_ID_DESKTOP : AVATAR_ID_MOBILE;
+  console.log(
+    "Starting CUSTOM session with avatar:",
+    avatarId,
+    "deviceType:",
+    deviceType,
+  );
+
   try {
     const res = await fetch(`${API_URL}/v1/sessions/token`, {
       method: "POST",
@@ -12,7 +49,7 @@ export async function POST() {
       },
       body: JSON.stringify({
         mode: "CUSTOM",
-        avatar_id: AVATAR_ID,
+        avatar_id: avatarId,
       }),
     });
     if (!res.ok) {
