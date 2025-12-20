@@ -1,7 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm turbo run build --filter=demo...",
-  "outputDirectory": "apps/demo/.next",
   "installCommand": "pnpm install",
-  "framework": "nextjs"
+  "buildCommand": "pnpm turbo run build --filter=demo...",
+  "outputDirectory": "apps/demo/.next"
 }
