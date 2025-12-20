@@ -223,7 +223,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({
   const displayName = customerData?.firstName || userName;
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 landing-gradient min-h-screen">
+    <div className="flex-1 w-full flex flex-col items-center justify-center p-6 landing-gradient min-h-screen">
       <Card className="max-w-sm w-full glass-morphism border-0 shadow-2xl">
         <CardHeader className="text-center pb-2">
           {/* Clara Avatar */}
@@ -282,7 +282,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({
 // ============================================
 const ConnectingScreen: React.FC = () => {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 landing-gradient min-h-screen">
+    <div className="flex-1 w-full flex flex-col items-center justify-center p-6 landing-gradient min-h-screen">
       <Card className="max-w-sm w-full glass-morphism border-0 shadow-xl">
         <CardContent className="pt-8 pb-8 text-center">
           <div className="relative w-20 h-20 mx-auto mb-6">
