@@ -31,7 +31,6 @@ import {
   Mic,
   MicOff,
   Loader2,
-  Check,
   AlertTriangle,
 } from "lucide-react";
 
@@ -49,80 +48,46 @@ const isSafariIOS = (): boolean => {
 };
 
 // ============================================
-// SAFARI iOS FALLBACK SCREEN (shadcn/ui redesign)
+// SAFARI iOS WARNING BANNER (non-blocking)
 // ============================================
-const SafariFallbackScreen: React.FC = () => (
-  <div className="flex-1 flex flex-col items-center justify-center p-6 landing-gradient min-h-screen">
-    <Card className="max-w-sm w-full glass-morphism border-0 shadow-2xl">
-      <CardHeader className="text-center pb-2">
-        <Avatar className="w-20 h-20 mx-auto mb-4 ring-4 ring-white/50 shadow-xl">
-          <AvatarImage src="/clara-avatar.png" alt="Clara" />
-          <AvatarFallback className="bg-gradient-to-br from-indigo-400 to-purple-500 text-white text-2xl font-bold">
-            C
-          </AvatarFallback>
-        </Avatar>
+interface SafariBannerProps {
+  onClose: () => void;
+}
 
-        <Badge
-          variant="secondary"
-          className="mx-auto mb-3 bg-amber-100 text-amber-700 hover:bg-amber-100"
-        >
-          <AlertTriangle className="w-3 h-3 mr-1" />
-          Compatibilidad limitada
-        </Badge>
-
-        <CardTitle className="text-xl text-slate-800">
-          Clara funciona mejor en otros navegadores
-        </CardTitle>
-        <CardDescription className="text-sm mt-2">
-          Safari en iPhone tiene limitaciones técnicas temporales. Para la mejor
-          experiencia:
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="pt-2">
-        <div className="space-y-3 mb-4">
-          <div className="flex items-center gap-3 p-3 bg-white/80 rounded-lg border border-slate-200">
-            <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg
-                className="w-5 h-5 text-blue-600"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
-              </svg>
-            </div>
-            <div className="text-left flex-1">
-              <p className="font-medium text-slate-800 text-sm">
-                Chrome en Android
-              </p>
-              <p className="text-xs text-slate-500">Experiencia completa</p>
-            </div>
-            <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-white/80 rounded-lg border border-slate-200">
-            <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg
-                className="w-5 h-5 text-slate-600"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z" />
-              </svg>
-            </div>
-            <div className="text-left flex-1">
-              <p className="font-medium text-slate-800 text-sm">Desktop</p>
-              <p className="text-xs text-slate-500">
-                Chrome, Safari, Firefox, Edge
-              </p>
-            </div>
-            <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-          </div>
+const SafariBanner: React.FC<SafariBannerProps> = ({ onClose }) => (
+  <div className="fixed top-0 left-0 right-0 z-50 bg-amber-50 border-b border-amber-200 px-4 py-3 shadow-sm">
+    <div className="flex items-center justify-between max-w-4xl mx-auto">
+      <div className="flex items-center gap-3">
+        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+        <div>
+          <p className="text-sm font-medium text-amber-800">
+            Safari iOS tiene limitaciones
+          </p>
+          <p className="text-xs text-amber-600">
+            Para mejor experiencia, usa Chrome o un navegador de escritorio.
+          </p>
         </div>
-        <p className="text-xs text-slate-400 text-center">
-          Estamos trabajando para habilitar Safari iOS pronto.
-        </p>
-      </CardContent>
-    </Card>
+      </div>
+      <button
+        onClick={onClose}
+        className="text-amber-600 hover:text-amber-800 p-1 rounded-full hover:bg-amber-100 transition-colors"
+        aria-label="Cerrar aviso"
+      >
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+    </div>
   </div>
 );
 
@@ -803,6 +768,7 @@ export const ClaraVoiceAgent: React.FC<ClaraVoiceAgentProps> = ({
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSafariBanner, setShowSafariBanner] = useState(() => isSafariIOS());
   const { fixedHeight, isInIframe } = useFixedHeight();
   const { isDesktop } = useScreenSize();
 
@@ -845,16 +811,16 @@ export const ClaraVoiceAgent: React.FC<ClaraVoiceAgentProps> = ({
       ? { height: `${fixedHeight}px`, overflow: "hidden" as const }
       : {};
 
-  // Safari iOS workaround - show fallback screen
-  if (isSafariIOS()) {
-    return <SafariFallbackScreen />;
-  }
-
   return (
     <div
       className="w-full h-full min-h-screen flex flex-col items-center justify-center bg-slate-50"
       style={containerStyle}
     >
+      {/* Safari iOS warning banner (non-blocking) */}
+      {showSafariBanner && (
+        <SafariBanner onClose={() => setShowSafariBanner(false)} />
+      )}
+
       {error && (
         <div className="absolute top-4 left-4 right-4 z-50 bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-lg">
           <p className="text-sm">{error}</p>
