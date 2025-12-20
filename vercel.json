@@ -3,5 +3,5 @@
   "buildCommand": "pnpm turbo run build --filter=demo...",
   "installCommand": "pnpm install",
   "framework": "nextjs",
-  "outputDirectory": ".next"
+  "outputDirectory": "apps/demo/.next"
 }
