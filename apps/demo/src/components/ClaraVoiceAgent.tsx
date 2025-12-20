@@ -39,9 +39,9 @@ import {
 // SESSION LIMIT CONFIGURATION
 // ============================================
 // Toggle: false = no limit (beta), true = enforce limit (production)
-const SESSION_LIMIT_ENABLED = false;
+const SESSION_LIMIT_ENABLED = true; // TODO: Set to false before merge
 // Maximum session duration in minutes
-const SESSION_LIMIT_MINUTES = 10;
+const SESSION_LIMIT_MINUTES = 1; // TODO: Set to 10 before merge
 // Warning before session ends (in seconds)
 const SESSION_WARNING_SECONDS = 30;
 
@@ -677,14 +677,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
           setShowExpiryWarning(true);
         }
 
-        // Auto-end session when time runs out
-        if (newValue <= 0) {
-          console.log("[SESSION] Time limit reached, ending session");
-          onEndCall();
-          return 0;
-        }
-
-        return newValue;
+        return newValue <= 0 ? 0 : newValue;
       });
     }, 1000);
 
@@ -694,7 +687,15 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         sessionTimerRef.current = null;
       }
     };
-  }, [onEndCall]);
+  }, []);
+
+  // Handle session expiry - separate effect to avoid setState during render
+  useEffect(() => {
+    if (SESSION_LIMIT_ENABLED && sessionSecondsRemaining <= 0) {
+      console.log("[SESSION] Time limit reached, ending session");
+      onEndCall();
+    }
+  }, [sessionSecondsRemaining, onEndCall]);
 
   const handleToggleMute = useCallback(() => {
     if (isMuted) {
