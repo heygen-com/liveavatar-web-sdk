@@ -32,7 +32,18 @@ import {
   MicOff,
   Loader2,
   AlertTriangle,
+  Clock,
 } from "lucide-react";
+
+// ============================================
+// SESSION LIMIT CONFIGURATION
+// ============================================
+// Toggle: false = no limit (beta), true = enforce limit (production)
+const SESSION_LIMIT_ENABLED = false;
+// Maximum session duration in minutes
+const SESSION_LIMIT_MINUTES = 10;
+// Warning before session ends (in seconds)
+const SESSION_WARNING_SECONDS = 30;
 
 // ============================================
 // SAFARI iOS DETECTION
@@ -87,6 +98,26 @@ const SafariBanner: React.FC<SafariBannerProps> = ({ onClose }) => (
           />
         </svg>
       </button>
+    </div>
+  </div>
+);
+
+// ============================================
+// SESSION EXPIRY WARNING BANNER
+// ============================================
+interface SessionExpiryWarningProps {
+  secondsRemaining: number;
+}
+
+const SessionExpiryWarning: React.FC<SessionExpiryWarningProps> = ({
+  secondsRemaining,
+}) => (
+  <div className="fixed top-0 left-0 right-0 z-50 bg-red-50 border-b border-red-200 px-4 py-3 shadow-sm animate-pulse">
+    <div className="flex items-center justify-center gap-3 max-w-4xl mx-auto">
+      <Clock className="w-5 h-5 text-red-600 flex-shrink-0" />
+      <p className="text-sm font-medium text-red-800">
+        Tu sesión expira en {secondsRemaining} segundos
+      </p>
     </div>
   </div>
 );
@@ -343,6 +374,13 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   const { isDesktop } = useScreenSize();
   const { fixedHeight, isInIframe } = useFixedHeight();
   const [isMuted, setIsMuted] = useState(false);
+
+  // Session limit state
+  const [sessionSecondsRemaining, setSessionSecondsRemaining] = useState(
+    SESSION_LIMIT_MINUTES * 60
+  );
+  const [showExpiryWarning, setShowExpiryWarning] = useState(false);
+  const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const { sessionRef } = useLiveAvatarContext();
   const { isStreamReady, connectionQuality, attachElement } = useSession();
@@ -626,6 +664,38 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Session limit timer - only runs if SESSION_LIMIT_ENABLED is true
+  useEffect(() => {
+    if (!SESSION_LIMIT_ENABLED) return;
+
+    sessionTimerRef.current = setInterval(() => {
+      setSessionSecondsRemaining((prev) => {
+        const newValue = prev - 1;
+
+        // Show warning when approaching limit
+        if (newValue <= SESSION_WARNING_SECONDS && newValue > 0) {
+          setShowExpiryWarning(true);
+        }
+
+        // Auto-end session when time runs out
+        if (newValue <= 0) {
+          console.log("[SESSION] Time limit reached, ending session");
+          onEndCall();
+          return 0;
+        }
+
+        return newValue;
+      });
+    }, 1000);
+
+    return () => {
+      if (sessionTimerRef.current) {
+        clearInterval(sessionTimerRef.current);
+        sessionTimerRef.current = null;
+      }
+    };
+  }, [onEndCall]);
+
   const handleToggleMute = useCallback(() => {
     if (isMuted) {
       startListening();
@@ -646,6 +716,11 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       className="flex-1 flex flex-col items-center justify-center relative safe-area-all w-full"
       style={containerStyle}
     >
+      {/* Session expiry warning */}
+      {showExpiryWarning && (
+        <SessionExpiryWarning secondsRemaining={sessionSecondsRemaining} />
+      )}
+
       {/* Error display */}
       {agentError && (
         <div className="absolute top-4 left-4 right-4 z-50 bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-lg text-sm">
