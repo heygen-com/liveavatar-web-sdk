@@ -39,9 +39,9 @@ import {
 // SESSION LIMIT CONFIGURATION
 // ============================================
 // Toggle: false = no limit (beta), true = enforce limit (production)
-const SESSION_LIMIT_ENABLED = true; // TODO: Set to false before merge
+const SESSION_LIMIT_ENABLED = true;
 // Maximum session duration in minutes
-const SESSION_LIMIT_MINUTES = 1; // TODO: Set to 10 before merge
+const SESSION_LIMIT_MINUTES = 10;
 // Warning before session ends (in seconds)
 const SESSION_WARNING_SECONDS = 30;
 
