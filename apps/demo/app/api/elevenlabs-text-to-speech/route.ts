@@ -1,6 +1,16 @@
+import { auth } from "@/auth";
 import { ELEVENLABS_API_KEY } from "../secrets";
 
 export async function POST(request: Request) {
+  // Auth guard
+  const session = await auth();
+  if (!session?.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const body = await request.json();
     const { text, voice_id = "21m00Tcm4TlvDq8ikWAM" } = body;

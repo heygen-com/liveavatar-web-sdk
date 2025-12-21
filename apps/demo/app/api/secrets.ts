@@ -1,13 +1,28 @@
-export const API_KEY = "YOUR_API_KEY";
+// HeyGen API Configuration
+export const API_KEY = process.env.HEYGEN_API_KEY || "";
 export const API_URL = "https://api.liveavatar.com";
-export const AVATAR_ID = "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a";
+
+// Avatar IDs - Responsive configuration
+// Mobile: Portrait aspect ratio (9:16) - optimized for vertical screens
+export const AVATAR_ID_MOBILE =
+  process.env.HEYGEN_AVATAR_ID_MOBILE || "65cca4cf-b7c8-4619-871f-84e2cf8b21d4";
+// Desktop: Landscape aspect ratio (16:9) - optimized for horizontal screens
+export const AVATAR_ID_DESKTOP =
+  process.env.HEYGEN_AVATAR_ID_DESKTOP ||
+  "073b60a9-89a8-45aa-8902-c358f64d2852";
+// Default fallback (used when no device type specified)
+export const AVATAR_ID = AVATAR_ID_DESKTOP;
 
 // FULL MODE Customizations
-// Wayne's avatar voice and context
-export const VOICE_ID = "c2527536-6d1f-4412-a643-53a3497dada9";
-export const CONTEXT_ID = "5b9dba8a-aa31-11f0-a6ee-066a7fa2e369";
-export const LANGUAGE = "en";
+export const VOICE_ID =
+  process.env.HEYGEN_VOICE_ID || "864a26b8-bfba-4435-9cc5-1dd593de5ca7";
+export const CONTEXT_ID =
+  process.env.HEYGEN_CONTEXT_ID || "a467805d-524f-4435-a578-97ea76f446b1";
+export const LANGUAGE = process.env.HEYGEN_LANGUAGE || "es";
 
 // CUSTOM MODE Customizations
-export const ELEVENLABS_API_KEY = "YOUR_ELEVENLABS_API_KEY";
-export const OPENAI_API_KEY = "YOUR_OPENAI_API_KEY";
+export const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || "";
+export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+
+// ELEVENLABS VOICE AGENT
+export const ELEVENLABS_AGENT_ID = process.env.ELEVENLABS_AGENT_ID || "";
