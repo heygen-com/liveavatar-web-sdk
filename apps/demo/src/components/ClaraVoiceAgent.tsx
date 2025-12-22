@@ -377,7 +377,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
 
   // Session limit state
   const [sessionSecondsRemaining, setSessionSecondsRemaining] = useState(
-    SESSION_LIMIT_MINUTES * 60
+    SESSION_LIMIT_MINUTES * 60,
   );
   const [showExpiryWarning, setShowExpiryWarning] = useState(false);
   const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -395,10 +395,10 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   const gapCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Constants for TWO-PHASE audio sending strategy
-  // Phase 1: Send first chunks IMMEDIATELY (contains first words)
+  // Phase 1: Send first chunks (contains first words) using Chunk-Count-OR-Timeout
   // Phase 2: Buffer remaining chunks with gap detection
-  const IMMEDIATE_SEND_CHUNKS = 2; // Send first 2 chunks without delay (first words)
-  const IMMEDIATE_SEND_DELAY = 80; // ms to wait for chunks to arrive together
+  const IMMEDIATE_SEND_CHUNKS = 3; // Send when we have 3 chunks (enough for first words)
+  const IMMEDIATE_SEND_MAX_DELAY = 200; // ms max wait before sending (fallback for slow networks)
   const CHUNK_GAP_THRESHOLD = 250; // ms gap = end of stream (for remaining chunks)
 
   // Ref for immediate send timeout
@@ -547,30 +547,39 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         `[AUDIO] Chunk #${totalChunksReceivedRef.current} buffered (${currentBufferLength} total)`,
       );
 
-      // TWO-PHASE STRATEGY:
-      // Phase 1: Send first chunks IMMEDIATELY (contains first words - reduces perceived latency)
-      if (
-        !hassentImmediateRef.current &&
-        currentBufferLength <= IMMEDIATE_SEND_CHUNKS
-      ) {
-        // Clear any existing immediate timeout
-        if (immediateSendTimeoutRef.current) {
-          clearTimeout(immediateSendTimeoutRef.current);
+      // TWO-PHASE STRATEGY (Chunk-Count-OR-Timeout):
+      // Phase 1: Send first chunks when we have enough OR max delay reached
+      if (!hassentImmediateRef.current) {
+        // Check if we've reached chunk threshold - send immediately
+        if (currentBufferLength >= IMMEDIATE_SEND_CHUNKS) {
+          if (immediateSendTimeoutRef.current) {
+            clearTimeout(immediateSendTimeoutRef.current);
+            immediateSendTimeoutRef.current = null;
+          }
+          hassentImmediateRef.current = true;
+          console.log(
+            `[AUDIO] PHASE 1: Chunk threshold reached - sending ${audioBufferRef.current.length} chunks`,
+          );
+          sendAllAudioToAvatar();
+          return;
         }
 
-        // Wait a tiny bit for chunks to arrive together, then send
-        immediateSendTimeoutRef.current = setTimeout(() => {
-          if (
-            audioBufferRef.current.length > 0 &&
-            !hassentImmediateRef.current
-          ) {
-            hassentImmediateRef.current = true;
-            console.log(
-              `[AUDIO] PHASE 1: Immediate send ${audioBufferRef.current.length} chunks (first words)`,
-            );
-            sendAllAudioToAvatar();
-          }
-        }, IMMEDIATE_SEND_DELAY);
+        // Not enough chunks yet - set timeout (only once, don't reset on each chunk)
+        if (!immediateSendTimeoutRef.current) {
+          immediateSendTimeoutRef.current = setTimeout(() => {
+            if (
+              audioBufferRef.current.length > 0 &&
+              !hassentImmediateRef.current
+            ) {
+              hassentImmediateRef.current = true;
+              console.log(
+                `[AUDIO] PHASE 1: Max delay reached - sending ${audioBufferRef.current.length} chunks`,
+              );
+              sendAllAudioToAvatar();
+            }
+            immediateSendTimeoutRef.current = null;
+          }, IMMEDIATE_SEND_MAX_DELAY);
+        }
         return;
       }
 
@@ -580,9 +589,12 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       }
     },
     onAgentResponseEnd: () => {
-      // Agent finished speaking - send immediately (faster than timeout)
-      console.log("[AUDIO] agent_response_end received, sending all audio now");
+      // Agent finished speaking - send any remaining audio immediately
+      console.log(
+        "[AUDIO] agent_response_end received, sending remaining audio",
+      );
       sendAllAudioToAvatar();
+      hassentImmediateRef.current = false; // Reset for next response
     },
     onInterruption: () => {
       // User interrupted - NOW we clear the buffer (old response audio)
