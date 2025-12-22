@@ -1,0 +1,45 @@
+# Clara Voice Agent - Session Progress
+
+## Session: 2025-12-21
+
+### Completed
+- [x] Session limit feature (10 min max, 30s warning)
+- [x] Vercel PR preview workflow configured
+- [x] PR #1 merged to master
+- [x] Production deploy successful
+
+### Key Decisions
+- Vercel preview: Use PR workflow instead of dedicated develop branch
+- Framework settings: Keep Root Directory = apps/demo, Framework = Next.js
+- Session limit: Enabled by default, 10 minutes, configurable via constants
+
+### Technical Fixes
+- Fixed React setState error (calling onEndCall inside state setter)
+- Separated timer logic into two useEffects to avoid render-phase updates
+
+### Files Modified
+- apps/demo/src/components/ClaraVoiceAgent.tsx (session limit feature)
+- .github/BRANCH_STRATEGY.md (documentation)
+- CLAUDE.md (updated with workflow)
+
+### Production URLs
+- Production: https://clara-beauty.vercel.app
+- Preview: Via PR to master (auto-generated)
+
+---
+
+## Bugs Identified (Pending)
+
+| ID | Description | Priority | Status |
+|----|-------------|----------|--------|
+| #2 | Memory leak - event listeners not cleaned | Medium | Pending |
+| #3 | Race condition in audio buffer | Medium | Pending |
+| #4 | No HeyGen reconnection on disconnect | Low | Pending |
+| #5 | Silent failure on mic permission denied | Medium | Pending |
+
+---
+
+## Next Session Recommendations
+1. Fix bug #2 (memory leak) - most impactful
+2. Fix bug #5 (mic permission UX)
+3. Consider adding session analytics/logging

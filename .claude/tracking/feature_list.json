@@ -1,0 +1,87 @@
+{
+  "project": "Clara Voice Agent",
+  "lastUpdated": "2025-12-21",
+  "features": [
+    {
+      "id": "core-voice-agent",
+      "name": "Core Voice Agent",
+      "description": "ElevenLabs STT/TTS + LLM integration",
+      "priority": "HIGH",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "heygen-lipsync",
+      "name": "HeyGen Lip Sync",
+      "description": "Avatar lip-sync with audio",
+      "priority": "HIGH",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "safari-fallback",
+      "name": "Safari iOS Support",
+      "description": "Banner warning + fallback for Safari",
+      "priority": "MEDIUM",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "session-limit",
+      "name": "Session Time Limit",
+      "description": "10 min max session with 30s warning",
+      "priority": "HIGH",
+      "status": "completed",
+      "passes": true,
+      "completedDate": "2025-12-21",
+      "config": {
+        "enabled": true,
+        "limitMinutes": 10,
+        "warningSeconds": 30
+      }
+    },
+    {
+      "id": "memory-leak-fix",
+      "name": "Memory Leak Fix",
+      "description": "Clean up event listeners on unmount",
+      "priority": "MEDIUM",
+      "status": "pending",
+      "passes": false
+    },
+    {
+      "id": "audio-race-condition",
+      "name": "Audio Buffer Race Condition",
+      "description": "Fix race condition in audio processing",
+      "priority": "MEDIUM",
+      "status": "pending",
+      "passes": false
+    },
+    {
+      "id": "heygen-reconnect",
+      "name": "HeyGen Auto Reconnect",
+      "description": "Reconnect avatar on disconnect",
+      "priority": "LOW",
+      "status": "pending",
+      "passes": false
+    },
+    {
+      "id": "mic-permission-ux",
+      "name": "Mic Permission UX",
+      "description": "Show clear error when mic denied",
+      "priority": "MEDIUM",
+      "status": "pending",
+      "passes": false
+    }
+  ],
+  "deployments": {
+    "production": {
+      "url": "https://clara-beauty.vercel.app",
+      "branch": "master",
+      "status": "live"
+    },
+    "preview": {
+      "method": "PR to master",
+      "status": "working"
+    }
+  }
+}

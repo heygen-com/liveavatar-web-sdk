@@ -1,0 +1,27 @@
+{
+  "lastUpdated": "2025-12-21",
+  "blockers": [],
+  "resolved": [
+    {
+      "id": "vercel-preview",
+      "description": "Vercel preview deployments failing with monorepo",
+      "resolvedDate": "2025-12-21",
+      "solution": "Use PR workflow instead of dedicated branch. PRs to master auto-generate previews using production config.",
+      "learnings": [
+        "workspace:* dependencies don't work when Root Directory is a subdirectory",
+        "Framework=Other doesn't know how to serve Next.js output",
+        "PR previews inherit production settings"
+      ]
+    },
+    {
+      "id": "react-setstate-error",
+      "description": "Cannot update component while rendering another component",
+      "resolvedDate": "2025-12-21",
+      "solution": "Separate timer countdown from session end logic into two useEffects",
+      "learnings": [
+        "Never call functions that update other components inside setState callbacks",
+        "Use separate useEffect to react to state changes"
+      ]
+    }
+  ]
+}
