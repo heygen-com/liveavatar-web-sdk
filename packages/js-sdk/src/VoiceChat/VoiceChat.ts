@@ -14,7 +14,11 @@ import {
   VoiceChatEvent,
   VoiceChatEventCallbacks,
 } from "./events";
-import { VoiceChatConfig, VoiceChatMode, VoiceChatState } from "./types";
+import {
+  VoiceChatConfig,
+  SessionInteractivityMode,
+  VoiceChatState,
+} from "./types";
 import { initEventPromise } from "../utils/initEventPromise";
 import { LIVEKIT_COMMAND_CHANNEL_TOPIC } from "../const";
 
@@ -22,7 +26,7 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
   private readonly room: Room;
   private _state: VoiceChatState = VoiceChatState.INACTIVE;
   private track: LocalAudioTrack | null = null;
-  private mode: VoiceChatMode | null = null;
+  private mode: SessionInteractivityMode | null = null;
   private pushToTalkStarted: boolean = false;
 
   constructor(room: Room) {
@@ -37,7 +41,7 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
     );
   }
 
-  public setMode(mode: VoiceChatMode): void {
+  public setMode(mode: SessionInteractivityMode): void {
     if (this.mode) {
       console.warn("Voice chat mode can only be set once");
       return;
@@ -66,7 +70,11 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
 
     this.state = VoiceChatState.STARTING;
 
-    const { defaultMuted, deviceId } = config;
+    const { defaultMuted, deviceId, mode } = config;
+
+    if (mode) {
+      this.setMode(mode);
+    }
 
     this.track = await createLocalAudioTrack({
       echoCancellation: true,
@@ -151,7 +159,7 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
       return;
     }
 
-    if (this.mode !== VoiceChatMode.PUSH_TO_TALK) {
+    if (this.mode !== SessionInteractivityMode.PUSH_TO_TALK) {
       console.warn("Push to talk can only be started in push to talk mode");
       return;
     }
@@ -200,7 +208,9 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
   }
 
   private sendPushToTalkCommand(command: PushToTalkCommandEvent): void {
-    const data = new TextEncoder().encode(JSON.stringify(command));
+    const data = new TextEncoder().encode(
+      JSON.stringify({ event_type: command }),
+    );
     this.room.localParticipant.publishData(data, {
       reliable: true,
       topic: LIVEKIT_COMMAND_CHANNEL_TOPIC,

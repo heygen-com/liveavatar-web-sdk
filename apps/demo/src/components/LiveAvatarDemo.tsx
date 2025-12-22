@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { LiveAvatarSession } from "./LiveAvatarSession";
 
+export type SessionMode = "FULL" | "FULL_PTT" | "CUSTOM";
+
 export const LiveAvatarDemo = () => {
   const [sessionToken, setSessionToken] = useState("");
-  const [mode, setMode] = useState<"FULL" | "CUSTOM">("FULL");
+  const [mode, setMode] = useState<SessionMode>("FULL");
   const [error, setError] = useState<string | null>(null);
 
-  const handleStart = async () => {
+  const handleStartFullSession = async (pushToTalk: boolean = false) => {
     try {
       const res = await fetch("/api/start-session", {
         method: "POST",
@@ -20,7 +22,7 @@ export const LiveAvatarDemo = () => {
       }
       const { session_token } = await res.json();
       setSessionToken(session_token);
-      setMode("FULL");
+      setMode(pushToTalk ? "FULL_PTT" : "FULL");
     } catch (error: unknown) {
       setError((error as Error).message);
     }
@@ -55,10 +57,17 @@ export const LiveAvatarDemo = () => {
             </div>
           )}
           <button
-            onClick={handleStart}
+            onClick={() => handleStartFullSession(false)}
             className="w-fit bg-white text-black px-4 py-2 rounded-md"
           >
             Start Full Avatar Session
+          </button>
+
+          <button
+            onClick={() => handleStartFullSession(true)}
+            className="w-fit bg-white text-black px-4 py-2 rounded-md"
+          >
+            Start Full Avatar Session (Push To Talk)
           </button>
 
           <button

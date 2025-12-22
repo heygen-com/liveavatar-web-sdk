@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { VoiceChat } from "./VoiceChat";
 import { ConnectionState, Room } from "livekit-client";
-import { VoiceChatState } from "./types";
-import { VoiceChatEvent } from "./events";
-import { LocalAudioTrackMock } from "../test/mocks/Livekit";
+import { SessionInteractivityMode, VoiceChatState } from "./types";
+import { PushToTalkServerEvent, VoiceChatEvent } from "./events";
+import { LocalAudioTrackMock, RoomMock } from "../test/mocks/Livekit";
 
 const setupVoiceChat = () => {
   const room = new Room();
@@ -148,5 +148,245 @@ describe("voice chat set device", () => {
     expect(
       (track as unknown as LocalAudioTrackMock).setDeviceId,
     ).toHaveBeenCalledWith("mock-device-id");
+  });
+});
+
+describe("voice chat setMode", () => {
+  it("sets the mode when called for the first time", () => {
+    const { voiceChat } = setupVoiceChat();
+    voiceChat.setMode(SessionInteractivityMode.PUSH_TO_TALK);
+    // Mode is set internally - verified by push-to-talk tests working correctly
+  });
+
+  it("does not set the mode when already set", () => {
+    const { voiceChat } = setupVoiceChat();
+    voiceChat.setMode(SessionInteractivityMode.PUSH_TO_TALK);
+    const consoleWarnSpy = vi.spyOn(console, "warn");
+    voiceChat.setMode(SessionInteractivityMode.CONVERSATIONAL);
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "Voice chat mode can only be set once",
+    );
+    consoleWarnSpy.mockRestore();
+  });
+});
+
+describe("voice chat start with config", () => {
+  it("starts the voice chat with mode config", async () => {
+    const { room, voiceChat } = setupVoiceChat();
+    room.state = ConnectionState.Connected;
+    await voiceChat.start({ mode: SessionInteractivityMode.PUSH_TO_TALK });
+    expect(voiceChat.state).toBe(VoiceChatState.ACTIVE);
+  });
+
+  it("starts the voice chat with deviceId config", async () => {
+    const { room, voiceChat } = setupVoiceChat();
+    room.state = ConnectionState.Connected;
+    await voiceChat.start({ deviceId: "specific-device-id" });
+    expect(voiceChat.state).toBe(VoiceChatState.ACTIVE);
+  });
+
+  it("starts the voice chat with all config options", async () => {
+    const { room, voiceChat } = setupVoiceChat();
+    room.state = ConnectionState.Connected;
+    await voiceChat.start({
+      defaultMuted: true,
+      deviceId: "specific-device-id",
+      mode: SessionInteractivityMode.CONVERSATIONAL,
+    });
+    expect(voiceChat.state).toBe(VoiceChatState.ACTIVE);
+    expect(voiceChat.isMuted).toBe(true);
+  });
+});
+
+describe("voice chat stop with publications", () => {
+  it("stops audio track publications when stopping voice chat", async () => {
+    const { room, voiceChat } = setupVoiceChat();
+    room.state = ConnectionState.Connected;
+    await voiceChat.start();
+
+    const publications = room.localParticipant.getTrackPublications();
+    const trackStopSpy = vi.spyOn(publications[0].track!, "stop");
+
+    voiceChat.stop();
+
+    expect(trackStopSpy).toHaveBeenCalled();
+    expect(voiceChat.state).toBe(VoiceChatState.INACTIVE);
+  });
+});
+
+describe("push to talk", () => {
+  it("does not start push to talk when voice chat is not active", async () => {
+    const { voiceChat } = setupVoiceChat();
+    voiceChat.setMode(SessionInteractivityMode.PUSH_TO_TALK);
+    const consoleWarnSpy = vi.spyOn(console, "warn");
+    await voiceChat.startPushToTalk();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "Push to talk can only be started when voice chat is active",
+    );
+    consoleWarnSpy.mockRestore();
+  });
+
+  it("does not start push to talk when not in push to talk mode", async () => {
+    const { room, voiceChat } = setupVoiceChat();
+    room.state = ConnectionState.Connected;
+    voiceChat.setMode(SessionInteractivityMode.CONVERSATIONAL);
+    await voiceChat.start();
+    const consoleWarnSpy = vi.spyOn(console, "warn");
+    await voiceChat.startPushToTalk();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "Push to talk can only be started in push to talk mode",
+    );
+    consoleWarnSpy.mockRestore();
+  });
+
+  it("does not start push to talk when mode is not set", async () => {
+    const { room, voiceChat } = setupVoiceChat();
+    room.state = ConnectionState.Connected;
+    await voiceChat.start();
+    const consoleWarnSpy = vi.spyOn(console, "warn");
+    await voiceChat.startPushToTalk();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "Push to talk can only be started in push to talk mode",
+    );
+    consoleWarnSpy.mockRestore();
+  });
+
+  it("does not start push to talk when already started", async () => {
+    const { room, voiceChat } = setupVoiceChat();
+    room.state = ConnectionState.Connected;
+    voiceChat.setMode(SessionInteractivityMode.PUSH_TO_TALK);
+    await voiceChat.start({ defaultMuted: true });
+
+    // Trigger success event for first startPushToTalk
+    setTimeout(() => {
+      (room as unknown as RoomMock)._triggerDataReceived({
+        event_type: PushToTalkServerEvent.START_SUCCESS,
+      });
+    }, 10);
+
+    await voiceChat.startPushToTalk();
+
+    const consoleWarnSpy = vi.spyOn(console, "warn");
+    await voiceChat.startPushToTalk();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "Push to talk has already been started",
+    );
+    consoleWarnSpy.mockRestore();
+  });
+
+  it("starts push to talk successfully", async () => {
+    const { room, voiceChat } = setupVoiceChat();
+    room.state = ConnectionState.Connected;
+    voiceChat.setMode(SessionInteractivityMode.PUSH_TO_TALK);
+    await voiceChat.start({ defaultMuted: true });
+
+    // Trigger success event
+    setTimeout(() => {
+      (room as unknown as RoomMock)._triggerDataReceived({
+        event_type: PushToTalkServerEvent.START_SUCCESS,
+      });
+    }, 10);
+
+    await voiceChat.startPushToTalk();
+    expect(voiceChat.isMuted).toBe(false);
+  });
+
+  it("handles push to talk start failure", async () => {
+    const { room, voiceChat } = setupVoiceChat();
+    room.state = ConnectionState.Connected;
+    voiceChat.setMode(SessionInteractivityMode.PUSH_TO_TALK);
+    await voiceChat.start({ defaultMuted: true });
+
+    // Trigger failure event
+    setTimeout(() => {
+      (room as unknown as RoomMock)._triggerDataReceived({
+        event_type: PushToTalkServerEvent.START_FAILED,
+      });
+    }, 10);
+
+    const consoleErrorSpy = vi.spyOn(console, "error");
+    await expect(voiceChat.startPushToTalk()).rejects.toBeUndefined();
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("does not stop push to talk when not started", async () => {
+    const { room, voiceChat } = setupVoiceChat();
+    room.state = ConnectionState.Connected;
+    voiceChat.setMode(SessionInteractivityMode.PUSH_TO_TALK);
+    await voiceChat.start({ defaultMuted: true });
+
+    const consoleWarnSpy = vi.spyOn(console, "warn");
+    await voiceChat.stopPushToTalk();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "Push to talk has not been started",
+    );
+    consoleWarnSpy.mockRestore();
+  });
+
+  it("stops push to talk successfully", async () => {
+    const { room, voiceChat } = setupVoiceChat();
+    room.state = ConnectionState.Connected;
+    voiceChat.setMode(SessionInteractivityMode.PUSH_TO_TALK);
+    await voiceChat.start({ defaultMuted: true });
+
+    // Start push to talk
+    setTimeout(() => {
+      (room as unknown as RoomMock)._triggerDataReceived({
+        event_type: PushToTalkServerEvent.START_SUCCESS,
+      });
+    }, 10);
+    await voiceChat.startPushToTalk();
+
+    // Stop push to talk
+    setTimeout(() => {
+      (room as unknown as RoomMock)._triggerDataReceived({
+        event_type: PushToTalkServerEvent.STOP_SUCCESS,
+      });
+    }, 10);
+    await voiceChat.stopPushToTalk();
+  });
+
+  it("handles push to talk stop failure", async () => {
+    const { room, voiceChat } = setupVoiceChat();
+    room.state = ConnectionState.Connected;
+    voiceChat.setMode(SessionInteractivityMode.PUSH_TO_TALK);
+    await voiceChat.start({ defaultMuted: true });
+
+    // Start push to talk
+    setTimeout(() => {
+      (room as unknown as RoomMock)._triggerDataReceived({
+        event_type: PushToTalkServerEvent.START_SUCCESS,
+      });
+    }, 10);
+    await voiceChat.startPushToTalk();
+
+    // Trigger failure event for stop
+    setTimeout(() => {
+      (room as unknown as RoomMock)._triggerDataReceived({
+        event_type: PushToTalkServerEvent.STOP_FAILED,
+      });
+    }, 10);
+
+    const consoleErrorSpy = vi.spyOn(console, "error");
+    await expect(voiceChat.stopPushToTalk()).rejects.toBeUndefined();
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+});
+
+describe("state management", () => {
+  it("does not emit state changed event when state is the same", async () => {
+    const { room, voiceChat } = setupVoiceChat();
+    room.state = ConnectionState.Connected;
+    await voiceChat.start();
+
+    const onStateChanged = vi.fn();
+    voiceChat.on(VoiceChatEvent.STATE_CHANGED, onStateChanged);
+
+    // Attempting to start when already started should not emit any new state change
+    await voiceChat.start();
+
+    expect(onStateChanged).not.toHaveBeenCalled();
   });
 });

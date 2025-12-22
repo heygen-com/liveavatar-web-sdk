@@ -1,4 +1,4 @@
-import { VoiceChatConfig, VoiceChatMode } from "../VoiceChat";
+import { VoiceChatConfig } from "../VoiceChat";
 
 export enum SessionState {
   INACTIVE = "INACTIVE",
@@ -23,7 +23,6 @@ export interface SessionConfig {
 export interface SessionInfo {
   session_id: string;
   max_session_duration: number | null;
-  voice_chat_mode: VoiceChatMode;
   // For FULL mode will always be present
   // For CUSTOM mode, may be null
   livekit_url?: string;

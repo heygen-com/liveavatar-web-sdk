@@ -9,6 +9,7 @@ import {
 } from "../liveavatar";
 import { SessionState } from "@heygen/liveavatar-web-sdk";
 import { useAvatarActions } from "../liveavatar/useAvatarActions";
+import { SessionMode } from "./LiveAvatarDemo";
 
 const Button: React.FC<{
   onClick: () => void;
@@ -27,7 +28,7 @@ const Button: React.FC<{
 };
 
 const LiveAvatarSessionComponent: React.FC<{
-  mode: "FULL" | "CUSTOM";
+  mode: SessionMode;
   onSessionStopped: () => void;
 }> = ({ mode, onSessionStopped }) => {
   const [message, setMessage] = useState("");
@@ -54,10 +55,14 @@ const LiveAvatarSessionComponent: React.FC<{
     stopPushToTalk,
   } = useVoiceChat();
 
+  // For useAvatarActions, treat FULL_PTT as FULL since they share the same API
+  const avatarActionsMode = mode === "FULL_PTT" ? "FULL" : mode;
   const { interrupt, repeat, startListening, stopListening } =
-    useAvatarActions(mode);
+    useAvatarActions(avatarActionsMode);
 
-  const { sendMessage } = useTextChat(mode);
+  // For useTextChat, treat FULL_PTT as FULL since they share the same API
+  const textChatMode = mode === "FULL_PTT" ? "FULL" : mode;
+  const { sendMessage } = useTextChat(textChatMode);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -148,11 +153,17 @@ const LiveAvatarSessionComponent: React.FC<{
       <div className="w-full h-full flex flex-col items-center justify-center gap-4">
         <p>Session state: {sessionState}</p>
         <p>Connection quality: {connectionQuality}</p>
-        {mode === "FULL" && (
+        {(mode === "FULL" || mode === "FULL_PTT") && (
           <p>User talking: {isUserTalking ? "true" : "false"}</p>
         )}
         <p>Avatar talking: {isAvatarTalking ? "true" : "false"}</p>
         {mode === "FULL" && VoiceChatComponents}
+        {mode === "FULL_PTT" && (
+          <div className="flex flex-row items-center justify-center gap-4">
+            <Button onClick={startListening}>Start Listening (PTT)</Button>
+            <Button onClick={stopListening}>Stop Listening (PTT)</Button>
+          </div>
+        )}
         <Button
           onClick={() => {
             keepAlive();
@@ -161,20 +172,6 @@ const LiveAvatarSessionComponent: React.FC<{
           Keep Alive
         </Button>
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
-          <Button
-            onClick={() => {
-              startListening();
-            }}
-          >
-            Start Listening
-          </Button>
-          <Button
-            onClick={() => {
-              stopListening();
-            }}
-          >
-            Stop Listening
-          </Button>
           <Button
             onClick={() => {
               interrupt();
@@ -213,7 +210,7 @@ const LiveAvatarSessionComponent: React.FC<{
 };
 
 export const LiveAvatarSession: React.FC<{
-  mode: "FULL" | "CUSTOM";
+  mode: SessionMode;
   sessionAccessToken: string;
   onSessionStopped: () => void;
 }> = ({ mode, sessionAccessToken, onSessionStopped }) => {

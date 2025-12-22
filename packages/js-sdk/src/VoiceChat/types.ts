@@ -1,6 +1,7 @@
 export interface VoiceChatConfig {
   defaultMuted?: boolean;
   deviceId?: ConstrainDOMString;
+  mode?: SessionInteractivityMode;
 }
 
 export enum VoiceChatState {
@@ -9,7 +10,7 @@ export enum VoiceChatState {
   ACTIVE = "ACTIVE",
 }
 
-export enum VoiceChatMode {
-  DEFAULT = "DEFAULT",
+export enum SessionInteractivityMode {
+  CONVERSATIONAL = "CONVERSATIONAL",
   PUSH_TO_TALK = "PUSH_TO_TALK",
 }

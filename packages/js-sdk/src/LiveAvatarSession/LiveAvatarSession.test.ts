@@ -9,7 +9,7 @@ import {
 import { mockFetch } from "../test/utils/mockFetch";
 import { testContext } from "../test/utils/testContext";
 import { AgentEventsEnum, CommandEventsEnum, SessionEvent } from "./events";
-import { VoiceChatEvent, VoiceChatMode, VoiceChatState } from "../VoiceChat";
+import { VoiceChatEvent, VoiceChatState } from "../VoiceChat";
 import { mockWebSocket } from "../test/utils/mockWebSocket";
 import { API_URL, LIVEKIT_COMMAND_CHANNEL_TOPIC } from "../const";
 import { ConnectionQuality as LiveKitConnectionQuality } from "livekit-client";
@@ -24,7 +24,6 @@ const sessionInfoMock: SessionInfo = {
   max_session_duration: null,
   livekit_url: "mock-livekit-url",
   livekit_client_token: "mock-livekit-client-token",
-  voice_chat_mode: VoiceChatMode.DEFAULT,
 };
 
 const setupLiveAvatarSession = ({

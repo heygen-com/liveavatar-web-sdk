@@ -131,7 +131,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       }
 
       // Run configurations as needed
-      await this.configureSession(this._sessionInfo);
+      await this.configureSession();
       this.state = SessionState.CONNECTED;
     } catch (error) {
       console.error("Session start failed:", error);
@@ -396,8 +396,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     this.postStop(SessionDisconnectReason.UNKNOWN_REASON);
   }
 
-  private async configureSession(sessionInfo: SessionInfo): Promise<void> {
-    this.voiceChat.setMode(sessionInfo.voice_chat_mode);
+  private async configureSession(): Promise<void> {
     if (this.config.voiceChat) {
       await this.voiceChat.start(
         typeof this.config.voiceChat === "boolean" ? {} : this.config.voiceChat,
