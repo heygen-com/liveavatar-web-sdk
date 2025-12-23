@@ -563,6 +563,16 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       console.log("[AUDIO] agent_response_end received, sending all audio now");
       sendAllAudioToAvatar();
     },
+    onAgentResponse: () => {
+      // Agent is responding - if interruption was pending, unblock now
+      // This handles cases where ElevenLabs doesn't send 'interruption' event
+      if (isInterruptionPendingRef.current) {
+        console.log(
+          "[AUDIO] agent_response received while blocked - unblocking",
+        );
+        isInterruptionPendingRef.current = false;
+      }
+    },
     onInterruption: () => {
       // ElevenLabs confirmed interruption - unblock new chunks
       console.log("[AUDIO] Interruption confirmed by ElevenLabs - unblocking");
