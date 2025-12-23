@@ -394,8 +394,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   const lastChunkTimeRef = useRef<number>(0);
   const gapCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Interruption handling - block old chunks, add leading silence
-  const isInterruptionPendingRef = useRef(false);
+  // Leading silence flag - add silence after interrupt to give HeyGen time
   const isAfterInterruptRef = useRef(false);
 
   // Gap threshold: 300ms without new chunks = stream ended, send all
@@ -538,13 +537,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     error: agentError,
   } = useElevenLabsAgent({
     onAudioData: (audioBase64) => {
-      // Ignore chunks while interruption is pending (old audio from previous response)
-      if (isInterruptionPendingRef.current) {
-        console.log("[AUDIO] Chunk ignored - interruption pending");
-        return;
-      }
-
-      // Accumulate chunk
+      // Accumulate all chunks - ElevenLabs streams new response immediately
       totalChunksReceivedRef.current++;
       audioBufferRef.current.push(audioBase64);
       lastChunkTimeRef.current = Date.now();
@@ -564,27 +557,12 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       sendAllAudioToAvatar();
     },
     onAgentResponse: () => {
-      // Agent is responding - if interruption was pending, unblock now
-      // This handles cases where ElevenLabs doesn't send 'interruption' event
-      if (isInterruptionPendingRef.current) {
-        console.log(
-          "[AUDIO] agent_response received while blocked - unblocking",
-        );
-        isInterruptionPendingRef.current = false;
-      }
+      // Agent started responding - just log for debugging
+      console.log("[AUDIO] agent_response received - new response starting");
     },
     onInterruption: () => {
-      // ElevenLabs confirmed interruption - unblock new chunks
-      console.log("[AUDIO] Interruption confirmed by ElevenLabs - unblocking");
-      isInterruptionPendingRef.current = false;
-
-      // Clear any remaining buffer (should already be empty)
-      if (gapCheckIntervalRef.current) {
-        clearInterval(gapCheckIntervalRef.current);
-        gapCheckIntervalRef.current = null;
-      }
-      audioBufferRef.current = [];
-      totalChunksReceivedRef.current = 0;
+      // ElevenLabs confirmed user interrupted - avatar already interrupted in onUserTranscript
+      console.log("[AUDIO] Interruption confirmed by ElevenLabs");
     },
     onUserTranscript: (text) => {
       console.log("[AUDIO] User said:", text);
@@ -596,14 +574,13 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         return;
       }
 
-      // BLOCK old chunks immediately - don't wait for ElevenLabs confirmation
-      isInterruptionPendingRef.current = true;
-      // Flag to add leading silence on next response (only if there was audio playing)
+      // Flag to add leading silence on next response (gives HeyGen time after interrupt)
       if (audioBufferRef.current.length > 0 || isSpeaking) {
         isAfterInterruptRef.current = true;
       }
 
-      // Clear buffer and stop gap detection
+      // Clear OLD buffer and stop gap detection
+      // New chunks from ElevenLabs will start accumulating fresh
       if (gapCheckIntervalRef.current) {
         clearInterval(gapCheckIntervalRef.current);
         gapCheckIntervalRef.current = null;
@@ -611,8 +588,8 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       audioBufferRef.current = [];
       totalChunksReceivedRef.current = 0;
 
-      // Interrupt avatar immediately
-      console.log("[AUDIO] Blocking old chunks, interrupting avatar");
+      // Interrupt avatar immediately to stop old audio
+      console.log("[AUDIO] User spoke - clearing buffer, interrupting avatar");
       if (sessionRef.current) {
         try {
           sessionRef.current.interrupt();
