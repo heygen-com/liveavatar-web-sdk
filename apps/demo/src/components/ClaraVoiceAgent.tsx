@@ -394,9 +394,32 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   const lastChunkTimeRef = useRef<number>(0);
   const gapCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Interruption handling - block old chunks, add leading silence
+  const isInterruptionPendingRef = useRef(false);
+  const isAfterInterruptRef = useRef(false);
+
   // Gap threshold: 300ms without new chunks = stream ended, send all
   // ElevenLabs sends chunks every ~150ms, so 300ms ensures we accumulate multiple chunks
   const CHUNK_GAP_THRESHOLD = 300;
+  // Leading silence duration in ms (gives HeyGen time to process interrupt)
+  const LEADING_SILENCE_MS = 150;
+
+  // Generate silence in PCM 16-bit signed, 24kHz mono format (base64)
+  const generateSilence = useCallback((durationMs: number): string => {
+    const sampleRate = 24000;
+    const numSamples = Math.floor((durationMs / 1000) * sampleRate);
+    // PCM 16-bit = 2 bytes per sample
+    const buffer = new Uint8Array(numSamples * 2);
+    // All zeros = silence (16-bit signed PCM)
+    // buffer is already filled with zeros by default
+
+    // Convert to base64
+    let binary = "";
+    for (let i = 0; i < buffer.length; i++) {
+      binary += String.fromCharCode(buffer[i]!);
+    }
+    return btoa(binary);
+  }, []);
 
   // Concatenate base64 audio chunks into a single base64 string
   const concatenateBase64Audio = useCallback((chunks: string[]): string => {
@@ -452,8 +475,21 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     audioBufferRef.current = [];
 
     // Concatenate all chunks into one
-    const concatenatedAudio = concatenateBase64Audio(chunks);
+    let concatenatedAudio = concatenateBase64Audio(chunks);
     if (!concatenatedAudio || !sessionRef.current) return;
+
+    // Add leading silence after interruption to give HeyGen time to process
+    if (isAfterInterruptRef.current) {
+      const silenceBase64 = generateSilence(LEADING_SILENCE_MS);
+      concatenatedAudio = concatenateBase64Audio([
+        silenceBase64,
+        concatenatedAudio,
+      ]);
+      isAfterInterruptRef.current = false;
+      console.log(
+        `[AUDIO] Added ${LEADING_SILENCE_MS}ms leading silence after interrupt`,
+      );
+    }
 
     const sizeKB = Math.round(concatenatedAudio.length / 1024);
     console.log(`[AUDIO] Sending ${chunks.length} chunks, ${sizeKB}KB total`);
@@ -463,7 +499,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     } catch (error) {
       console.error("Error sending audio to avatar:", error);
     }
-  }, [concatenateBase64Audio, sessionRef]);
+  }, [concatenateBase64Audio, generateSilence, sessionRef]);
 
   // Start gap detection - checks if stream ended by detecting pause between chunks
   const startGapDetection = useCallback(() => {
@@ -502,6 +538,12 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     error: agentError,
   } = useElevenLabsAgent({
     onAudioData: (audioBase64) => {
+      // Ignore chunks while interruption is pending (old audio from previous response)
+      if (isInterruptionPendingRef.current) {
+        console.log("[AUDIO] Chunk ignored - interruption pending");
+        return;
+      }
+
       // Accumulate chunk
       totalChunksReceivedRef.current++;
       audioBufferRef.current.push(audioBase64);
@@ -522,8 +564,11 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       sendAllAudioToAvatar();
     },
     onInterruption: () => {
-      // User interrupted - clear the buffer
-      console.log("[AUDIO] Interruption confirmed - clearing buffer");
+      // ElevenLabs confirmed interruption - unblock new chunks
+      console.log("[AUDIO] Interruption confirmed by ElevenLabs - unblocking");
+      isInterruptionPendingRef.current = false;
+
+      // Clear any remaining buffer (should already be empty)
       if (gapCheckIntervalRef.current) {
         clearInterval(gapCheckIntervalRef.current);
         gapCheckIntervalRef.current = null;
@@ -541,15 +586,23 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         return;
       }
 
-      // Clear buffer and interrupt avatar
+      // BLOCK old chunks immediately - don't wait for ElevenLabs confirmation
+      isInterruptionPendingRef.current = true;
+      // Flag to add leading silence on next response (only if there was audio playing)
+      if (audioBufferRef.current.length > 0 || isSpeaking) {
+        isAfterInterruptRef.current = true;
+      }
+
+      // Clear buffer and stop gap detection
       if (gapCheckIntervalRef.current) {
         clearInterval(gapCheckIntervalRef.current);
         gapCheckIntervalRef.current = null;
       }
       audioBufferRef.current = [];
       totalChunksReceivedRef.current = 0;
-      console.log("[AUDIO] Buffer cleared, interrupting avatar");
 
+      // Interrupt avatar immediately
+      console.log("[AUDIO] Blocking old chunks, interrupting avatar");
       if (sessionRef.current) {
         try {
           sessionRef.current.interrupt();
