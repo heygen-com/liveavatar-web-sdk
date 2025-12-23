@@ -394,8 +394,9 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   const lastChunkTimeRef = useRef<number>(0);
   const gapCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Gap threshold: 150ms without new chunks = stream ended, send all
-  const CHUNK_GAP_THRESHOLD = 150;
+  // Gap threshold: 300ms without new chunks = stream ended, send all
+  // ElevenLabs sends chunks every ~150ms, so 300ms ensures we accumulate multiple chunks
+  const CHUNK_GAP_THRESHOLD = 300;
 
   // Concatenate base64 audio chunks into a single base64 string
   const concatenateBase64Audio = useCallback((chunks: string[]): string => {
