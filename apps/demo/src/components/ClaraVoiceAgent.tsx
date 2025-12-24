@@ -671,6 +671,24 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     }
   }, [isMuted, startListening, stopListening]);
 
+  // Cleanup on unmount - prevent memory leaks from intervals
+  useEffect(() => {
+    return () => {
+      // Cleanup gap detection interval
+      if (gapCheckIntervalRef.current) {
+        clearInterval(gapCheckIntervalRef.current);
+        gapCheckIntervalRef.current = null;
+      }
+      // Cleanup session timer
+      if (sessionTimerRef.current) {
+        clearInterval(sessionTimerRef.current);
+        sessionTimerRef.current = null;
+      }
+      // Clear audio buffer
+      audioBufferRef.current = [];
+    };
+  }, []);
+
   const containerStyle =
     fixedHeight && isInIframe
       ? { height: `${fixedHeight}px`, overflow: "hidden" as const }

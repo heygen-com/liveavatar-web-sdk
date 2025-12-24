@@ -26,6 +26,32 @@
 
 ---
 
+## Session: 2025-12-24 (Part 3) - Memory Leak Fix
+
+### Problem Solved
+**Memory leaks causaban degradación de performance** después de múltiples llamadas. Browser se ponía lento.
+
+### Root Causes Identified
+1. **gapCheckIntervalRef** (50ms interval) nunca se limpiaba en unmount
+2. **HeyGen event listeners** (11 listeners) se acumulaban sin cleanup
+
+### Solution
+**Fix 1: ClaraVoiceAgent.tsx**
+- Agregado useEffect de cleanup para limpiar intervals en unmount
+- Limpia: gapCheckIntervalRef, sessionTimerRef, audioBufferRef
+
+**Fix 2: context.tsx**
+- Reescritos 3 hooks con named handlers y cleanup usando `.off()`
+- useSessionState: 3 listeners con cleanup
+- useVoiceChatState: 3 listeners con cleanup
+- useTalkingState: 4 listeners con cleanup
+
+### Files Modified
+- `apps/demo/src/components/ClaraVoiceAgent.tsx` (líneas 674-690)
+- `apps/demo/src/liveavatar/context.tsx` (líneas 66-164)
+
+---
+
 ## Session: 2025-12-24 (Part 2) - Audio First Words Cut Off Fix
 
 ### Problem Solved
@@ -108,11 +134,11 @@ const CHUNK_GAP_THRESHOLD = 500;  // Fallback flush
 
 ---
 
-## Bugs Identified (Pending)
+## Bugs Identified
 
 | ID | Description | Priority | Status |
 |----|-------------|----------|--------|
-| #2 | Memory leak - event listeners not cleaned | Medium | Pending |
+| #2 | Memory leak - event listeners not cleaned | Medium | ✅ Fixed |
 | #3 | Race condition in audio buffer | Medium | Pending |
 | #4 | No HeyGen reconnection on disconnect | Low | Pending |
 | #5 | Silent failure on mic permission denied | Medium | Pending |
@@ -120,6 +146,6 @@ const CHUNK_GAP_THRESHOLD = 500;  // Fallback flush
 ---
 
 ## Next Session Recommendations
-1. Fix bug #2 (memory leak) - most impactful
-2. Fix bug #5 (mic permission UX)
+1. Fix bug #5 (mic permission UX) - better user experience
+2. Fix bug #3 (audio race condition) - edge case
 3. Consider adding session analytics/logging
