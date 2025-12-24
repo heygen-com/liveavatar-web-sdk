@@ -561,8 +561,20 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       console.log("[AUDIO] agent_response received - new response starting");
     },
     onInterruption: () => {
-      // ElevenLabs confirmed user interrupted - avatar already interrupted in onUserTranscript
-      console.log("[AUDIO] Interruption confirmed by ElevenLabs");
+      // ElevenLabs confirmed user actually interrupted the agent
+      // NOW we can safely clear the audio buffer
+      console.log("[AUDIO] Interruption confirmed - clearing buffer");
+
+      // Set flag to add leading silence on next response (gives HeyGen time after interrupt)
+      isAfterInterruptRef.current = true;
+
+      // Clear buffer and stop gap detection
+      if (gapCheckIntervalRef.current) {
+        clearInterval(gapCheckIntervalRef.current);
+        gapCheckIntervalRef.current = null;
+      }
+      audioBufferRef.current = [];
+      totalChunksReceivedRef.current = 0;
     },
     onUserTranscript: (text) => {
       console.log("[AUDIO] User said:", text);
@@ -574,22 +586,10 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         return;
       }
 
-      // Flag to add leading silence on next response (gives HeyGen time after interrupt)
-      if (audioBufferRef.current.length > 0 || isSpeaking) {
-        isAfterInterruptRef.current = true;
-      }
-
-      // Clear OLD buffer and stop gap detection
-      // New chunks from ElevenLabs will start accumulating fresh
-      if (gapCheckIntervalRef.current) {
-        clearInterval(gapCheckIntervalRef.current);
-        gapCheckIntervalRef.current = null;
-      }
-      audioBufferRef.current = [];
-      totalChunksReceivedRef.current = 0;
-
-      // Interrupt avatar immediately to stop old audio
-      console.log("[AUDIO] User spoke - clearing buffer, interrupting avatar");
+      // Only interrupt HeyGen avatar playback - DON'T clear audio buffer
+      // Buffer will be cleared by onInterruption if ElevenLabs confirms actual interruption
+      // This prevents late user_transcript events from destroying buffered audio
+      console.log("[AUDIO] User spoke - interrupting avatar playback");
       if (sessionRef.current) {
         try {
           sessionRef.current.interrupt();
