@@ -1,14 +1,16 @@
 {
   "project": "Clara Voice Agent",
-  "lastUpdated": "2025-12-21",
+  "lastUpdated": "2025-12-24",
   "features": [
     {
       "id": "core-voice-agent",
-      "name": "Core Voice Agent",
-      "description": "ElevenLabs STT/TTS + LLM integration",
+      "name": "Core Voice Agent (ElevenLabs)",
+      "description": "ElevenLabs STT/TTS + LLM integration - PRIMARY OPTION",
       "priority": "HIGH",
       "status": "completed",
-      "passes": true
+      "passes": true,
+      "isPrimary": true,
+      "hook": "useElevenLabsAgent.ts"
     },
     {
       "id": "heygen-lipsync",
@@ -71,13 +73,35 @@
       "priority": "MEDIUM",
       "status": "pending",
       "passes": false
+    },
+    {
+      "id": "openai-realtime-integration",
+      "name": "OpenAI Realtime Voice Agent (Alternative)",
+      "description": "ALTERNATIVE to ElevenLabs - OpenAI Realtime API option",
+      "priority": "MEDIUM",
+      "status": "completed",
+      "passes": true,
+      "isAlternative": true,
+      "primaryOption": "core-voice-agent (ElevenLabs)",
+      "note": "ElevenLabs remains PRIMARY. OpenAI Realtime is optional alternative in separate branch.",
+      "branch": "claude/integrate-openai-voice-agent-h7m2K",
+      "completedDate": "2025-12-24",
+      "hook": "useOpenAIRealtimeAgent.ts",
+      "solution": {
+        "strategy": "Chunking Agrupado",
+        "CHUNK_GROUP_SIZE": 8,
+        "CHUNK_GAP_THRESHOLD": 500,
+        "latency": "~400ms",
+        "audioFormat": "PCM16 24kHz base64"
+      }
     }
   ],
   "deployments": {
     "production": {
       "url": "https://clara-beauty.vercel.app",
       "branch": "master",
-      "status": "live"
+      "status": "live",
+      "voiceAgent": "ElevenLabs"
     },
     "preview": {
       "method": "PR to master",
