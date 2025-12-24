@@ -26,6 +26,31 @@
 
 ---
 
+## Session: 2025-12-24 (Part 2) - Audio First Words Cut Off Fix
+
+### Problem Solved
+**Primeras palabras del audio cortadas** - El agente respondía pero las primeras palabras no se escuchaban (aunque aparecían en logs).
+
+### Root Cause
+ElevenLabs envía múltiples `user_transcript` events (streaming transcription). Transcripts tardíos llegaban DESPUÉS de que chunks de audio ya estaban en buffer, y el código los borraba.
+
+### Solution
+Mover limpieza de buffer de `onUserTranscript` a `onInterruption`:
+- `onUserTranscript`: Solo interrumpe HeyGen avatar (no borra buffer)
+- `onInterruption`: Borra buffer (ElevenLabs confirmó interrupción real)
+
+### Files Modified
+- `apps/demo/src/components/ClaraVoiceAgent.tsx`
+  - `onInterruption` (563-578): Añadida lógica de limpieza de buffer
+  - `onUserTranscript` (579-600): Removida limpieza de buffer
+
+### Commit
+```
+8921ad6 fix: prevent late user_transcript from clearing audio buffer
+```
+
+---
+
 ## Session: 2025-12-24 - OpenAI Realtime Integration (ALTERNATIVE)
 
 ### Summary

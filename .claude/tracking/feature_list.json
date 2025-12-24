@@ -75,6 +75,17 @@
       "passes": false
     },
     {
+      "id": "audio-first-words-fix",
+      "name": "Audio First Words Cut Off Fix",
+      "description": "Fixed late user_transcript clearing audio buffer",
+      "priority": "HIGH",
+      "status": "completed",
+      "passes": true,
+      "completedDate": "2025-12-24",
+      "commit": "8921ad6",
+      "solution": "Move buffer clearing from onUserTranscript to onInterruption"
+    },
+    {
       "id": "openai-realtime-integration",
       "name": "OpenAI Realtime Voice Agent (Alternative)",
       "description": "ALTERNATIVE to ElevenLabs - OpenAI Realtime API option",
