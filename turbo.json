@@ -14,7 +14,10 @@
     "AUTH_SECRET",
     "AUTH_URL",
     "AUTH_GOOGLE_ID",
-    "AUTH_GOOGLE_SECRET"
+    "AUTH_GOOGLE_SECRET",
+    "SHOPIFY_STORE_DOMAIN",
+    "SHOPIFY_ADMIN_ACCESS_TOKEN",
+    "SHOPIFY_HMAC_SECRET"
   ],
   "tasks": {
     "build": {
