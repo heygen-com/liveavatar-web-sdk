@@ -1,5 +1,111 @@
 # Clara Voice Agent - Session Progress
 
+## Architecture: Voice Agent Options
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     CLARA VOICE AGENT                                │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  OPTION 1: ElevenLabs Voice Agents (PRIMARY - RECOMMENDED)          │
+│  ─────────────────────────────────────────────────────────          │
+│  • Better pricing and modularity                                     │
+│  • Production-ready in master/develop branches                       │
+│  • Hook: useElevenLabsAgent.ts                                       │
+│  • Audio: 16kHz → resample → 24kHz for HeyGen                        │
+│                                                                      │
+│  OPTION 2: OpenAI Realtime (ALTERNATIVE)                            │
+│  ─────────────────────────────────────────                          │
+│  • Branch: claude/integrate-openai-voice-agent-h7m2K                │
+│  • Hook: useOpenAIRealtimeAgent.ts                                   │
+│  • Audio: 24kHz direct to HeyGen (no resample needed)               │
+│  • Uses "Chunking Agrupado" strategy (8 chunks ≈ 80KB)              │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Session: 2025-12-24 (Part 3) - Memory Leak Fix
+
+### Problem Solved
+**Memory leaks causaban degradación de performance** después de múltiples llamadas. Browser se ponía lento.
+
+### Root Causes Identified
+1. **gapCheckIntervalRef** (50ms interval) nunca se limpiaba en unmount
+2. **HeyGen event listeners** (11 listeners) se acumulaban sin cleanup
+
+### Solution
+**Fix 1: ClaraVoiceAgent.tsx**
+- Agregado useEffect de cleanup para limpiar intervals en unmount
+- Limpia: gapCheckIntervalRef, sessionTimerRef, audioBufferRef
+
+**Fix 2: context.tsx**
+- Reescritos 3 hooks con named handlers y cleanup usando `.off()`
+- useSessionState: 3 listeners con cleanup
+- useVoiceChatState: 3 listeners con cleanup
+- useTalkingState: 4 listeners con cleanup
+
+### Files Modified
+- `apps/demo/src/components/ClaraVoiceAgent.tsx` (líneas 674-690)
+- `apps/demo/src/liveavatar/context.tsx` (líneas 66-164)
+
+---
+
+## Session: 2025-12-24 (Part 2) - Audio First Words Cut Off Fix
+
+### Problem Solved
+**Primeras palabras del audio cortadas** - El agente respondía pero las primeras palabras no se escuchaban (aunque aparecían en logs).
+
+### Root Cause
+ElevenLabs envía múltiples `user_transcript` events (streaming transcription). Transcripts tardíos llegaban DESPUÉS de que chunks de audio ya estaban en buffer, y el código los borraba.
+
+### Solution
+Mover limpieza de buffer de `onUserTranscript` a `onInterruption`:
+- `onUserTranscript`: Solo interrumpe HeyGen avatar (no borra buffer)
+- `onInterruption`: Borra buffer (ElevenLabs confirmó interrupción real)
+
+### Files Modified
+- `apps/demo/src/components/ClaraVoiceAgent.tsx`
+  - `onInterruption` (563-578): Añadida lógica de limpieza de buffer
+  - `onUserTranscript` (579-600): Removida limpieza de buffer
+
+### Commit
+```
+8921ad6 fix: prevent late user_transcript from clearing audio buffer
+```
+
+---
+
+## Session: 2025-12-24 - OpenAI Realtime Integration (ALTERNATIVE)
+
+### Summary
+Implemented OpenAI Realtime API as an **ALTERNATIVE** to ElevenLabs Voice Agents.
+- ElevenLabs remains PRIMARY (better pricing, modularity)
+- OpenAI Realtime available in separate branch for different use cases
+
+### Problem Solved (in OpenAI branch)
+**Audio Choppy/Cortado** - Fixed with "Chunking Agrupado" strategy:
+```typescript
+const CHUNK_GROUP_SIZE = 8;  // ~80KB groups
+const CHUNK_GAP_THRESHOLD = 500;  // Fallback flush
+```
+
+### Branch for OpenAI Alternative
+`claude/integrate-openai-voice-agent-h7m2K`
+
+### Files in OpenAI Branch (not in develop/master)
+- `apps/demo/src/hooks/useOpenAIRealtimeAgent.ts`
+- `apps/demo/app/api/openai-realtime/route.ts`
+- Modified `ClaraVoiceAgent.tsx` to use OpenAI hook
+
+### Key Learnings
+1. **WebSocket es necesario** (no WebRTC) para interceptar audio para HeyGen
+2. **HeyGen acepta PCM16 24kHz base64** - divide internamente en 20ms chunks
+3. **El tamaño de chunk importa** - muy pequeño = choppy, muy grande = latencia
+
+---
+
 ## Session: 2025-12-21
 
 ### Completed
@@ -28,11 +134,11 @@
 
 ---
 
-## Bugs Identified (Pending)
+## Bugs Identified
 
 | ID | Description | Priority | Status |
 |----|-------------|----------|--------|
-| #2 | Memory leak - event listeners not cleaned | Medium | Pending |
+| #2 | Memory leak - event listeners not cleaned | Medium | ✅ Fixed |
 | #3 | Race condition in audio buffer | Medium | Pending |
 | #4 | No HeyGen reconnection on disconnect | Low | Pending |
 | #5 | Silent failure on mic permission denied | Medium | Pending |
@@ -40,6 +146,6 @@
 ---
 
 ## Next Session Recommendations
-1. Fix bug #2 (memory leak) - most impactful
-2. Fix bug #5 (mic permission UX)
+1. Fix bug #5 (mic permission UX) - better user experience
+2. Fix bug #3 (audio race condition) - edge case
 3. Consider adding session analytics/logging
