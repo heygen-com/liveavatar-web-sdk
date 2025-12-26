@@ -20,13 +20,19 @@ export default function Home() {
     const lastName = params.get("last_name");
     const email = params.get("email");
     const ordersCount = params.get("orders_count");
+    const skinType = params.get("skin_type");
+    const skinConcerns = params.get("skin_concerns");
 
-    if (firstName || lastName || email) {
+    if (firstName || lastName || email || skinType || skinConcerns) {
       setCustomerData({
         firstName: firstName || undefined,
         lastName: lastName || undefined,
         email: email || undefined,
         ordersCount: ordersCount ? parseInt(ordersCount, 10) : undefined,
+        skinType: (skinType as CustomerData["skinType"]) || undefined,
+        skinConcerns: skinConcerns
+          ? skinConcerns.split(",").map((s) => s.trim())
+          : undefined,
       });
     }
 
