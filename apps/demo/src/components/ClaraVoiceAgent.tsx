@@ -397,9 +397,17 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   // Leading silence flag - add silence after interrupt to give HeyGen time
   const isAfterInterruptRef = useRef(false);
 
-  // Gap threshold: 300ms without new chunks = stream ended, send all
-  // ElevenLabs sends chunks every ~150ms, so 300ms ensures we accumulate multiple chunks
-  const CHUNK_GAP_THRESHOLD = 300;
+  // TWO-PHASE strategy refs
+  const immediateSendTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hassentImmediateRef = useRef(false); // Track if we already sent immediate chunks
+  const isFirstAudioRef = useRef(true); // Track if this is the first audio response
+
+  // TWO-PHASE audio sending strategy constants
+  // Phase 1: Send first chunks IMMEDIATELY (contains first words - reduces perceived latency)
+  // Phase 2: Buffer remaining chunks with gap detection
+  const IMMEDIATE_SEND_CHUNKS = 2; // Send first 2 chunks without delay (first words)
+  const IMMEDIATE_SEND_DELAY = 80; // ms to wait for chunks to arrive together
+  const CHUNK_GAP_THRESHOLD = 250; // ms gap = end of stream (for remaining chunks)
   // Leading silence duration in ms (gives HeyGen time to process interrupt)
   const LEADING_SILENCE_MS = 150;
 
@@ -465,6 +473,12 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       gapCheckIntervalRef.current = null;
     }
 
+    // Clear immediate send timeout (TWO-PHASE cleanup)
+    if (immediateSendTimeoutRef.current) {
+      clearTimeout(immediateSendTimeoutRef.current);
+      immediateSendTimeoutRef.current = null;
+    }
+
     if (audioBufferRef.current.length === 0) {
       console.log("[AUDIO] No audio to send");
       return;
@@ -491,7 +505,16 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     }
 
     const sizeKB = Math.round(concatenatedAudio.length / 1024);
-    console.log(`[AUDIO] Sending ${chunks.length} chunks, ${sizeKB}KB total`);
+    const isFirstAudio = isFirstAudioRef.current;
+
+    if (isFirstAudio) {
+      isFirstAudioRef.current = false;
+      console.log(
+        `[AUDIO] First greeting: ${chunks.length} chunks, ${sizeKB}KB`,
+      );
+    } else {
+      console.log(`[AUDIO] Sending ${chunks.length} chunks, ${sizeKB}KB total`);
+    }
 
     try {
       sessionRef.current.repeatAudio(concatenatedAudio);
@@ -537,16 +560,44 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     error: agentError,
   } = useElevenLabsAgent({
     onAudioData: (audioBase64) => {
-      // Accumulate all chunks - ElevenLabs streams new response immediately
+      // Accumulate chunks and track timing for gap detection
       totalChunksReceivedRef.current++;
       audioBufferRef.current.push(audioBase64);
       lastChunkTimeRef.current = Date.now();
 
+      const currentBufferLength = audioBufferRef.current.length;
       console.log(
-        `[AUDIO] Chunk #${totalChunksReceivedRef.current} buffered (${audioBufferRef.current.length} total)`,
+        `[AUDIO] Chunk #${totalChunksReceivedRef.current} buffered (${currentBufferLength} total)`,
       );
 
-      // Start gap detection if not already running
+      // TWO-PHASE STRATEGY:
+      // Phase 1: Send first chunks IMMEDIATELY (contains first words - reduces perceived latency)
+      if (
+        !hassentImmediateRef.current &&
+        currentBufferLength <= IMMEDIATE_SEND_CHUNKS
+      ) {
+        // Clear any existing immediate timeout
+        if (immediateSendTimeoutRef.current) {
+          clearTimeout(immediateSendTimeoutRef.current);
+        }
+
+        // Wait a tiny bit for chunks to arrive together, then send
+        immediateSendTimeoutRef.current = setTimeout(() => {
+          if (
+            audioBufferRef.current.length > 0 &&
+            !hassentImmediateRef.current
+          ) {
+            hassentImmediateRef.current = true;
+            console.log(
+              `[AUDIO] PHASE 1: Immediate send ${audioBufferRef.current.length} chunks (first words)`,
+            );
+            sendAllAudioToAvatar();
+          }
+        }, IMMEDIATE_SEND_DELAY);
+        return;
+      }
+
+      // Phase 2: For remaining chunks, use gap detection
       if (!gapCheckIntervalRef.current) {
         startGapDetection();
       }
@@ -573,8 +624,16 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         clearInterval(gapCheckIntervalRef.current);
         gapCheckIntervalRef.current = null;
       }
+
+      // Clear immediate send timeout (TWO-PHASE cleanup)
+      if (immediateSendTimeoutRef.current) {
+        clearTimeout(immediateSendTimeoutRef.current);
+        immediateSendTimeoutRef.current = null;
+      }
+
       audioBufferRef.current = [];
       totalChunksReceivedRef.current = 0;
+      hassentImmediateRef.current = false; // Reset for next response
     },
     onUserTranscript: (text) => {
       console.log("[AUDIO] User said:", text);
@@ -678,6 +737,11 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       if (gapCheckIntervalRef.current) {
         clearInterval(gapCheckIntervalRef.current);
         gapCheckIntervalRef.current = null;
+      }
+      // Cleanup immediate send timeout (TWO-PHASE)
+      if (immediateSendTimeoutRef.current) {
+        clearTimeout(immediateSendTimeoutRef.current);
+        immediateSendTimeoutRef.current = null;
       }
       // Cleanup session timer
       if (sessionTimerRef.current) {
