@@ -1,0 +1,167 @@
+{% comment %}
+  Template para página de Clara integrada con Shopify
+  URL: /pages/clara
+
+  Dominios:
+  - Production: https://clara.betaskintech.com
+  - Develop: https://testers.betaskintech.com
+
+  Instalación:
+  1. Shopify Admin → Online Store → Themes → Edit code
+  2. Templates → Add template → Type: page → Name: clara
+  3. Pegar este código
+  4. Crear página en Pages → Add page → Template: page.clara
+{% endcomment %}
+
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+
+  .clara-page-wrapper {
+    height: 100vh;
+    width: 100vw;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: #ffffff;
+    overflow: hidden;
+    z-index: 9999;
+  }
+
+  #clara-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+
+  .clara-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: white;
+    transition: opacity 0.5s;
+    z-index: 10;
+  }
+
+  .clara-loading.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .clara-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+
+<div class="clara-page-wrapper">
+
+  <div class="clara-loading" id="clara-loading">
+    <div class="clara-spinner"></div>
+    <p>Cargando Clara...</p>
+    <p style="font-size: 14px; opacity: 0.8;">Tu asesora virtual de skincare</p>
+  </div>
+
+  {%- liquid
+    # ═══════════════════════════════════════════════════════════════
+    # CONFIGURACIÓN - Cambiar según ambiente
+    # ═══════════════════════════════════════════════════════════════
+    # Para TESTING (develop branch):
+    # assign clara_domain = 'https://testers.betaskintech.com'
+
+    # Para PRODUCCIÓN (master branch):
+    assign clara_domain = 'https://clara.betaskintech.com'
+
+    # ═══════════════════════════════════════════════════════════════
+    # PASO 1: Obtener HMAC secret del metafield de la tienda
+    # ═══════════════════════════════════════════════════════════════
+    assign hmac_secret = shop.metafields.custom.hmac_secret
+
+    # ═══════════════════════════════════════════════════════════════
+    # PASO 2: Verificar si hay cliente logueado
+    # ═══════════════════════════════════════════════════════════════
+    if customer and hmac_secret != blank
+      assign customer_id = customer.id
+      assign first_name = customer.first_name
+      assign last_name = customer.last_name
+      assign customer_email = customer.email
+      assign orders_count = customer.orders_count
+
+      # ═══════════════════════════════════════════════════════════════
+      # PASO 3: Generar token HMAC (firma criptográfica)
+      # ═══════════════════════════════════════════════════════════════
+      assign shopify_token = customer_id | hmac_sha256: hmac_secret
+
+      # ═══════════════════════════════════════════════════════════════
+      # PASO 4: Construir URL con datos del cliente
+      # ═══════════════════════════════════════════════════════════════
+      assign widget_url = clara_domain
+      assign widget_url = widget_url | append: '?customer_id=' | append: customer_id
+      assign widget_url = widget_url | append: '&shopify_token=' | append: shopify_token
+
+      if first_name != blank
+        assign widget_url = widget_url | append: '&first_name=' | append: first_name | url_encode
+      endif
+
+      if last_name != blank
+        assign widget_url = widget_url | append: '&last_name=' | append: last_name | url_encode
+      endif
+
+      if customer_email != blank
+        assign widget_url = widget_url | append: '&email=' | append: customer_email | url_encode
+      endif
+
+      if orders_count
+        assign widget_url = widget_url | append: '&orders_count=' | append: orders_count
+      endif
+
+    else
+      # Usuario anónimo - Clara mostrará pantalla de verificación
+      assign widget_url = clara_domain
+    endif
+  -%}
+
+  <iframe
+    src="{{ widget_url }}"
+    id="clara-iframe"
+    title="Clara - Asesora Virtual de Skincare"
+    allow="microphone; camera; autoplay; encrypted-media; fullscreen; display-capture"
+    allowfullscreen
+    loading="eager">
+  </iframe>
+</div>
+
+<script>
+  (function() {
+    var iframe = document.getElementById('clara-iframe');
+    var loading = document.getElementById('clara-loading');
+
+    if (iframe && loading) {
+      iframe.addEventListener('load', function() {
+        setTimeout(function() {
+          loading.classList.add('hidden');
+        }, 500);
+      });
+
+      setTimeout(function() {
+        loading.classList.add('hidden');
+      }, 8000);
+    }
+  })();
+</script>
