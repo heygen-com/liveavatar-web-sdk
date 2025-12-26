@@ -80,13 +80,12 @@
 
   {%- liquid
     # ═══════════════════════════════════════════════════════════════
-    # CONFIGURACIÓN - Cambiar según ambiente
+    # CONFIGURACIÓN - TESTING (develop branch)
     # ═══════════════════════════════════════════════════════════════
-    # Para TESTING (develop branch):
-    # assign clara_domain = 'https://testers.betaskintech.com'
+    assign clara_domain = 'https://testers.betaskintech.com'
 
-    # Para PRODUCCIÓN (master branch):
-    assign clara_domain = 'https://clara.betaskintech.com'
+    # Para PRODUCCIÓN (master branch) descomentar:
+    # assign clara_domain = 'https://clara.betaskintech.com'
 
     # ═══════════════════════════════════════════════════════════════
     # PASO 1: Obtener HMAC secret del metafield de la tienda
