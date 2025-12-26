@@ -1,16 +1,14 @@
 {
   "project": "Clara Voice Agent",
-  "lastUpdated": "2025-12-24",
+  "lastUpdated": "2025-12-21",
   "features": [
     {
       "id": "core-voice-agent",
-      "name": "Core Voice Agent (ElevenLabs)",
-      "description": "ElevenLabs STT/TTS + LLM integration - PRIMARY OPTION",
+      "name": "Core Voice Agent",
+      "description": "ElevenLabs STT/TTS + LLM integration",
       "priority": "HIGH",
       "status": "completed",
-      "passes": true,
-      "isPrimary": true,
-      "hook": "useElevenLabsAgent.ts"
+      "passes": true
     },
     {
       "id": "heygen-lipsync",
@@ -45,15 +43,10 @@
     {
       "id": "memory-leak-fix",
       "name": "Memory Leak Fix",
-      "description": "Clean up event listeners and intervals on unmount",
+      "description": "Clean up event listeners on unmount",
       "priority": "MEDIUM",
-      "status": "completed",
-      "passes": true,
-      "completedDate": "2025-12-24",
-      "solution": {
-        "fix1": "Added cleanup useEffect to ClaraVoiceAgent for gapCheckIntervalRef and sessionTimerRef",
-        "fix2": "Rewrote 3 hooks in context.tsx with proper .off() cleanup for HeyGen listeners"
-      }
+      "status": "pending",
+      "passes": false
     },
     {
       "id": "audio-race-condition",
@@ -78,46 +71,13 @@
       "priority": "MEDIUM",
       "status": "pending",
       "passes": false
-    },
-    {
-      "id": "audio-first-words-fix",
-      "name": "Audio First Words Cut Off Fix",
-      "description": "Fixed late user_transcript clearing audio buffer",
-      "priority": "HIGH",
-      "status": "completed",
-      "passes": true,
-      "completedDate": "2025-12-24",
-      "commit": "8921ad6",
-      "solution": "Move buffer clearing from onUserTranscript to onInterruption"
-    },
-    {
-      "id": "openai-realtime-integration",
-      "name": "OpenAI Realtime Voice Agent (Alternative)",
-      "description": "ALTERNATIVE to ElevenLabs - OpenAI Realtime API option",
-      "priority": "MEDIUM",
-      "status": "completed",
-      "passes": true,
-      "isAlternative": true,
-      "primaryOption": "core-voice-agent (ElevenLabs)",
-      "note": "ElevenLabs remains PRIMARY. OpenAI Realtime is optional alternative in separate branch.",
-      "branch": "claude/integrate-openai-voice-agent-h7m2K",
-      "completedDate": "2025-12-24",
-      "hook": "useOpenAIRealtimeAgent.ts",
-      "solution": {
-        "strategy": "Chunking Agrupado",
-        "CHUNK_GROUP_SIZE": 8,
-        "CHUNK_GAP_THRESHOLD": 500,
-        "latency": "~400ms",
-        "audioFormat": "PCM16 24kHz base64"
-      }
     }
   ],
   "deployments": {
     "production": {
       "url": "https://clara-beauty.vercel.app",
       "branch": "master",
-      "status": "live",
-      "voiceAgent": "ElevenLabs"
+      "status": "live"
     },
     "preview": {
       "method": "PR to master",

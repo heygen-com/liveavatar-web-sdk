@@ -73,37 +73,23 @@ const useSessionState = (sessionRef: React.RefObject<LiveAvatarSession>) => {
   const [isStreamReady, setIsStreamReady] = useState<boolean>(false);
 
   useEffect(() => {
-    const session = sessionRef.current;
-    if (!session) return;
-
-    // Named handlers for proper cleanup
-    const handleStateChange = (state: SessionState) => {
-      setSessionState(state);
-      if (state === SessionState.DISCONNECTED) {
-        session.removeAllListeners();
-        session.voiceChat.removeAllListeners();
-        setIsStreamReady(false);
-      }
-    };
-
-    const handleStreamReady = () => setIsStreamReady(true);
-
-    session.on(SessionEvent.SESSION_STATE_CHANGED, handleStateChange);
-    session.on(SessionEvent.SESSION_STREAM_READY, handleStreamReady);
-    session.on(
-      SessionEvent.SESSION_CONNECTION_QUALITY_CHANGED,
-      setConnectionQuality,
-    );
-
-    // Cleanup: remove listeners on unmount
-    return () => {
-      session.off(SessionEvent.SESSION_STATE_CHANGED, handleStateChange);
-      session.off(SessionEvent.SESSION_STREAM_READY, handleStreamReady);
-      session.off(
+    if (sessionRef.current) {
+      sessionRef.current.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
+        setSessionState(state);
+        if (state === SessionState.DISCONNECTED) {
+          sessionRef.current.removeAllListeners();
+          sessionRef.current.voiceChat.removeAllListeners();
+          setIsStreamReady(false);
+        }
+      });
+      sessionRef.current.on(SessionEvent.SESSION_STREAM_READY, () => {
+        setIsStreamReady(true);
+      });
+      sessionRef.current.on(
         SessionEvent.SESSION_CONNECTION_QUALITY_CHANGED,
         setConnectionQuality,
       );
-    };
+    }
   }, [sessionRef]);
 
   return { sessionState, isStreamReady, connectionQuality };
@@ -116,23 +102,18 @@ const useVoiceChatState = (sessionRef: React.RefObject<LiveAvatarSession>) => {
   );
 
   useEffect(() => {
-    const session = sessionRef.current;
-    if (!session) return;
-
-    // Named handlers for proper cleanup
-    const handleMuted = () => setIsMuted(true);
-    const handleUnmuted = () => setIsMuted(false);
-
-    session.voiceChat.on(VoiceChatEvent.MUTED, handleMuted);
-    session.voiceChat.on(VoiceChatEvent.UNMUTED, handleUnmuted);
-    session.voiceChat.on(VoiceChatEvent.STATE_CHANGED, setVoiceChatState);
-
-    // Cleanup: remove listeners on unmount
-    return () => {
-      session.voiceChat.off(VoiceChatEvent.MUTED, handleMuted);
-      session.voiceChat.off(VoiceChatEvent.UNMUTED, handleUnmuted);
-      session.voiceChat.off(VoiceChatEvent.STATE_CHANGED, setVoiceChatState);
-    };
+    if (sessionRef.current) {
+      sessionRef.current.voiceChat.on(VoiceChatEvent.MUTED, () => {
+        setIsMuted(true);
+      });
+      sessionRef.current.voiceChat.on(VoiceChatEvent.UNMUTED, () => {
+        setIsMuted(false);
+      });
+      sessionRef.current.voiceChat.on(
+        VoiceChatEvent.STATE_CHANGED,
+        setVoiceChatState,
+      );
+    }
   }, [sessionRef]);
 
   return { isMuted, voiceChatState };
@@ -143,27 +124,20 @@ const useTalkingState = (sessionRef: React.RefObject<LiveAvatarSession>) => {
   const [isAvatarTalking, setIsAvatarTalking] = useState(false);
 
   useEffect(() => {
-    const session = sessionRef.current;
-    if (!session) return;
-
-    // Named handlers for proper cleanup
-    const handleUserStart = () => setIsUserTalking(true);
-    const handleUserEnd = () => setIsUserTalking(false);
-    const handleAvatarStart = () => setIsAvatarTalking(true);
-    const handleAvatarEnd = () => setIsAvatarTalking(false);
-
-    session.on(AgentEventsEnum.USER_SPEAK_STARTED, handleUserStart);
-    session.on(AgentEventsEnum.USER_SPEAK_ENDED, handleUserEnd);
-    session.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, handleAvatarStart);
-    session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, handleAvatarEnd);
-
-    // Cleanup: remove listeners on unmount
-    return () => {
-      session.off(AgentEventsEnum.USER_SPEAK_STARTED, handleUserStart);
-      session.off(AgentEventsEnum.USER_SPEAK_ENDED, handleUserEnd);
-      session.off(AgentEventsEnum.AVATAR_SPEAK_STARTED, handleAvatarStart);
-      session.off(AgentEventsEnum.AVATAR_SPEAK_ENDED, handleAvatarEnd);
-    };
+    if (sessionRef.current) {
+      sessionRef.current.on(AgentEventsEnum.USER_SPEAK_STARTED, () => {
+        setIsUserTalking(true);
+      });
+      sessionRef.current.on(AgentEventsEnum.USER_SPEAK_ENDED, () => {
+        setIsUserTalking(false);
+      });
+      sessionRef.current.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, () => {
+        setIsAvatarTalking(true);
+      });
+      sessionRef.current.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, () => {
+        setIsAvatarTalking(false);
+      });
+    }
   }, [sessionRef]);
 
   return { isUserTalking, isAvatarTalking };
