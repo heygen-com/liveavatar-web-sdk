@@ -1,0 +1,101 @@
+{% comment %}
+  Clara Page v2 - Simplified version
+  Uses dynamic iframe loading (same approach as debug page that works)
+{% endcomment %}
+
+{%- liquid
+  assign clara_domain = 'https://testers.betaskintech.com'
+  assign hmac_secret = shop.metafields.custom.hmac_secret
+  assign widget_url = clara_domain
+
+  if customer and hmac_secret != blank
+    assign customer_id = customer.id
+    assign shopify_token = customer_id | hmac_sha256: hmac_secret
+
+    assign widget_url = clara_domain
+    assign widget_url = widget_url | append: '?customer_id=' | append: customer_id
+    assign widget_url = widget_url | append: '&shopify_token=' | append: shopify_token
+
+    if customer.first_name != blank
+      assign widget_url = widget_url | append: '&first_name=' | append: customer.first_name
+    endif
+
+    if customer.email != blank
+      assign widget_url = widget_url | append: '&email=' | append: customer.email
+    endif
+
+    assign widget_url = widget_url | append: '&orders_count=' | append: customer.orders_count
+  endif
+-%}
+
+<style>
+  .clara-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #fff;
+    z-index: 99999;
+  }
+  .clara-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+  .clara-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    font-family: system-ui, sans-serif;
+  }
+  .clara-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #e0e0e0;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<div class="clara-container" id="clara-container">
+  <div class="clara-loading" id="clara-loading">
+    <div class="clara-spinner"></div>
+    <p>Cargando Clara...</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  var url = "{{ widget_url }}";
+  var container = document.getElementById('clara-container');
+  var loading = document.getElementById('clara-loading');
+
+  // Create iframe dynamically (same as debug page)
+  var iframe = document.createElement('iframe');
+  iframe.src = url;
+  iframe.allow = 'microphone; camera';
+  iframe.style.cssText = 'width:100%;height:100%;border:none;';
+
+  iframe.onload = function() {
+    if (loading) loading.style.display = 'none';
+  };
+
+  iframe.onerror = function() {
+    loading.innerHTML = '<p style="color:red;">Error cargando Clara</p><p style="font-size:12px;">' + url + '</p>';
+  };
+
+  // Append iframe
+  container.appendChild(iframe);
+
+  // Fallback: hide loading after 5s
+  setTimeout(function() {
+    if (loading) loading.style.display = 'none';
+  }, 5000);
+})();
+</script>
