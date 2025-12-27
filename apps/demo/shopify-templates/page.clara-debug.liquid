@@ -1,0 +1,357 @@
+{% comment %}
+  DEBUG PAGE - Clara Shopify Integration
+  Muestra todas las variables y prueba la conexión
+{% endcomment %}
+
+<style>
+  .debug-container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  .debug-section {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .debug-section h2 {
+    margin-top: 0;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+    padding-bottom: 10px;
+  }
+  .debug-item {
+    display: flex;
+    margin: 10px 0;
+    padding: 8px;
+    background: white;
+    border-radius: 4px;
+  }
+  .debug-label {
+    font-weight: bold;
+    width: 200px;
+    color: #6c757d;
+  }
+  .debug-value {
+    flex: 1;
+    font-family: monospace;
+    word-break: break-all;
+  }
+  .status-ok { color: #28a745; }
+  .status-error { color: #dc3545; }
+  .status-warning { color: #ffc107; }
+  .url-box {
+    background: #e9ecef;
+    padding: 15px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    word-break: break-all;
+    margin: 10px 0;
+  }
+  .test-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    margin: 10px 5px 10px 0;
+  }
+  .test-btn:hover { background: #0056b3; }
+  .test-btn.success { background: #28a745; }
+  .test-btn.error { background: #dc3545; }
+  #test-results {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 15px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 15px;
+  }
+  .iframe-test {
+    border: 2px dashed #dee2e6;
+    min-height: 400px;
+    margin-top: 15px;
+    position: relative;
+  }
+  .iframe-test iframe {
+    width: 100%;
+    height: 400px;
+    border: none;
+  }
+</style>
+
+<div class="debug-container">
+  <h1>🔧 Clara Debug - Shopify Integration</h1>
+
+  {%- liquid
+    assign clara_domain = 'https://testers.betaskintech.com'
+    assign hmac_secret = shop.metafields.custom.hmac_secret
+    assign has_customer = false
+    assign has_hmac = false
+    assign widget_url = clara_domain
+
+    if hmac_secret != blank
+      assign has_hmac = true
+    endif
+
+    if customer
+      assign has_customer = true
+      assign customer_id = customer.id
+      assign first_name = customer.first_name
+      assign last_name = customer.last_name
+      assign customer_email = customer.email
+      assign orders_count = customer.orders_count
+
+      if has_hmac
+        assign shopify_token = customer_id | hmac_sha256: hmac_secret
+        assign widget_url = clara_domain
+        assign widget_url = widget_url | append: '?customer_id=' | append: customer_id
+        assign widget_url = widget_url | append: '&shopify_token=' | append: shopify_token
+        assign widget_url = widget_url | append: '&first_name=' | append: first_name
+        assign widget_url = widget_url | append: '&email=' | append: customer_email
+        assign widget_url = widget_url | append: '&orders_count=' | append: orders_count
+      endif
+    endif
+  -%}
+
+  <!-- SECTION 1: Configuration Status -->
+  <div class="debug-section">
+    <h2>1. Estado de Configuración</h2>
+
+    <div class="debug-item">
+      <span class="debug-label">Clara Domain:</span>
+      <span class="debug-value">{{ clara_domain }}</span>
+    </div>
+
+    <div class="debug-item">
+      <span class="debug-label">HMAC Secret configurado:</span>
+      <span class="debug-value {% if has_hmac %}status-ok{% else %}status-error{% endif %}">
+        {% if has_hmac %}✅ SÍ ({{ hmac_secret | size }} caracteres){% else %}❌ NO - Falta configurar metafield{% endif %}
+      </span>
+    </div>
+
+    <div class="debug-item">
+      <span class="debug-label">Metafield path:</span>
+      <span class="debug-value">shop.metafields.custom.hmac_secret</span>
+    </div>
+  </div>
+
+  <!-- SECTION 2: Customer Status -->
+  <div class="debug-section">
+    <h2>2. Estado del Cliente</h2>
+
+    <div class="debug-item">
+      <span class="debug-label">Cliente logueado:</span>
+      <span class="debug-value {% if has_customer %}status-ok{% else %}status-warning{% endif %}">
+        {% if has_customer %}✅ SÍ{% else %}⚠️ NO - Usuario anónimo{% endif %}
+      </span>
+    </div>
+
+    {% if has_customer %}
+    <div class="debug-item">
+      <span class="debug-label">Customer ID:</span>
+      <span class="debug-value">{{ customer_id }}</span>
+    </div>
+    <div class="debug-item">
+      <span class="debug-label">Nombre:</span>
+      <span class="debug-value">{{ first_name }} {{ last_name }}</span>
+    </div>
+    <div class="debug-item">
+      <span class="debug-label">Email:</span>
+      <span class="debug-value">{{ customer_email }}</span>
+    </div>
+    <div class="debug-item">
+      <span class="debug-label">Órdenes:</span>
+      <span class="debug-value">{{ orders_count }}</span>
+    </div>
+    {% if has_hmac %}
+    <div class="debug-item">
+      <span class="debug-label">HMAC Token generado:</span>
+      <span class="debug-value" style="font-size: 10px;">{{ shopify_token }}</span>
+    </div>
+    {% endif %}
+    {% endif %}
+  </div>
+
+  <!-- SECTION 3: Generated URL -->
+  <div class="debug-section">
+    <h2>3. URL Generada para Clara</h2>
+
+    <div class="debug-item">
+      <span class="debug-label">Tiene shopify_token:</span>
+      <span class="debug-value {% if has_customer and has_hmac %}status-ok{% else %}status-error{% endif %}">
+        {% if has_customer and has_hmac %}✅ SÍ{% else %}❌ NO - El middleware rechazará{% endif %}
+      </span>
+    </div>
+
+    <div class="url-box" id="generated-url">{{ widget_url }}</div>
+
+    <button class="test-btn" onclick="copyUrl()">📋 Copiar URL</button>
+    <button class="test-btn" onclick="openInNewTab()">🔗 Abrir en nueva pestaña</button>
+  </div>
+
+  <!-- SECTION 4: Connection Test -->
+  <div class="debug-section">
+    <h2>4. Test de Conexión</h2>
+
+    <button class="test-btn" id="test-fetch" onclick="testFetch()">🌐 Test Fetch (Headers)</button>
+    <button class="test-btn" id="test-api" onclick="testApi()">🔌 Test API Shopify-Customer</button>
+
+    <div id="test-results" style="display: none;"></div>
+  </div>
+
+  <!-- SECTION 5: Iframe Test -->
+  <div class="debug-section">
+    <h2>5. Test de Iframe</h2>
+
+    <p>Si el iframe carga correctamente, verás Clara abajo. Si falla, revisa la consola del navegador (F12).</p>
+
+    <button class="test-btn" onclick="loadIframe()">▶️ Cargar Iframe</button>
+    <button class="test-btn" onclick="clearIframe()">🗑️ Limpiar</button>
+
+    <div class="iframe-test" id="iframe-container">
+      <p style="text-align: center; padding: 20px; color: #6c757d;">
+        Haz clic en "Cargar Iframe" para probar
+      </p>
+    </div>
+  </div>
+
+  <!-- SECTION 6: Checklist -->
+  <div class="debug-section">
+    <h2>6. Checklist de Requisitos</h2>
+
+    <div class="debug-item">
+      <span class="debug-label">1. Metafield HMAC:</span>
+      <span class="debug-value {% if has_hmac %}status-ok{% else %}status-error{% endif %}">
+        {% if has_hmac %}✅{% else %}❌ Configurar en Settings → Custom data → Store{% endif %}
+      </span>
+    </div>
+
+    <div class="debug-item">
+      <span class="debug-label">2. Cliente logueado:</span>
+      <span class="debug-value {% if has_customer %}status-ok{% else %}status-warning{% endif %}">
+        {% if has_customer %}✅{% else %}⚠️ Inicia sesión para probar flujo completo{% endif %}
+      </span>
+    </div>
+
+    <div class="debug-item">
+      <span class="debug-label">3. URL tiene token:</span>
+      <span class="debug-value {% if has_customer and has_hmac %}status-ok{% else %}status-error{% endif %}">
+        {% if has_customer and has_hmac %}✅{% else %}❌{% endif %}
+      </span>
+    </div>
+
+    <div class="debug-item">
+      <span class="debug-label">4. Vercel Protection:</span>
+      <span class="debug-value status-warning">⚠️ Verificar manualmente que esté desactivada</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  var widgetUrl = "{{ widget_url }}";
+  var claraDomain = "{{ clara_domain }}";
+
+  function copyUrl() {
+    navigator.clipboard.writeText(widgetUrl);
+    alert('URL copiada!');
+  }
+
+  function openInNewTab() {
+    window.open(widgetUrl, '_blank');
+  }
+
+  function log(msg) {
+    var results = document.getElementById('test-results');
+    results.style.display = 'block';
+    results.innerHTML += new Date().toLocaleTimeString() + ' - ' + msg + '\n';
+    results.scrollTop = results.scrollHeight;
+  }
+
+  function testFetch() {
+    log('🌐 Probando fetch a: ' + widgetUrl);
+
+    fetch(widgetUrl, { method: 'HEAD', mode: 'no-cors' })
+      .then(function(response) {
+        log('✅ Fetch completado (no-cors mode)');
+        log('   Nota: no-cors no permite ver headers, pero confirma que el servidor responde');
+      })
+      .catch(function(error) {
+        log('❌ Error: ' + error.message);
+      });
+
+    // Also try with cors to see actual error
+    fetch(widgetUrl)
+      .then(function(response) {
+        log('✅ Fetch CORS - Status: ' + response.status);
+        return response.text();
+      })
+      .then(function(text) {
+        log('   Response length: ' + text.length + ' chars');
+        if (text.includes('login')) {
+          log('⚠️ Parece redirigir a login - falta shopify_token?');
+        }
+      })
+      .catch(function(error) {
+        log('⚠️ CORS fetch error (esperado si hay restricciones): ' + error.message);
+      });
+  }
+
+  function testApi() {
+    log('🔌 Probando API /api/shopify-customer...');
+
+    var apiUrl = claraDomain + '/api/shopify-customer';
+    var body = {
+      customer_id: "{{ customer_id | default: 'test123' }}",
+      shopify_token: "{{ shopify_token | default: 'invalid' }}",
+      first_name: "{{ first_name | default: 'Test' }}",
+      email: "{{ customer_email | default: 'test@test.com' }}",
+      orders_count: "{{ orders_count | default: '0' }}"
+    };
+
+    log('   URL: ' + apiUrl);
+    log('   Body: ' + JSON.stringify(body, null, 2));
+
+    fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+      .then(function(response) {
+        log('   Status: ' + response.status);
+        return response.json();
+      })
+      .then(function(data) {
+        log('   Response: ' + JSON.stringify(data, null, 2));
+        if (data.valid) {
+          log('✅ API OK - Token válido!');
+        } else {
+          log('❌ API Error: ' + (data.error || 'Unknown'));
+        }
+      })
+      .catch(function(error) {
+        log('❌ Fetch Error: ' + error.message);
+      });
+  }
+
+  function loadIframe() {
+    var container = document.getElementById('iframe-container');
+    container.innerHTML = '<iframe src="' + widgetUrl + '" allow="microphone; camera"></iframe>';
+    log('📺 Iframe cargado con URL: ' + widgetUrl);
+  }
+
+  function clearIframe() {
+    var container = document.getElementById('iframe-container');
+    container.innerHTML = '<p style="text-align: center; padding: 20px; color: #6c757d;">Iframe limpiado</p>';
+  }
+</script>
