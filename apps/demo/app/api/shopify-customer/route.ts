@@ -1,14 +1,14 @@
 /**
  * Shopify Customer Validation Endpoint
- * Validates HMAC token and returns customer data
+ * Validates HMAC token and returns customer data from Liquid template params
  *
  * Flow:
- * 1. Receives customer_id + shopify_token from Shopify iframe URL params
+ * 1. Receives customer_id + shopify_token + PII from Shopify iframe URL params
  * 2. Validates HMAC signature (prevents spoofing)
- * 3. Fetches customer data from Shopify Admin API
- * 4. Returns merged customer data for Clara personalization
+ * 3. Returns customer data directly (no API call needed - Liquid provides all data)
  *
  * Security: Uses timing-safe HMAC comparison
+ * Note: Works on all Shopify plans (no Admin API required)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -16,8 +16,7 @@ import {
   verifyCustomerToken,
   isValidCustomerId,
   cleanCustomerId,
-  fetchCustomerById,
-  isShopifyConfigured,
+  isHmacConfigured,
 } from "@/src/shopify";
 import type {
   ShopifyCustomerRequest,
@@ -26,9 +25,9 @@ import type {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if Shopify is configured
-    if (!isShopifyConfigured()) {
-      console.error("Shopify API not configured");
+    // Check if HMAC secret is configured
+    if (!isHmacConfigured()) {
+      console.error("SHOPIFY_HMAC_SECRET not configured");
       return NextResponse.json(
         {
           valid: false,
@@ -92,39 +91,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Fetch customer from Shopify API
-    const shopifyCustomer = await fetchCustomerById(cleanId);
+    // 4. HMAC is valid - trust the data from Liquid template
+    // No API call needed - Liquid has full access to customer data on all plans
+    const ordersCountNum = orders_count ? parseInt(orders_count, 10) : 0;
+    const hasOrders = ordersCountNum > 0;
 
-    if (!shopifyCustomer) {
-      return NextResponse.json(
-        {
-          valid: false,
-          hasOrders: false,
-          customer: null,
-          error: "Customer not found",
-        },
-        { status: 404 },
-      );
-    }
-
-    // 5. Merge PII from URL params (Liquid) with API data
-    // On Shopify Basic plan, API may return null for PII fields
     const response: ShopifyCustomerResponse = {
       valid: true,
-      hasOrders: shopifyCustomer.numberOfOrders > 0,
+      hasOrders,
       customer: {
         id: cleanId,
-        // Prefer Liquid data for PII (more reliable on Basic plan)
-        email: email || shopifyCustomer.email,
-        firstName: first_name || shopifyCustomer.firstName,
-        lastName: last_name || shopifyCustomer.lastName,
-        ordersCount: orders_count
-          ? parseInt(orders_count, 10)
-          : shopifyCustomer.numberOfOrders,
-        // API data for non-PII
-        skinType: shopifyCustomer.skinType,
-        skinConcerns: shopifyCustomer.skinConcerns,
-        recentOrders: shopifyCustomer.recentOrders,
+        email: email || null,
+        firstName: first_name || null,
+        lastName: last_name || null,
+        ordersCount: ordersCountNum,
+        // Note: skinType and skinConcerns require metafields in Liquid template
+        // Can be added to the iframe URL later if needed
       },
     };
 

@@ -6,10 +6,7 @@ import ClaraVoiceAgent from "../src/components/ClaraVoiceAgent";
 import CustomerVerification from "../src/components/CustomerVerification";
 import { CustomerData } from "../src/liveavatar/types";
 import { UserMenu } from "../src/components/auth/LogoutButton";
-import type {
-  ShopifyCustomerResponse,
-  VerifyCustomerResponse,
-} from "@/src/shopify";
+import type { ShopifyCustomerResponse } from "@/src/shopify";
 
 type PageState =
   | "loading"
@@ -17,7 +14,8 @@ type PageState =
   | "verifying_session"
   | "needs_verification"
   | "verified"
-  | "error";
+  | "error"
+  | "shopify_redirect";
 
 export default function Home() {
   const { data: session, status: sessionStatus } = useSession();
@@ -84,7 +82,17 @@ export default function Home() {
         body: JSON.stringify({ email }),
       });
 
-      const data: VerifyCustomerResponse = await response.json();
+      const data = await response.json();
+
+      // Check for Shopify plan limitation (Basic plan can't access PII via API)
+      if (data.error === "SHOPIFY_PLAN_LIMITED") {
+        setError(
+          data.message ||
+            "Por favor accede a Clara desde tu cuenta en la tienda BetaSkintech",
+        );
+        setPageState("shopify_redirect");
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(data.error || "Error verifying customer");
@@ -228,6 +236,50 @@ export default function Home() {
           >
             Volver al inicio
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Shopify redirect state - show message to access from store
+  if (pageState === "shopify_redirect") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <div className="text-center max-w-md">
+          <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+            <span className="text-2xl font-bold text-white">C</span>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            Accede desde la tienda
+          </h2>
+          <p className="text-gray-600 mb-6">
+            {error ||
+              "Para usar Clara, ingresa a tu cuenta en BetaSkintech y accede desde ahi."}
+          </p>
+          <a
+            href="https://betaskintech.com/account"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md"
+          >
+            <svg
+              className="w-5 h-5 mr-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+              />
+            </svg>
+            Ir a BetaSkintech
+          </a>
+          <p className="mt-4 text-sm text-gray-500">
+            Una vez en tu cuenta, busca el enlace a Clara
+          </p>
         </div>
       </div>
     );

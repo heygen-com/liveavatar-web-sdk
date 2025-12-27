@@ -2,6 +2,9 @@
  * Verify Customer Endpoint
  * Checks if a user has purchased from Shopify by their email
  *
+ * NOTE: This endpoint requires Shopify "Shopify" plan or higher for PII access.
+ * On Basic plan, returns a specific error directing users to access via Shopify.
+ *
  * Flow:
  * 1. Receives email from user (direct entry or Google Sign In)
  * 2. Searches Shopify for customer with that email
@@ -102,6 +105,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error("Verify customer error:", error);
+
+    // Check if it's a Shopify plan limitation error
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    if (
+      errorMessage.includes("ACCESS_DENIED") ||
+      errorMessage.includes("not approved to access")
+    ) {
+      // Shopify Basic plan doesn't allow PII access via API
+      // Return a specific error code for the frontend
+      return NextResponse.json(
+        {
+          exists: false,
+          hasOrders: false,
+          customer: null,
+          error: "SHOPIFY_PLAN_LIMITED",
+          message:
+            "Por favor accede a Clara desde tu cuenta en la tienda BetaSkintech",
+        },
+        { status: 403 },
+      );
+    }
+
     return NextResponse.json(
       {
         exists: false,

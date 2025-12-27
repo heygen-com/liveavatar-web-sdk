@@ -95,3 +95,11 @@ export function isValidCustomerId(customerId: string): boolean {
 export function cleanCustomerId(customerId: string): string {
   return customerId.replace(/^gid:\/\/shopify\/Customer\//, "");
 }
+
+/**
+ * Check if HMAC secret is configured
+ * Used to validate that Shopify integration is properly set up
+ */
+export function isHmacConfigured(): boolean {
+  return Boolean(SHOPIFY_HMAC_SECRET);
+}

@@ -19,6 +19,7 @@ export {
   verifyCustomerToken,
   isValidCustomerId,
   cleanCustomerId,
+  isHmacConfigured,
 } from "./security";
 
 // Client functions
