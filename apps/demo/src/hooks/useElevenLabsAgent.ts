@@ -556,59 +556,26 @@ export const useElevenLabsAgent = (
             }
           : {};
 
-        // Generate personalized first message based on customer type
-        const getFirstMessage = (): string | undefined => {
-          if (!customerData) return undefined; // Use agent's default
-
-          const name = customerData.firstName;
-          const ordersCount = customerData.ordersCount || 0;
-
-          if (ordersCount > 0) {
-            // Returning customer with purchases
-            return name
-              ? `¡Hola ${name}! Qué gusto verte de nuevo. ¿Cómo te ha ido con los productos de Beta? ¿En qué puedo ayudarte hoy?`
-              : `¡Hola de nuevo! Qué gusto verte. ¿Cómo te ha ido con los productos de Beta? ¿En qué puedo ayudarte hoy?`;
-          } else if (name) {
-            // New customer with name (logged in but no orders)
-            return `¡Hola ${name}! Bienvenida a Beta Skin Tech. Soy Clara, tu asesora de skincare. ¿Tienes alguna pregunta sobre tu piel o te gustaría que te ayude a encontrar los productos perfectos para ti?`;
-          }
-
-          // Anonymous user - use agent's default first message
-          return undefined;
-        };
-
-        const firstMessage = getFirstMessage();
+        // NOTE: first_message override requires enabling "Allow client overrides"
+        // in ElevenLabs Dashboard. For now, we use dynamic_variables only.
+        // The agent's first_message in ElevenLabs can use {{user_name}} variable.
 
         if (customerData) {
           console.log(
             "[ElevenLabs] Sending dynamic_variables:",
             dynamicVariables,
           );
-          if (firstMessage) {
-            console.log("[ElevenLabs] Custom first_message:", firstMessage);
-          }
-        }
-
-        // Build agent override config
-        const agentOverride: {
-          asr: { user_input_audio_format: string };
-          first_message?: string;
-        } = {
-          asr: {
-            user_input_audio_format: inputFormat,
-          },
-        };
-
-        // Add first_message override if personalized
-        if (firstMessage) {
-          agentOverride.first_message = firstMessage;
         }
 
         sendMessage(wsRef.current, {
           type: "conversation_initiation_client_data",
           dynamic_variables: dynamicVariables,
           conversation_config_override: {
-            agent: agentOverride,
+            agent: {
+              asr: {
+                user_input_audio_format: inputFormat,
+              },
+            },
           },
         });
       }
