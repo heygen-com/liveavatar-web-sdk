@@ -16,34 +16,18 @@ export function ErudaLoader() {
     const isProduction = hostname === "clara.betaskintech.com";
 
     if (isProduction) {
-      console.log("[Debug] Eruda disabled on production");
       return;
     }
 
-    console.log("[Debug] Loading Eruda for hostname:", hostname);
-
-    // Load Eruda from CDN
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/eruda";
-    script.onerror = (e) => {
-      console.error("[Debug] Failed to load Eruda:", e);
-    };
-    script.onload = () => {
-      console.log("[Debug] Eruda script loaded");
-      // @ts-expect-error - Eruda is loaded globally
-      if (window.eruda) {
-        // @ts-expect-error - Eruda is loaded globally
-        window.eruda.init();
-        console.log("[Debug] Eruda console initialized");
-      } else {
-        console.error("[Debug] Eruda not found on window");
-      }
-    };
-    document.head.appendChild(script);
-
-    return () => {
-      script.remove();
-    };
+    // Dynamic import to avoid bundling in production
+    import("eruda")
+      .then((eruda) => {
+        eruda.default.init();
+        console.log("[Debug] Eruda initialized for:", hostname);
+      })
+      .catch((err) => {
+        console.error("[Debug] Failed to load Eruda:", err);
+      });
   }, []);
 
   return null;
