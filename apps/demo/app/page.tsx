@@ -47,12 +47,11 @@ export default function Home() {
         throw new Error(data.error || "Invalid Shopify token");
       }
 
-      // TODO: Re-enable for production - temporarily disabled for testing
-      // if (!data.hasOrders) {
-      //   setError("Debes realizar una compra para acceder a Clara");
-      //   setPageState("error");
-      //   return;
-      // }
+      if (!data.hasOrders) {
+        setError("Debes realizar una compra para acceder a Clara");
+        setPageState("error");
+        return;
+      }
 
       if (data.customer) {
         setCustomerData({
@@ -99,17 +98,12 @@ export default function Home() {
         throw new Error(data.error || "Error verifying customer");
       }
 
-      // TODO: Re-enable hasOrders check for production - temporarily disabled for testing
-      if (!data.exists) {
-        // User has Google session but doesn't exist in Shopify
+      if (!data.exists || !data.hasOrders) {
+        // User has Google session but hasn't purchased
         // Show verification screen so they can try another email
         setPageState("needs_verification");
         return;
       }
-      // if (!data.hasOrders) {
-      //   setPageState("needs_verification");
-      //   return;
-      // }
 
       if (data.customer) {
         setCustomerData({
