@@ -962,11 +962,17 @@ export const ClaraVoiceAgent: React.FC<ClaraVoiceAgentProps> = ({
 
     try {
       // Use CUSTOM mode for Voice Agent (we handle STT/LLM/TTS via ElevenLabs)
+      // Include x-shopify-validated header if user came from Shopify
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (customerData) {
+        headers["x-shopify-validated"] = "true";
+      }
+
       const res = await fetch("/api/start-custom-session", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           deviceType: isDesktop ? "desktop" : "mobile",
         }),
@@ -984,7 +990,7 @@ export const ClaraVoiceAgent: React.FC<ClaraVoiceAgentProps> = ({
     } finally {
       setIsStarting(false);
     }
-  }, [isDesktop]);
+  }, [isDesktop, customerData]);
 
   const handleSessionStopped = useCallback(() => {
     // Show farewell screen before returning to landing

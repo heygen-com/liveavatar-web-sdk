@@ -14,11 +14,8 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  // Allow Shopify API routes (they have their own validation)
-  if (
-    pathname.startsWith("/api/shopify-customer") ||
-    pathname.startsWith("/api/verify-customer")
-  ) {
+  // Allow all API routes (they have their own authentication)
+  if (pathname.startsWith("/api/")) {
     return NextResponse.next();
   }
 
