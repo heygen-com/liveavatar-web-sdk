@@ -3,8 +3,9 @@ import type { Metadata, Viewport } from "next";
 import { SessionProvider } from "../src/components/providers/SessionProvider";
 
 export const metadata: Metadata = {
-  title: "Live Avatar SDK Demo",
-  description: "Interactive avatar demo with HeyGen Live Avatar SDK",
+  title: "Clara - Tu Asesora de Skincare | Beta Skin Tech",
+  description:
+    "Clara es tu asistente virtual de skincare. Obtiene recomendaciones personalizadas para el cuidado de tu piel.",
 };
 
 export const viewport: Viewport = {

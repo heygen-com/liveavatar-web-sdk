@@ -236,6 +236,56 @@ const VoiceControls: React.FC<VoiceControlsProps> = ({
 };
 
 // ============================================
+// FAREWELL SCREEN COMPONENT
+// ============================================
+interface FarewellScreenProps {
+  onNewConversation: () => void;
+  userName?: string | null;
+}
+
+const FarewellScreen: React.FC<FarewellScreenProps> = ({
+  onNewConversation,
+  userName,
+}) => {
+  return (
+    <div className="flex-1 w-full flex flex-col items-center justify-center p-6 landing-gradient min-h-screen">
+      <Card className="max-w-sm w-full glass-morphism border-0 shadow-2xl">
+        <CardHeader className="text-center pb-2">
+          {/* Heart icon */}
+          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center shadow-lg">
+            <svg
+              className="w-10 h-10 text-white"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+          </div>
+
+          <CardTitle className="text-2xl text-slate-800">
+            ¡Gracias{userName ? `, ${userName}` : ""}!
+          </CardTitle>
+          <CardDescription className="text-base mt-2">
+            Fue un gusto hablar contigo. Espero haberte ayudado con tus dudas de
+            skincare. ¡Vuelve pronto!
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="pt-4">
+          <Button
+            onClick={onNewConversation}
+            size="lg"
+            className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg h-14 text-base"
+          >
+            Iniciar nueva conversación
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// ============================================
 // LANDING SCREEN COMPONENT (shadcn/ui redesign)
 // ============================================
 interface LandingScreenProps {
@@ -902,6 +952,7 @@ export const ClaraVoiceAgent: React.FC<ClaraVoiceAgentProps> = ({
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSafariBanner, setShowSafariBanner] = useState(() => isSafariIOS());
+  const [showFarewell, setShowFarewell] = useState(false);
   const { fixedHeight, isInIframe } = useFixedHeight();
   const { isDesktop } = useScreenSize();
 
@@ -936,7 +987,13 @@ export const ClaraVoiceAgent: React.FC<ClaraVoiceAgentProps> = ({
   }, [isDesktop]);
 
   const handleSessionStopped = useCallback(() => {
+    // Show farewell screen before returning to landing
     setSessionToken(null);
+    setShowFarewell(true);
+  }, []);
+
+  const handleNewConversation = useCallback(() => {
+    setShowFarewell(false);
   }, []);
 
   const containerStyle =
@@ -966,7 +1023,12 @@ export const ClaraVoiceAgent: React.FC<ClaraVoiceAgentProps> = ({
         </div>
       )}
 
-      {!sessionToken ? (
+      {showFarewell ? (
+        <FarewellScreen
+          onNewConversation={handleNewConversation}
+          userName={customerData?.firstName || userName}
+        />
+      ) : !sessionToken ? (
         <LandingScreen
           onStartCall={handleStartCall}
           isLoading={isStarting}

@@ -206,8 +206,76 @@ export default function Home() {
     );
   }
 
-  // Error state
+  // Error state - check if it's "no orders" to show promotional screen
   if (pageState === "error") {
+    const isNoOrdersError = error?.includes("compra");
+
+    if (isNoOrdersError) {
+      // Promotional screen for users without purchases
+      return (
+        <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+          <div className="text-center max-w-md">
+            <div className="mx-auto mb-4 w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+              <svg
+                className="w-10 h-10 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">
+              ¡Desbloquea a Clara!
+            </h2>
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              Clara es exclusiva para clientes de Beta Skin Tech.
+              <br />
+              <span className="font-medium text-indigo-600">
+                Haz tu primera compra
+              </span>{" "}
+              y accede a tu asesora de skincare personal.
+            </p>
+            <a
+              href="https://betaskintech.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md font-medium"
+            >
+              <svg
+                className="w-5 h-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                />
+              </svg>
+              Ir a la tienda
+            </a>
+            <p className="mt-4">
+              <button
+                onClick={() => (window.location.href = "/login")}
+                className="text-sm text-gray-500 hover:text-indigo-600 transition-colors"
+              >
+                Volver al inicio
+              </button>
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Generic error screen for other errors
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
         <div className="text-center max-w-md">
