@@ -50,7 +50,7 @@ const SESSION_LIMIT_MINUTES = 10;
 const SESSION_WARNING_SECONDS = 30;
 
 // Smart Chunking: divide audio grande para evitar buffer overflow
-const MAX_AUDIO_SIZE_BYTES = 600 * 1024; // 600KB por chunk (~12s audio)
+const MAX_AUDIO_SIZE_BYTES = 800 * 1024; // 800KB por chunk (~16s audio)
 const CHUNK_WAIT_TIMEOUT_MS = 20000; // 20s timeout por chunk
 
 // ============================================
