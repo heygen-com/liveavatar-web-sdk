@@ -49,6 +49,10 @@ const SESSION_LIMIT_MINUTES = 10;
 // Warning before session ends (in seconds)
 const SESSION_WARNING_SECONDS = 30;
 
+// Smart Chunking: divide audio grande para evitar buffer overflow
+const MAX_AUDIO_SIZE_BYTES = 600 * 1024; // 600KB por chunk (~12s audio)
+const CHUNK_WAIT_TIMEOUT_MS = 20000; // 20s timeout por chunk
+
 // ============================================
 // SAFARI iOS DETECTION
 // ============================================
@@ -566,6 +570,86 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     return btoa(binary);
   }, []);
 
+  // Helper: Wait for avatar to finish current audio segment
+  const waitForAvatarSpeakEnded = useCallback(
+    (timeoutMs: number = CHUNK_WAIT_TIMEOUT_MS): Promise<void> => {
+      return new Promise((resolve) => {
+        const session = sessionRef.current;
+        if (!session) {
+          resolve();
+          return;
+        }
+
+        const handler = () => {
+          session.off(AgentEventsEnum.AVATAR_SPEAK_ENDED, handler);
+          clearTimeout(timeout);
+          console.log("[AUDIO] avatar.speak_ended received");
+          resolve();
+        };
+
+        const timeout = setTimeout(() => {
+          session.off(AgentEventsEnum.AVATAR_SPEAK_ENDED, handler);
+          console.warn(
+            `[AUDIO] Timeout (${timeoutMs}ms) waiting for avatar.speak_ended`,
+          );
+          resolve(); // Continue anyway
+        }, timeoutMs);
+
+        session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, handler);
+      });
+    },
+    [sessionRef],
+  );
+
+  // Split base64 audio into chunks of maxBytes (in decoded bytes)
+  const smartSplitAudio = useCallback(
+    (audioBase64: string, maxBytes: number): string[] => {
+      // Base64: 4 chars = 3 bytes, so maxChars = maxBytes * 4 / 3
+      const maxChars = Math.floor((maxBytes * 4) / 3);
+      const chunks: string[] = [];
+
+      for (let i = 0; i < audioBase64.length; i += maxChars) {
+        chunks.push(audioBase64.slice(i, i + maxChars));
+      }
+
+      return chunks;
+    },
+    [],
+  );
+
+  // Send large audio in sequential chunks
+  const sendChunkedAudio = useCallback(
+    async (audioBase64: string) => {
+      const chunks = smartSplitAudio(audioBase64, MAX_AUDIO_SIZE_BYTES);
+      console.log(
+        `[AUDIO] Smart chunking: ${chunks.length} segments of ~${Math.round(MAX_AUDIO_SIZE_BYTES / 1024)}KB`,
+      );
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i]!;
+        const sizeKB = Math.round((chunk.length * 0.75) / 1024);
+
+        console.log(
+          `[AUDIO] Sending chunk ${i + 1}/${chunks.length} (${sizeKB}KB)`,
+        );
+
+        isSendingAudioRef.current = true;
+        sessionRef.current?.repeatAudio(chunk);
+
+        // Wait for this chunk to finish before sending next
+        // CRITICAL: Solo 1 audio activo a la vez = sin ambigüedad
+        if (i < chunks.length - 1) {
+          await waitForAvatarSpeakEnded();
+        }
+      }
+
+      console.log(
+        `[AUDIO] Smart chunking complete: ${chunks.length} chunks sent`,
+      );
+    },
+    [smartSplitAudio, waitForAvatarSpeakEnded, sessionRef],
+  );
+
   // Send ALL accumulated audio to avatar in a SINGLE call (no batching)
   // KEY FIX: Resample ONCE after concatenation to eliminate chunk boundary discontinuities
   // Single repeatAudio() call = single event_id = no fragmentation
@@ -642,6 +726,25 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       );
     }
 
+    // === SMART CHUNKING: Check size and split if needed ===
+    const audioSizeBytes = Math.round(finalAudio.length * 0.75);
+    const audioSizeKB = Math.round(audioSizeBytes / 1024);
+    const estimatedDurationSec = audioSizeKB / 48; // 48KB/s @ 24kHz 16-bit
+
+    console.log(
+      `[AUDIO] Size: ${audioSizeKB}KB (~${estimatedDurationSec.toFixed(1)}s)`,
+    );
+
+    if (audioSizeBytes > MAX_AUDIO_SIZE_BYTES) {
+      console.log(
+        `[AUDIO] Audio too large (${audioSizeKB}KB > ${Math.round(MAX_AUDIO_SIZE_BYTES / 1024)}KB), using smart chunking`,
+      );
+      // Send chunked - function handles isSendingAudioRef internally
+      sendChunkedAudio(finalAudio);
+      return; // Exit - chunked send handles everything
+    }
+
+    // === Normal path: audio is small enough for single send ===
     const totalSizeKB = Math.round(finalAudio.length / 1024);
     const isFirstAudio = isFirstAudioRef.current;
 
@@ -667,7 +770,13 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       console.error("Error sending audio to avatar:", error);
       isSendingAudioRef.current = false;
     }
-  }, [concatenateBase64Audio, generateSilence, resampleAudio, sessionRef]);
+  }, [
+    concatenateBase64Audio,
+    generateSilence,
+    resampleAudio,
+    sendChunkedAudio,
+    sessionRef,
+  ]);
 
   // Start gap detection - checks if stream ended by detecting pause between chunks
   const startGapDetection = useCallback(() => {
