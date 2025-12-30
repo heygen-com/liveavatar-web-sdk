@@ -14,6 +14,14 @@ const DEMO_USERS = [
     passwordHash:
       "$2b$10$BqSU623LxazsqzTGTURYAuDLc0pfscpYffKgFCMlKiFIENDsWPeG2",
   },
+  {
+    id: "2",
+    email: "tester@betaskintech.com",
+    name: "Tester",
+    // Password: clara2024
+    passwordHash:
+      "$2b$10$nP9IkY9ij0RcRY8B57D.EO..xUdUEwW0GaJK5Q1kDwLGDGsBTDCE6",
+  },
 ];
 
 const providers: Provider[] = [
