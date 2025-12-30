@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useEffect, useRef, useCallback, useState } from "react";
-import { SessionState, ConnectionQuality } from "@heygen/liveavatar-web-sdk";
+import {
+  SessionState,
+  ConnectionQuality,
+  AgentEventsEnum,
+} from "@heygen/liveavatar-web-sdk";
 import {
   LiveAvatarContextProvider,
   useSession,
@@ -450,12 +454,20 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   // Track if this is the first audio response (for greeting log)
   const isFirstAudioRef = useRef(true);
 
-  // SINGLE-SEND audio strategy constants
-  // Buffer ALL chunks, send ONCE on agent_response_end to prevent overlap
+  // BATCHED AUDIO QUEUE - prevents HeyGen from being overwhelmed by large audio
+  // Audio is split into batches, each batch sent after previous one finishes playing
+  const audioQueueRef = useRef<string[]>([]); // Queue of audio batches (base64)
+  const isSendingAudioRef = useRef(false); // True when HeyGen is playing audio
+  const pendingBatchCountRef = useRef(0); // Track total batches for logging
+
+  // BATCHED-SEND audio strategy constants
+  // Buffer ALL chunks, then split into batches for smooth playback
   // Gap detection is FALLBACK only (if agent_response_end doesn't arrive due to network issues)
   const CHUNK_GAP_THRESHOLD = 1500; // ms gap = fallback timeout (safety net)
-  // Leading silence duration in ms (gives HeyGen time to process interrupt)
+  // Leading silence duration in ms (gives HeyGen time to process/initialize)
   const LEADING_SILENCE_MS = 150;
+  // Maximum batch size in KB (base64) - ~2 seconds of 24kHz 16-bit audio ≈ 128KB
+  const MAX_BATCH_SIZE_KB = 128;
 
   // Generate silence in PCM 16-bit signed, 24kHz mono format (base64)
   const generateSilence = useCallback((durationMs: number): string => {
@@ -511,7 +523,69 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     return btoa(binary);
   }, []);
 
-  // Send ALL accumulated audio to avatar (called on agent_response_end or gap fallback)
+  // Send next batch from the audio queue
+  const sendNextBatch = useCallback(() => {
+    if (audioQueueRef.current.length === 0) {
+      isSendingAudioRef.current = false;
+      console.log("[AUDIO] Queue empty - all batches sent");
+      return;
+    }
+
+    const batch = audioQueueRef.current.shift()!;
+    const batchNum =
+      pendingBatchCountRef.current - audioQueueRef.current.length;
+    const sizeKB = Math.round(batch.length / 1024);
+
+    console.log(
+      `[AUDIO] Sending batch ${batchNum}/${pendingBatchCountRef.current} (${sizeKB}KB)`,
+    );
+
+    try {
+      isSendingAudioRef.current = true;
+      sessionRef.current?.repeatAudio(batch);
+    } catch (error) {
+      console.error("Error sending batch to avatar:", error);
+      // Try next batch if this one fails
+      isSendingAudioRef.current = false;
+      sendNextBatch();
+    }
+  }, [sessionRef]);
+
+  // Split audio into batches based on size limit
+  const splitIntoBatches = useCallback((audioBase64: string): string[] => {
+    const maxBytes = MAX_BATCH_SIZE_KB * 1024;
+    const batches: string[] = [];
+
+    if (audioBase64.length <= maxBytes) {
+      // Small enough to send in one batch
+      return [audioBase64];
+    }
+
+    // Need to split - decode, split PCM, re-encode each batch
+    // For simplicity, split the base64 at byte-aligned boundaries
+    // PCM 16-bit = 2 bytes per sample, so split at even indices
+    const binaryString = atob(audioBase64);
+    const totalBytes = binaryString.length;
+
+    // Ensure batch size is even (PCM 16-bit sample alignment)
+    const batchSizeBytes = Math.floor(maxBytes / 2) * 2;
+
+    for (let offset = 0; offset < totalBytes; offset += batchSizeBytes) {
+      const end = Math.min(offset + batchSizeBytes, totalBytes);
+      // Ensure we don't split mid-sample (16-bit = 2 bytes)
+      const alignedEnd = end % 2 === 0 ? end : end - 1;
+
+      const chunk = binaryString.slice(offset, alignedEnd);
+      if (chunk.length > 0) {
+        batches.push(btoa(chunk));
+      }
+    }
+
+    return batches;
+  }, []);
+
+  // Send ALL accumulated audio to avatar using BATCHED approach
+  // Called on agent_response_end or gap fallback
   const sendAllAudioToAvatar = useCallback(() => {
     // Clear gap check interval
     if (gapCheckIntervalRef.current) {
@@ -531,37 +605,67 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     let concatenatedAudio = concatenateBase64Audio(chunks);
     if (!concatenatedAudio || !sessionRef.current) return;
 
-    // Add leading silence after interruption to give HeyGen time to process
+    // ALWAYS add leading silence to give HeyGen time to initialize audio playback
+    // This prevents first words from being cut off (HeyGen needs warmup time)
+    const silenceBase64 = generateSilence(LEADING_SILENCE_MS);
+    concatenatedAudio = concatenateBase64Audio([
+      silenceBase64,
+      concatenatedAudio,
+    ]);
+
+    // Reset interrupt flag (still used to know we just recovered from interrupt)
     if (isAfterInterruptRef.current) {
-      const silenceBase64 = generateSilence(LEADING_SILENCE_MS);
-      concatenatedAudio = concatenateBase64Audio([
-        silenceBase64,
-        concatenatedAudio,
-      ]);
       isAfterInterruptRef.current = false;
       console.log(
-        `[AUDIO] Added ${LEADING_SILENCE_MS}ms leading silence after interrupt`,
+        `[AUDIO] Added ${LEADING_SILENCE_MS}ms leading silence (post-interrupt)`,
       );
+    } else {
+      console.log(`[AUDIO] Added ${LEADING_SILENCE_MS}ms leading silence`);
     }
 
-    const sizeKB = Math.round(concatenatedAudio.length / 1024);
+    const totalSizeKB = Math.round(concatenatedAudio.length / 1024);
     const isFirstAudio = isFirstAudioRef.current;
 
     if (isFirstAudio) {
       isFirstAudioRef.current = false;
       console.log(
-        `[AUDIO] First greeting: ${chunks.length} chunks, ${sizeKB}KB`,
+        `[AUDIO] First greeting: ${chunks.length} chunks, ${totalSizeKB}KB total`,
       );
     } else {
-      console.log(`[AUDIO] Sending ${chunks.length} chunks, ${sizeKB}KB total`);
+      console.log(
+        `[AUDIO] Response: ${chunks.length} chunks, ${totalSizeKB}KB total`,
+      );
     }
 
-    try {
-      sessionRef.current.repeatAudio(concatenatedAudio);
-    } catch (error) {
-      console.error("Error sending audio to avatar:", error);
+    // Split into batches if audio is too large
+    const batches = splitIntoBatches(concatenatedAudio);
+
+    if (batches.length === 1) {
+      // Small audio - send directly
+      console.log("[AUDIO] Single batch - sending directly");
+      try {
+        isSendingAudioRef.current = true;
+        sessionRef.current.repeatAudio(batches[0]!);
+      } catch (error) {
+        console.error("Error sending audio to avatar:", error);
+        isSendingAudioRef.current = false;
+      }
+    } else {
+      // Large audio - use batched queue
+      console.log(
+        `[AUDIO] Splitting into ${batches.length} batches for smooth playback`,
+      );
+      audioQueueRef.current = batches;
+      pendingBatchCountRef.current = batches.length;
+      sendNextBatch();
     }
-  }, [concatenateBase64Audio, generateSilence, sessionRef]);
+  }, [
+    concatenateBase64Audio,
+    generateSilence,
+    sessionRef,
+    splitIntoBatches,
+    sendNextBatch,
+  ]);
 
   // Start gap detection - checks if stream ended by detecting pause between chunks
   const startGapDetection = useCallback(() => {
@@ -637,7 +741,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     },
     onInterruption: () => {
       // ElevenLabs confirmed user actually interrupted the agent
-      console.log("[AUDIO] Interruption confirmed - clearing buffer");
+      console.log("[AUDIO] Interruption confirmed - clearing buffer and queue");
 
       // Set flag to add leading silence on next response (gives HeyGen time after interrupt)
       isAfterInterruptRef.current = true;
@@ -648,8 +752,11 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         gapCheckIntervalRef.current = null;
       }
 
+      // Clear both buffer and queue
       audioBufferRef.current = [];
+      audioQueueRef.current = [];
       totalChunksReceivedRef.current = 0;
+      isSendingAudioRef.current = false;
     },
     onUserTranscript: (text) => {
       console.log("[AUDIO] User said:", text);
@@ -661,9 +768,11 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         return;
       }
 
-      // IMMEDIATELY clear audio buffer and cancel pending sends
+      // IMMEDIATELY clear audio buffer/queue and cancel pending sends
       // Don't wait for ElevenLabs 'interruption' event - it may not arrive
-      console.log("[AUDIO] User spoke - clearing buffer and interrupting");
+      console.log(
+        "[AUDIO] User spoke - clearing buffer/queue and interrupting",
+      );
 
       // Cancel gap detection
       if (gapCheckIntervalRef.current) {
@@ -671,8 +780,10 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         gapCheckIntervalRef.current = null;
       }
 
-      // Clear audio buffer (discard any pending old audio)
+      // Clear audio buffer and queue (discard any pending old audio)
       audioBufferRef.current = [];
+      audioQueueRef.current = [];
+      isSendingAudioRef.current = false;
 
       // Set flag for leading silence on next response
       isAfterInterruptRef.current = true;
@@ -715,6 +826,33 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Listen for AVATAR_SPEAK_ENDED to send next batch from queue
+  useEffect(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+
+    const handleAvatarSpeakEnded = () => {
+      console.log("[AUDIO] Avatar finished speaking batch");
+      // If there are more batches in queue, send the next one
+      if (audioQueueRef.current.length > 0) {
+        // Small delay to let HeyGen process before next batch
+        setTimeout(() => {
+          sendNextBatch();
+        }, 50);
+      } else {
+        isSendingAudioRef.current = false;
+      }
+    };
+
+    session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, handleAvatarSpeakEnded);
+
+    return () => {
+      session.off(AgentEventsEnum.AVATAR_SPEAK_ENDED, handleAvatarSpeakEnded);
+    };
+    // sessionRef is a ref, doesn't need to be in deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sendNextBatch]);
 
   // Session limit timer - only runs if SESSION_LIMIT_ENABLED is true
   useEffect(() => {
@@ -772,8 +910,9 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         clearInterval(sessionTimerRef.current);
         sessionTimerRef.current = null;
       }
-      // Clear audio buffer
+      // Clear audio buffer and queue
       audioBufferRef.current = [];
+      audioQueueRef.current = [];
     };
   }, []);
 
