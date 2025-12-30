@@ -455,7 +455,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   // These are "in-flight" chunks from the previous response
   const lastInterruptTimeRef = useRef<number>(0);
   const INTERRUPT_DEBOUNCE_MS = 300; // Ignore chunks for 300ms after interrupt
-  const RESPONSE_WAIT_TIMEOUT = 1000; // Fallback if agent_response never arrives
+  const RESPONSE_WAIT_TIMEOUT = 3000; // Fallback if agent_response never arrives (longer for complex responses)
 
   // Track if this is the first audio response (for greeting log)
   const isFirstAudioRef = useRef(true);
