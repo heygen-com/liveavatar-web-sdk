@@ -165,6 +165,17 @@ export default function Home() {
     }
 
     if (session?.user?.email) {
+      // BYPASS: Test users skip Shopify verification
+      const testEmails = ["tester@betaskintech.com", "demo@clara.ai"];
+      if (testEmails.includes(session.user.email)) {
+        setCustomerData({
+          firstName: session.user.name?.split(" ")[0] || "Tester",
+          email: session.user.email,
+        });
+        setPageState("verified");
+        return;
+      }
+
       // User has session - verify their email against Shopify
       verifySessionEmail(session.user.email);
       return;
