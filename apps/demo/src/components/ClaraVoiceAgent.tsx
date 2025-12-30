@@ -796,34 +796,44 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         return;
       }
 
-      // IMMEDIATELY clear audio buffer and cancel pending sends
-      // Don't wait for ElevenLabs 'interruption' event - it may not arrive
-      console.log("[AUDIO] User spoke - clearing buffer and interrupting");
+      // CRITICAL: Only clear buffer and debounce if avatar is CURRENTLY speaking
+      // If avatar finished, chunks arriving are from the NEW response - preserve them
+      if (isSendingAudioRef.current) {
+        console.log("[AUDIO] User interrupted active speech - clearing buffer");
 
-      // Record interrupt time for debounce (ignore ghost chunks)
-      lastInterruptTimeRef.current = Date.now();
+        // Record interrupt time for debounce (ignore ghost chunks)
+        lastInterruptTimeRef.current = Date.now();
 
-      // Cancel gap detection
-      if (gapCheckIntervalRef.current) {
-        clearInterval(gapCheckIntervalRef.current);
-        gapCheckIntervalRef.current = null;
-      }
-
-      // Clear audio state
-      audioBufferRef.current = [];
-      isSendingAudioRef.current = false;
-      isGateOpenRef.current = false; // Reset gate
-
-      // Set flag for leading silence on next response
-      isAfterInterruptRef.current = true;
-
-      // Interrupt HeyGen avatar playback
-      if (sessionRef.current) {
-        try {
-          sessionRef.current.interrupt();
-        } catch {
-          // Ignore interrupt errors
+        // Cancel gap detection
+        if (gapCheckIntervalRef.current) {
+          clearInterval(gapCheckIntervalRef.current);
+          gapCheckIntervalRef.current = null;
         }
+
+        // Clear audio state
+        audioBufferRef.current = [];
+        isSendingAudioRef.current = false;
+        isGateOpenRef.current = false; // Reset gate
+
+        // Set flag for leading silence on next response
+        isAfterInterruptRef.current = true;
+
+        // Interrupt HeyGen avatar playback
+        if (sessionRef.current) {
+          try {
+            sessionRef.current.interrupt();
+          } catch {
+            // Ignore interrupt errors
+          }
+        }
+      } else {
+        // Avatar already finished - don't clear buffer, don't set debounce
+        // Chunks arriving are from the NEW response being generated
+        console.log(
+          "[AUDIO] User spoke after avatar finished - preserving buffer",
+        );
+        // Just set the interrupt flag for leading silence on next response
+        isAfterInterruptRef.current = true;
       }
     },
     onError: (error) => {
