@@ -709,10 +709,30 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         return;
       }
 
-      // Only interrupt HeyGen avatar playback - DON'T clear audio buffer
-      // Buffer will be cleared by onInterruption if ElevenLabs confirms actual interruption
-      // This prevents late user_transcript events from destroying buffered audio
-      console.log("[AUDIO] User spoke - interrupting avatar playback");
+      // IMMEDIATELY clear audio buffer and cancel pending sends
+      // Don't wait for ElevenLabs 'interruption' event - it may not arrive
+      console.log("[AUDIO] User spoke - clearing buffer and interrupting");
+
+      // Cancel Phase 1 timeout
+      if (immediateSendTimeoutRef.current) {
+        clearTimeout(immediateSendTimeoutRef.current);
+        immediateSendTimeoutRef.current = null;
+      }
+
+      // Cancel gap detection
+      if (gapCheckIntervalRef.current) {
+        clearInterval(gapCheckIntervalRef.current);
+        gapCheckIntervalRef.current = null;
+      }
+
+      // Clear audio buffer (discard any pending old audio)
+      audioBufferRef.current = [];
+      hassentImmediateRef.current = false;
+
+      // Set flag for leading silence on next response
+      isAfterInterruptRef.current = true;
+
+      // Interrupt HeyGen avatar playback
       if (sessionRef.current) {
         try {
           sessionRef.current.interrupt();
