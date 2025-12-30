@@ -457,7 +457,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   // Phase 2: Buffer remaining chunks with gap detection
   const IMMEDIATE_SEND_CHUNKS = 2; // Send first 2 chunks without delay (first words)
   const IMMEDIATE_SEND_DELAY = 80; // ms to wait for chunks to arrive together
-  const CHUNK_GAP_THRESHOLD = 250; // ms gap = end of stream (for remaining chunks)
+  const CHUNK_GAP_THRESHOLD = 800; // ms gap = end of stream (> TTS natural pauses of 200-400ms)
   // Leading silence duration in ms (gives HeyGen time to process interrupt)
   const LEADING_SILENCE_MS = 150;
 
@@ -669,8 +669,11 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       sendAllAudioToAvatar();
     },
     onAgentResponse: () => {
-      // Agent started responding - just log for debugging
-      console.log("[AUDIO] agent_response received - new response starting");
+      // Reset TWO-PHASE state for each new response (enables Phase 1 for every turn)
+      hassentImmediateRef.current = false;
+      console.log(
+        "[AUDIO] agent_response received - Phase 1 ready for new response",
+      );
     },
     onInterruption: () => {
       // ElevenLabs confirmed user actually interrupted the agent
