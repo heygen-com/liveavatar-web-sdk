@@ -229,9 +229,16 @@ export const useElevenLabsAgent = (
 
       console.log("useElevenLabsAgent: Fetching signed URL...");
       // Get signed URL from backend
+      // Include x-shopify-validated header if user came from Shopify
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (customerData) {
+        headers["x-shopify-validated"] = "true";
+      }
       const res = await fetch("/api/elevenlabs-conversation", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
       });
       console.log("useElevenLabsAgent: Fetch response status:", res.status);
 
@@ -330,7 +337,7 @@ export const useElevenLabsAgent = (
       onError?.(errorMessage);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cleanup, onError]); // Intentionally omit handleWebSocketMessage and startMicrophoneCapture to prevent callback recreation
+  }, [cleanup, onError, customerData]); // Intentionally omit handleWebSocketMessage and startMicrophoneCapture to prevent callback recreation
 
   // Handle WebSocket messages from ElevenLabs
   const handleWebSocketMessage = useCallback(
