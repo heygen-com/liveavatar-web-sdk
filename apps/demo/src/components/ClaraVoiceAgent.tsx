@@ -408,7 +408,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   const [showExpiryWarning, setShowExpiryWarning] = useState(false);
   const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { sessionRef } = useLiveAvatarContext();
+  const { sessionRef, customerData } = useLiveAvatarContext();
   const { isStreamReady, connectionQuality, attachElement } = useSession();
 
   // Flag to prevent multiple agent connection attempts
@@ -765,6 +765,17 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     stopListening,
     error: agentError,
   } = useElevenLabsAgent({
+    // Pass customer data for ElevenLabs dynamic variables personalization
+    customerData: customerData
+      ? {
+          firstName: customerData.firstName,
+          lastName: customerData.lastName,
+          email: customerData.email,
+          skinType: customerData.skinType,
+          skinConcerns: customerData.skinConcerns,
+          ordersCount: customerData.ordersCount,
+        }
+      : undefined,
     onAudioData: (audioBase64, sampleRate) => {
       // DEBOUNCE: Ignore "ghost" chunks that arrive shortly after interruption
       // These are in-flight chunks from the previous response

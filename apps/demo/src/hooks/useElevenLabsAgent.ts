@@ -11,6 +11,16 @@ export interface ElevenLabsAgentState {
   agentResponse: string | null;
 }
 
+// Customer data for personalization
+export interface CustomerDataForAgent {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  skinType?: string;
+  skinConcerns?: string[];
+  ordersCount?: number;
+}
+
 export interface UseElevenLabsAgentConfig {
   onAudioData?: (audioBase64: string, sampleRate: number) => void; // Raw audio + sample rate (no resampling in hook)
   onAgentResponse?: (text: string) => void;
@@ -18,6 +28,7 @@ export interface UseElevenLabsAgentConfig {
   onInterruption?: () => void; // Called when user interrupts the agent
   onUserTranscript?: (text: string) => void;
   onError?: (error: string) => void;
+  customerData?: CustomerDataForAgent; // Customer data for ElevenLabs dynamic variables
 }
 
 export interface UseElevenLabsAgentReturn extends ElevenLabsAgentState {
@@ -78,6 +89,7 @@ export const useElevenLabsAgent = (
     onInterruption,
     onUserTranscript,
     onError,
+    customerData,
   } = config;
 
   const [state, setState] = useState<ElevenLabsAgentState>({
@@ -465,14 +477,30 @@ export const useElevenLabsAgent = (
       micSampleRateRef.current = actualSampleRate;
       console.log("Microphone actual sample rate:", actualSampleRate);
 
-      // Send conversation initiation with correct audio format based on mic sample rate
+      // Send conversation initiation with correct audio format and dynamic variables
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const inputFormat = getInputAudioFormat(actualSampleRate);
         console.log(
           `[MIC] Configuring ElevenLabs with input format: ${inputFormat}`,
         );
+
+        // Build dynamic variables - user_name is REQUIRED by ElevenLabs agent
+        // Use customerData if available, otherwise default values
+        const dynamicVariables = {
+          user_name: customerData?.firstName || "amigo",
+          skin_type: customerData?.skinType || "desconocido",
+          skin_concerns: customerData?.skinConcerns?.join(", ") || "",
+          total_purchases: String(customerData?.ordersCount || 0),
+        };
+
+        console.log(
+          "[ElevenLabs] Sending dynamic_variables:",
+          dynamicVariables,
+        );
+
         sendMessage(wsRef.current, {
           type: "conversation_initiation_client_data",
+          dynamic_variables: dynamicVariables,
           conversation_config_override: {
             agent: {
               asr: {
@@ -592,7 +620,7 @@ export const useElevenLabsAgent = (
       setState((prev) => ({ ...prev, error: errorMessage }));
       onError?.(errorMessage);
     }
-  }, [onError]);
+  }, [onError, customerData]);
 
   // Disconnect from ElevenLabs
   const disconnect = useCallback(() => {
