@@ -3,49 +3,49 @@
 @tailwind utilities;
 
 /* ============================================
-   CSS VARIABLES - CLARA STYLE DESIGN SYSTEM
+   CSS VARIABLES - CLARA MONOCHROMATIC iOS-STYLE
    shadcn/ui compatible
    ============================================ */
 :root {
-  /* Backgrounds */
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
+  /* Monochromatic Backgrounds */
+  --background: 0 0% 98%;
+  --foreground: 0 0% 13%;
 
   /* Card */
   --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card-foreground: 0 0% 13%;
 
   /* Popover */
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
+  --popover-foreground: 0 0% 13%;
 
-  /* Primary Colors (Clara Purple) */
-  --primary: 262.1 83.3% 57.8%;
-  --primary-foreground: 210 40% 98%;
+  /* Primary Colors (Monochromatic Dark) */
+  --primary: 0 0% 18%;
+  --primary-foreground: 0 0% 98%;
 
   /* Secondary */
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 0 0% 95%;
+  --secondary-foreground: 0 0% 18%;
 
   /* Muted */
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
 
   /* Accent */
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
+  --accent: 0 0% 94%;
+  --accent-foreground: 0 0% 18%;
 
   /* Destructive */
   --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive-foreground: 0 0% 98%;
 
   /* Border & Input & Ring */
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 262.1 83.3% 57.8%;
+  --border: 0 0% 90%;
+  --input: 0 0% 92%;
+  --ring: 0 0% 60%;
 
-  /* Radius */
-  --radius: 0.75rem;
+  /* Radius - iOS style rounded */
+  --radius: 1rem;
 
   /* Semantic Colors (custom) */
   --success: #22c55e;
@@ -54,6 +54,29 @@
   --info-light: #dbeafe;
   --warning: #f59e0b;
   --warning-light: #fef3c7;
+}
+
+/* Dark mode */
+.dark {
+  --background: 0 0% 9%;
+  --foreground: 0 0% 95%;
+  --card: 0 0% 11%;
+  --card-foreground: 0 0% 95%;
+  --popover: 0 0% 9%;
+  --popover-foreground: 0 0% 95%;
+  --primary: 0 0% 90%;
+  --primary-foreground: 0 0% 13%;
+  --secondary: 0 0% 18%;
+  --secondary-foreground: 0 0% 90%;
+  --muted: 0 0% 18%;
+  --muted-foreground: 0 0% 60%;
+  --accent: 0 0% 20%;
+  --accent-foreground: 0 0% 90%;
+  --destructive: 0 62% 30%;
+  --destructive-foreground: 0 0% 90%;
+  --border: 0 0% 18%;
+  --input: 0 0% 18%;
+  --ring: 0 0% 50%;
 }
 
 /* ============================================
@@ -470,4 +493,203 @@
 
 .transition-bounce {
   transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* ============================================
+   iOS-STYLE ANIMATIONS (v0 design)
+   ============================================ */
+
+/* Bounce animation with delay variants */
+@keyframes ios-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.5rem);
+  }
+}
+
+.animate-ios-bounce {
+  animation: ios-bounce 1s infinite;
+}
+
+/* Animation delay utilities */
+.delay-0 {
+  animation-delay: 0ms;
+}
+.delay-75 {
+  animation-delay: 75ms;
+}
+.delay-100 {
+  animation-delay: 100ms;
+}
+.delay-150 {
+  animation-delay: 150ms;
+}
+.delay-200 {
+  animation-delay: 200ms;
+}
+.delay-300 {
+  animation-delay: 300ms;
+}
+
+/* Scale-in animation for heart/icons */
+@keyframes scale-in {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.5s ease-out forwards;
+}
+
+/* Pulse animation (iOS style) */
+@keyframes ios-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-ios-pulse {
+  animation: ios-pulse 2s ease-in-out infinite;
+}
+
+/* ============================================
+   iOS-STYLE GLASSMORPHISM (v0 design)
+   ============================================ */
+.glass-ios {
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: linear-gradient(
+    to bottom right,
+    rgba(255, 255, 255, 0.8),
+    rgba(250, 250, 250, 0.7),
+    rgba(255, 255, 255, 0.6)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.glass-ios-subtle {
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  background: linear-gradient(
+    to bottom right,
+    rgba(255, 255, 255, 0.7),
+    rgba(250, 250, 250, 0.6),
+    rgba(255, 255, 255, 0.5)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* ============================================
+   iOS-STYLE BACKGROUND BLURS (v0 design)
+   ============================================ */
+.bg-blur-circle-1 {
+  position: absolute;
+  width: 24rem;
+  height: 24rem;
+  background: linear-gradient(to bottom right, rgba(163, 163, 163, 0.3), rgba(115, 115, 115, 0.2));
+  border-radius: 9999px;
+  filter: blur(48px);
+}
+
+.bg-blur-circle-2 {
+  position: absolute;
+  width: 24rem;
+  height: 24rem;
+  background: linear-gradient(to top right, rgba(115, 115, 115, 0.2), rgba(163, 163, 163, 0.3));
+  border-radius: 9999px;
+  filter: blur(48px);
+}
+
+/* ============================================
+   iOS-STYLE BUTTONS (v0 design)
+   ============================================ */
+.btn-ios-primary {
+  @apply w-full h-14 rounded-2xl text-white font-medium shadow-xl transition-all;
+  background: linear-gradient(to bottom right, #525252, #404040, #262626);
+  border: 1px solid rgba(82, 82, 82, 0.2);
+  box-shadow: 0 10px 15px -3px rgba(163, 163, 163, 0.3);
+}
+
+.btn-ios-primary:hover {
+  background: linear-gradient(to bottom right, #404040, #262626, #171717);
+}
+
+.btn-ios-primary:active {
+  transform: scale(0.98);
+}
+
+/* ============================================
+   iOS-STYLE CARDS (v0 design)
+   ============================================ */
+.card-ios {
+  @apply rounded-3xl p-8;
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  background: linear-gradient(
+    to bottom right,
+    rgba(255, 255, 255, 0.8),
+    rgba(250, 250, 250, 0.7),
+    rgba(255, 255, 255, 0.6)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 25px 50px -12px rgba(163, 163, 163, 0.2);
+}
+
+/* ============================================
+   iOS-STYLE AVATAR RING (v0 design)
+   ============================================ */
+.avatar-ring-ios {
+  @apply h-24 w-24 rounded-full flex items-center justify-center;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: linear-gradient(
+    to bottom right,
+    rgba(255, 255, 255, 0.9),
+    rgba(250, 250, 250, 0.8),
+    rgba(255, 255, 255, 0.7)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 20px 25px -5px rgba(163, 163, 163, 0.3);
+}
+
+/* ============================================
+   iOS-STYLE STATUS BADGE (v0 design)
+   ============================================ */
+.badge-ios {
+  @apply inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium tracking-wide;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: linear-gradient(
+    to bottom right,
+    rgba(245, 245, 245, 0.9),
+    rgba(250, 250, 250, 0.8),
+    rgba(245, 245, 245, 0.7)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* ============================================
+   TYPOGRAPHY (v0 design)
+   ============================================ */
+.text-balance {
+  text-wrap: balance;
+}
+
+.text-pretty {
+  text-wrap: pretty;
 }
