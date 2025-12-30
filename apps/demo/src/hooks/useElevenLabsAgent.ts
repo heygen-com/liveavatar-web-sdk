@@ -228,6 +228,11 @@ export const useElevenLabsAgent = (
       setState((prev) => ({ ...prev, error: null, isConnecting: true }));
 
       console.log("useElevenLabsAgent: Fetching signed URL...");
+      console.log(
+        "useElevenLabsAgent: customerData exists:",
+        !!customerData,
+        customerData,
+      );
       // Get signed URL from backend
       // Include x-shopify-validated header if user came from Shopify
       const headers: Record<string, string> = {
@@ -235,6 +240,7 @@ export const useElevenLabsAgent = (
       };
       if (customerData) {
         headers["x-shopify-validated"] = "true";
+        console.log("useElevenLabsAgent: Adding x-shopify-validated header");
       }
       const res = await fetch("/api/elevenlabs-conversation", {
         method: "POST",
