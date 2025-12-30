@@ -22,7 +22,7 @@ export interface CustomerDataForAgent {
 }
 
 export interface UseElevenLabsAgentConfig {
-  onAudioData?: (audioBase64: string) => void;
+  onAudioData?: (audioBase64: string, sampleRate: number) => void; // Raw audio + sample rate (no resampling)
   onAgentResponse?: (text: string) => void;
   onAgentResponseEnd?: () => void; // Called when agent finishes speaking (all audio sent)
   onInterruption?: () => void; // Called when user interrupts the agent
@@ -48,16 +48,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer | ArrayBufferLike): string {
   return btoa(binary);
 }
 
-// Convert base64 to ArrayBuffer
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
-}
-
 // Convert Float32Array to Int16Array (PCM 16-bit)
 function float32ToInt16(float32Array: Float32Array): Int16Array {
   const int16Array = new Int16Array(float32Array.length);
@@ -68,35 +58,8 @@ function float32ToInt16(float32Array: Float32Array): Int16Array {
   return int16Array;
 }
 
-// Resample audio from source rate to target rate
-function resampleAudio(
-  sourceBuffer: Int16Array,
-  sourceRate: number,
-  targetRate: number,
-): Int16Array {
-  if (sourceRate === targetRate) {
-    return sourceBuffer;
-  }
-
-  const ratio = sourceRate / targetRate;
-  const targetLength = Math.round(sourceBuffer.length / ratio);
-  const targetBuffer = new Int16Array(targetLength);
-
-  for (let i = 0; i < targetLength; i++) {
-    const sourceIndex = i * ratio;
-    const indexFloor = Math.floor(sourceIndex);
-    const indexCeil = Math.min(indexFloor + 1, sourceBuffer.length - 1);
-    const fraction = sourceIndex - indexFloor;
-
-    // Linear interpolation
-    targetBuffer[i] = Math.round(
-      sourceBuffer[indexFloor]! * (1 - fraction) +
-        sourceBuffer[indexCeil]! * fraction,
-    );
-  }
-
-  return targetBuffer;
-}
+// NOTE: Resampling functions removed - resampling now happens ONCE in ClaraVoiceAgent
+// after concatenating all chunks (eliminates chunk boundary discontinuities)
 
 // Helper to send JSON messages to WebSocket
 function sendMessage(ws: WebSocket, message: object): void {
@@ -349,26 +312,13 @@ export const useElevenLabsAgent = (
   const handleWebSocketMessage = useCallback(
     (event: MessageEvent) => {
       // Binary data = audio (raw PCM from ElevenLabs)
+      // NO RESAMPLING HERE - pass raw audio with sample rate to allow single resample after concatenation
       if (event.data instanceof Blob) {
         event.data.arrayBuffer().then((buffer) => {
-          // ElevenLabs sends PCM audio - we need to convert to the format LiveAvatar expects (PCM 24kHz)
-          const sourceRate = elevenLabsSampleRateRef.current;
-          const targetRate = 24000; // LiveAvatar expects 24kHz
-
-          // Convert to Int16Array
-          const sourceBuffer = new Int16Array(buffer);
-
-          // Resample if needed
-          const resampledBuffer = resampleAudio(
-            sourceBuffer,
-            sourceRate,
-            targetRate,
-          );
-
-          // Convert back to base64 for LiveAvatar
-          const base64Audio = arrayBufferToBase64(resampledBuffer.buffer);
+          // Pass raw audio without resampling - resampling will happen ONCE after concatenation
+          const base64Audio = arrayBufferToBase64(buffer);
           audioChunksRef.current.push(base64Audio);
-          onAudioData?.(base64Audio);
+          onAudioData?.(base64Audio, elevenLabsSampleRateRef.current);
         });
         return;
       }
@@ -433,23 +383,13 @@ export const useElevenLabsAgent = (
 
           case "audio":
             // Audio chunk (some implementations send base64 in JSON instead of binary)
+            // NO RESAMPLING HERE - pass raw audio with sample rate
             if (data.audio_event?.audio_base_64) {
-              // Convert from ElevenLabs sample rate to 24kHz
-              const sourceRate = elevenLabsSampleRateRef.current;
-              const targetRate = 24000;
-
-              const sourceBuffer = new Int16Array(
-                base64ToArrayBuffer(data.audio_event.audio_base_64),
+              audioChunksRef.current.push(data.audio_event.audio_base_64);
+              onAudioData?.(
+                data.audio_event.audio_base_64,
+                elevenLabsSampleRateRef.current,
               );
-              const resampledBuffer = resampleAudio(
-                sourceBuffer,
-                sourceRate,
-                targetRate,
-              );
-              const base64Audio = arrayBufferToBase64(resampledBuffer.buffer);
-
-              audioChunksRef.current.push(base64Audio);
-              onAudioData?.(base64Audio);
             }
             // Don't change state here - let agent_response handle isSpeaking
             break;

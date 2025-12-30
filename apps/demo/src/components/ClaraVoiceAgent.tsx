@@ -460,6 +460,10 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   const isSendingAudioRef = useRef(false); // True when HeyGen is playing audio
   const pendingBatchCountRef = useRef(0); // Track total batches for logging
 
+  // Track ElevenLabs source sample rate (received with first chunk)
+  // Audio is now passed RAW from useElevenLabsAgent - resampling happens ONCE after concatenation
+  const sourceRateRef = useRef<number>(16000);
+
   // BATCHED-SEND audio strategy constants
   // Buffer ALL chunks, then split into batches for smooth playback
   // Gap detection is FALLBACK only (if agent_response_end doesn't arrive due to network issues)
@@ -468,6 +472,8 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   const LEADING_SILENCE_MS = 150;
   // Maximum batch size in KB (base64) - ~2 seconds of 24kHz 16-bit audio ≈ 128KB
   const MAX_BATCH_SIZE_KB = 128;
+  // Target sample rate for HeyGen
+  const TARGET_SAMPLE_RATE = 24000;
 
   // Generate silence in PCM 16-bit signed, 24kHz mono format (base64)
   const generateSilence = useCallback((durationMs: number): string => {
@@ -485,6 +491,37 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     }
     return btoa(binary);
   }, []);
+
+  // Resample audio from source rate to target rate using linear interpolation
+  // Called ONCE on the entire concatenated audio to eliminate chunk boundary discontinuities
+  const resampleAudio = useCallback(
+    (
+      sourceBuffer: Int16Array,
+      sourceRate: number,
+      targetRate: number,
+    ): Int16Array => {
+      if (sourceRate === targetRate) return sourceBuffer;
+
+      const ratio = sourceRate / targetRate;
+      const targetLength = Math.round(sourceBuffer.length / ratio);
+      const targetBuffer = new Int16Array(targetLength);
+
+      for (let i = 0; i < targetLength; i++) {
+        const sourceIndex = i * ratio;
+        const indexFloor = Math.floor(sourceIndex);
+        const indexCeil = Math.min(indexFloor + 1, sourceBuffer.length - 1);
+        const fraction = sourceIndex - indexFloor;
+
+        targetBuffer[i] = Math.round(
+          sourceBuffer[indexFloor]! * (1 - fraction) +
+            sourceBuffer[indexCeil]! * fraction,
+        );
+      }
+
+      return targetBuffer;
+    },
+    [],
+  );
 
   // Concatenate base64 audio chunks into a single base64 string
   const concatenateBase64Audio = useCallback((chunks: string[]): string => {
@@ -586,6 +623,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
 
   // Send ALL accumulated audio to avatar using BATCHED approach
   // Called on agent_response_end or gap fallback
+  // KEY FIX: Resample ONCE after concatenation to eliminate chunk boundary discontinuities
   const sendAllAudioToAvatar = useCallback(() => {
     // Clear gap check interval
     if (gapCheckIntervalRef.current) {
@@ -601,19 +639,44 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     const chunks = audioBufferRef.current;
     audioBufferRef.current = [];
 
-    // Concatenate all chunks into one
-    let concatenatedAudio = concatenateBase64Audio(chunks);
-    if (!concatenatedAudio || !sessionRef.current) return;
+    // 1. Concatenate all RAW chunks (still at source sample rate, e.g., 16kHz)
+    const concatenatedRaw = concatenateBase64Audio(chunks);
+    if (!concatenatedRaw || !sessionRef.current) return;
 
-    // ALWAYS add leading silence to give HeyGen time to initialize audio playback
-    // This prevents first words from being cut off (HeyGen needs warmup time)
+    // 2. Decode base64 → Int16Array (raw PCM)
+    const binaryString = atob(concatenatedRaw);
+    const rawBytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      rawBytes[i] = binaryString.charCodeAt(i);
+    }
+    const sourceBuffer = new Int16Array(rawBytes.buffer);
+
+    // 3. Resample ONCE from source rate (16kHz) to target rate (24kHz)
+    // This eliminates discontinuities that occurred when resampling per-chunk
+    const sourceRate = sourceRateRef.current;
+    const resampledBuffer = resampleAudio(
+      sourceBuffer,
+      sourceRate,
+      TARGET_SAMPLE_RATE,
+    );
+
+    console.log(
+      `[AUDIO] Resampled: ${sourceBuffer.length} samples @ ${sourceRate}Hz → ${resampledBuffer.length} samples @ ${TARGET_SAMPLE_RATE}Hz`,
+    );
+
+    // 4. Encode resampled audio back to base64
+    let binary = "";
+    const resampledBytes = new Uint8Array(resampledBuffer.buffer);
+    for (let i = 0; i < resampledBytes.length; i++) {
+      binary += String.fromCharCode(resampledBytes[i]!);
+    }
+    let finalAudio = btoa(binary);
+
+    // 5. Add leading silence (gives HeyGen time to initialize audio playback)
     const silenceBase64 = generateSilence(LEADING_SILENCE_MS);
-    concatenatedAudio = concatenateBase64Audio([
-      silenceBase64,
-      concatenatedAudio,
-    ]);
+    finalAudio = concatenateBase64Audio([silenceBase64, finalAudio]);
 
-    // Reset interrupt flag (still used to know we just recovered from interrupt)
+    // Reset interrupt flag
     if (isAfterInterruptRef.current) {
       isAfterInterruptRef.current = false;
       console.log(
@@ -623,22 +686,22 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       console.log(`[AUDIO] Added ${LEADING_SILENCE_MS}ms leading silence`);
     }
 
-    const totalSizeKB = Math.round(concatenatedAudio.length / 1024);
+    const totalSizeKB = Math.round(finalAudio.length / 1024);
     const isFirstAudio = isFirstAudioRef.current;
 
     if (isFirstAudio) {
       isFirstAudioRef.current = false;
       console.log(
-        `[AUDIO] First greeting: ${chunks.length} chunks, ${totalSizeKB}KB total`,
+        `[AUDIO] First greeting: ${chunks.length} chunks, ${totalSizeKB}KB (resampled once)`,
       );
     } else {
       console.log(
-        `[AUDIO] Response: ${chunks.length} chunks, ${totalSizeKB}KB total`,
+        `[AUDIO] Response: ${chunks.length} chunks, ${totalSizeKB}KB (resampled once)`,
       );
     }
 
-    // Split into batches if audio is too large
-    const batches = splitIntoBatches(concatenatedAudio);
+    // 6. Split into batches if audio is too large
+    const batches = splitIntoBatches(finalAudio);
 
     if (batches.length === 1) {
       // Small audio - send directly
@@ -662,6 +725,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   }, [
     concatenateBase64Audio,
     generateSilence,
+    resampleAudio,
     sessionRef,
     splitIntoBatches,
     sendNextBatch,
@@ -714,9 +778,14 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
           ordersCount: customerData.ordersCount,
         }
       : undefined,
-    onAudioData: (audioBase64) => {
-      // SINGLE-SEND: Accumulate ALL chunks, send ONCE on agent_response_end
-      // This prevents audio overlap that causes chunky/static sound
+    onAudioData: (audioBase64, sampleRate) => {
+      // Store source sample rate from first chunk (used for resampling after concatenation)
+      if (totalChunksReceivedRef.current === 0) {
+        sourceRateRef.current = sampleRate;
+        console.log(`[AUDIO] Source sample rate: ${sampleRate}Hz`);
+      }
+
+      // Accumulate RAW chunks (no resampling) - resampling happens ONCE after concatenation
       totalChunksReceivedRef.current++;
       audioBufferRef.current.push(audioBase64);
       lastChunkTimeRef.current = Date.now();
