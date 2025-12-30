@@ -455,12 +455,16 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   // These are "in-flight" chunks from the previous response
   const lastInterruptTimeRef = useRef<number>(0);
   const INTERRUPT_DEBOUNCE_MS = 300; // Ignore chunks for 300ms after interrupt
+  const RESPONSE_WAIT_TIMEOUT = 1000; // Fallback if agent_response never arrives
 
   // Track if this is the first audio response (for greeting log)
   const isFirstAudioRef = useRef(true);
 
   // Audio sending state
   const isSendingAudioRef = useRef(false); // True when HeyGen is playing audio
+
+  // Gate: wait for agent_response before sending audio (prevents fragmentation)
+  const isGateOpenRef = useRef(false);
 
   // Track ElevenLabs source sample rate (received with first chunk)
   // Audio is now passed RAW from useElevenLabsAgent - resampling happens ONCE after concatenation
@@ -572,6 +576,9 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       gapCheckIntervalRef.current = null;
     }
 
+    // Reset gate for next response
+    isGateOpenRef.current = false;
+
     if (audioBufferRef.current.length === 0) {
       console.log("[AUDIO] No remaining audio to send");
       return;
@@ -678,10 +685,20 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         timeSinceLastChunk >= CHUNK_GAP_THRESHOLD &&
         audioBufferRef.current.length > 0
       ) {
-        console.log(
-          `[AUDIO] Gap detected (${timeSinceLastChunk}ms) - sending buffered audio`,
-        );
-        sendAllAudioToAvatar();
+        // GATE: Only send if agent_response received OR timeout exceeded
+        if (
+          isGateOpenRef.current ||
+          timeSinceLastChunk >= RESPONSE_WAIT_TIMEOUT
+        ) {
+          console.log(
+            `[AUDIO] Gap detected (${timeSinceLastChunk}ms) - sending buffered audio`,
+          );
+          sendAllAudioToAvatar();
+        } else {
+          console.log(
+            `[AUDIO] Gap detected but waiting for agent_response (${timeSinceLastChunk}ms)`,
+          );
+        }
       }
     }, 50);
   }, [sendAllAudioToAvatar]);
@@ -743,8 +760,9 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       }
     },
     onAgentResponse: () => {
-      // agent_response is just a signal that text is ready, NOT a reset trigger
-      console.log("[AUDIO] agent_response received - continuing to buffer");
+      // agent_response signals ElevenLabs finished generating - open gate
+      console.log("[AUDIO] agent_response received - opening gate");
+      isGateOpenRef.current = true;
     },
     onInterruption: () => {
       // ElevenLabs confirmed user actually interrupted the agent
@@ -766,6 +784,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       audioBufferRef.current = [];
       totalChunksReceivedRef.current = 0;
       isSendingAudioRef.current = false;
+      isGateOpenRef.current = false; // Reset gate
     },
     onUserTranscript: (text) => {
       console.log("[AUDIO] User said:", text);
@@ -793,6 +812,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       // Clear audio state
       audioBufferRef.current = [];
       isSendingAudioRef.current = false;
+      isGateOpenRef.current = false; // Reset gate
 
       // Set flag for leading silence on next response
       isAfterInterruptRef.current = true;
