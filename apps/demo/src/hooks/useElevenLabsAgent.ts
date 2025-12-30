@@ -11,24 +11,13 @@ export interface ElevenLabsAgentState {
   agentResponse: string | null;
 }
 
-// Customer data for personalization
-export interface CustomerDataForAgent {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  skinType?: string;
-  skinConcerns?: string[];
-  ordersCount?: number;
-}
-
 export interface UseElevenLabsAgentConfig {
-  onAudioData?: (audioBase64: string, sampleRate: number) => void; // Raw audio + sample rate (no resampling)
+  onAudioData?: (audioBase64: string, sampleRate: number) => void; // Raw audio + sample rate (no resampling in hook)
   onAgentResponse?: (text: string) => void;
-  // NOTE: agent_response_end doesn't exist in ElevenLabs API - audio end detected via gap detection
+  onAgentResponseEnd?: () => void; // Called when agent finishes speaking (all audio sent)
   onInterruption?: () => void; // Called when user interrupts the agent
   onUserTranscript?: (text: string) => void;
   onError?: (error: string) => void;
-  customerData?: CustomerDataForAgent; // Customer data for ElevenLabs dynamic variables
 }
 
 export interface UseElevenLabsAgentReturn extends ElevenLabsAgentState {
@@ -85,10 +74,10 @@ export const useElevenLabsAgent = (
   const {
     onAudioData,
     onAgentResponse,
+    onAgentResponseEnd,
     onInterruption,
     onUserTranscript,
     onError,
-    customerData,
   } = config;
 
   const [state, setState] = useState<ElevenLabsAgentState>({
@@ -190,23 +179,10 @@ export const useElevenLabsAgent = (
       setState((prev) => ({ ...prev, error: null, isConnecting: true }));
 
       console.log("useElevenLabsAgent: Fetching signed URL...");
-      console.log(
-        "useElevenLabsAgent: customerData exists:",
-        !!customerData,
-        customerData,
-      );
       // Get signed URL from backend
-      // Include x-shopify-validated header if user came from Shopify
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (customerData) {
-        headers["x-shopify-validated"] = "true";
-        console.log("useElevenLabsAgent: Adding x-shopify-validated header");
-      }
       const res = await fetch("/api/elevenlabs-conversation", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
       });
       console.log("useElevenLabsAgent: Fetch response status:", res.status);
 
@@ -305,16 +281,16 @@ export const useElevenLabsAgent = (
       onError?.(errorMessage);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cleanup, onError, customerData]); // Intentionally omit handleWebSocketMessage and startMicrophoneCapture to prevent callback recreation
+  }, [cleanup, onError]); // Intentionally omit handleWebSocketMessage and startMicrophoneCapture to prevent callback recreation
 
   // Handle WebSocket messages from ElevenLabs
   const handleWebSocketMessage = useCallback(
     (event: MessageEvent) => {
       // Binary data = audio (raw PCM from ElevenLabs)
       // NO RESAMPLING HERE - pass raw audio with sample rate to allow single resample after concatenation
+      // This eliminates discontinuities that occurred when resampling per-chunk
       if (event.data instanceof Blob) {
         event.data.arrayBuffer().then((buffer) => {
-          // Pass raw audio without resampling - resampling will happen ONCE after concatenation
           const base64Audio = arrayBufferToBase64(buffer);
           audioChunksRef.current.push(base64Audio);
           onAudioData?.(base64Audio, elevenLabsSampleRateRef.current);
@@ -382,13 +358,11 @@ export const useElevenLabsAgent = (
 
           case "audio":
             // Audio chunk (some implementations send base64 in JSON instead of binary)
-            // NO RESAMPLING HERE - pass raw audio with sample rate
+            // NO RESAMPLING HERE - pass raw audio with sample rate to allow single resample after concatenation
             if (data.audio_event?.audio_base_64) {
-              audioChunksRef.current.push(data.audio_event.audio_base_64);
-              onAudioData?.(
-                data.audio_event.audio_base_64,
-                elevenLabsSampleRateRef.current,
-              );
+              const base64Audio = data.audio_event.audio_base_64;
+              audioChunksRef.current.push(base64Audio);
+              onAudioData?.(base64Audio, elevenLabsSampleRateRef.current);
             }
             // Don't change state here - let agent_response handle isSpeaking
             break;
@@ -434,8 +408,16 @@ export const useElevenLabsAgent = (
             }
             break;
 
-          // NOTE: agent_response_end does NOT exist in ElevenLabs API
-          // Audio end is detected via gap detection in ClaraVoiceAgent
+          case "agent_response_end":
+            // Agent finished speaking - go back to listening
+            console.log("[ElevenLabs] agent_response_end - all audio sent");
+            setState((prev) => ({
+              ...prev,
+              isSpeaking: false,
+              isListening: true,
+            }));
+            onAgentResponseEnd?.();
+            break;
 
           case "internal_tentative_agent_response":
             // Internal event - ignore to prevent state toggling
@@ -451,7 +433,13 @@ export const useElevenLabsAgent = (
         console.error("Failed to parse WebSocket message:", e);
       }
     },
-    [onAudioData, onAgentResponse, onInterruption, onUserTranscript],
+    [
+      onAudioData,
+      onAgentResponse,
+      onAgentResponseEnd,
+      onInterruption,
+      onUserTranscript,
+    ],
   );
 
   // Start microphone capture using AudioWorkletNode (modern replacement for deprecated ScriptProcessorNode)
@@ -477,37 +465,14 @@ export const useElevenLabsAgent = (
       micSampleRateRef.current = actualSampleRate;
       console.log("Microphone actual sample rate:", actualSampleRate);
 
-      // Send conversation initiation with correct audio format and dynamic variables
+      // Send conversation initiation with correct audio format based on mic sample rate
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const inputFormat = getInputAudioFormat(actualSampleRate);
         console.log(
           `[MIC] Configuring ElevenLabs with input format: ${inputFormat}`,
         );
-
-        // Build dynamic variables from customer data for personalization
-        const dynamicVariables = customerData
-          ? {
-              user_name: customerData.firstName || "",
-              skin_type: customerData.skinType || "desconocido",
-              skin_concerns: customerData.skinConcerns?.join(", ") || "",
-              total_purchases: String(customerData.ordersCount || 0),
-            }
-          : {};
-
-        // NOTE: first_message override requires enabling "Allow client overrides"
-        // in ElevenLabs Dashboard. For now, we use dynamic_variables only.
-        // The agent's first_message in ElevenLabs can use {{user_name}} variable.
-
-        if (customerData) {
-          console.log(
-            "[ElevenLabs] Sending dynamic_variables:",
-            dynamicVariables,
-          );
-        }
-
         sendMessage(wsRef.current, {
           type: "conversation_initiation_client_data",
-          dynamic_variables: dynamicVariables,
           conversation_config_override: {
             agent: {
               asr: {
@@ -627,7 +592,7 @@ export const useElevenLabsAgent = (
       setState((prev) => ({ ...prev, error: errorMessage }));
       onError?.(errorMessage);
     }
-  }, [onError, customerData]);
+  }, [onError]);
 
   // Disconnect from ElevenLabs
   const disconnect = useCallback(() => {
