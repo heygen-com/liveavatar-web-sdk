@@ -451,6 +451,11 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   // Leading silence flag - add silence after interrupt to give HeyGen time
   const isAfterInterruptRef = useRef(false);
 
+  // Debounce for ghost chunks - ignore chunks arriving shortly after interruption
+  // These are "in-flight" chunks from the previous response
+  const lastInterruptTimeRef = useRef<number>(0);
+  const INTERRUPT_DEBOUNCE_MS = 300; // Ignore chunks for 300ms after interrupt
+
   // Track if this is the first audio response (for greeting log)
   const isFirstAudioRef = useRef(true);
 
@@ -705,6 +710,16 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         }
       : undefined,
     onAudioData: (audioBase64, sampleRate) => {
+      // DEBOUNCE: Ignore "ghost" chunks that arrive shortly after interruption
+      // These are in-flight chunks from the previous response
+      const timeSinceInterrupt = Date.now() - lastInterruptTimeRef.current;
+      if (timeSinceInterrupt < INTERRUPT_DEBOUNCE_MS) {
+        console.log(
+          `[AUDIO] Ignoring ghost chunk (${timeSinceInterrupt}ms since interrupt)`,
+        );
+        return;
+      }
+
       // Store source sample rate from first chunk (used for resampling after concatenation)
       if (totalChunksReceivedRef.current === 0) {
         sourceRateRef.current = sampleRate;
@@ -738,6 +753,9 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       // Set flag to add leading silence on next response (gives HeyGen time after interrupt)
       isAfterInterruptRef.current = true;
 
+      // Record interrupt time for debounce (ignore ghost chunks)
+      lastInterruptTimeRef.current = Date.now();
+
       // Clear gap detection interval
       if (gapCheckIntervalRef.current) {
         clearInterval(gapCheckIntervalRef.current);
@@ -762,6 +780,9 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       // IMMEDIATELY clear audio buffer and cancel pending sends
       // Don't wait for ElevenLabs 'interruption' event - it may not arrive
       console.log("[AUDIO] User spoke - clearing buffer and interrupting");
+
+      // Record interrupt time for debounce (ignore ghost chunks)
+      lastInterruptTimeRef.current = Date.now();
 
       // Cancel gap detection
       if (gapCheckIntervalRef.current) {
