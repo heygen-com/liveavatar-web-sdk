@@ -24,7 +24,7 @@ export interface CustomerDataForAgent {
 export interface UseElevenLabsAgentConfig {
   onAudioData?: (audioBase64: string, sampleRate: number) => void; // Raw audio + sample rate (no resampling)
   onAgentResponse?: (text: string) => void;
-  onAgentResponseEnd?: () => void; // Called when agent finishes speaking (all audio sent)
+  // NOTE: agent_response_end doesn't exist in ElevenLabs API - audio end detected via gap detection
   onInterruption?: () => void; // Called when user interrupts the agent
   onUserTranscript?: (text: string) => void;
   onError?: (error: string) => void;
@@ -85,7 +85,6 @@ export const useElevenLabsAgent = (
   const {
     onAudioData,
     onAgentResponse,
-    onAgentResponseEnd,
     onInterruption,
     onUserTranscript,
     onError,
@@ -435,16 +434,8 @@ export const useElevenLabsAgent = (
             }
             break;
 
-          case "agent_response_end":
-            // Agent finished speaking - go back to listening
-            console.log("[ElevenLabs] agent_response_end - all audio sent");
-            setState((prev) => ({
-              ...prev,
-              isSpeaking: false,
-              isListening: true,
-            }));
-            onAgentResponseEnd?.();
-            break;
+          // NOTE: agent_response_end does NOT exist in ElevenLabs API
+          // Audio end is detected via gap detection in ClaraVoiceAgent
 
           case "internal_tentative_agent_response":
             // Internal event - ignore to prevent state toggling
@@ -460,13 +451,7 @@ export const useElevenLabsAgent = (
         console.error("Failed to parse WebSocket message:", e);
       }
     },
-    [
-      onAudioData,
-      onAgentResponse,
-      onAgentResponseEnd,
-      onInterruption,
-      onUserTranscript,
-    ],
+    [onAudioData, onAgentResponse, onInterruption, onUserTranscript],
   );
 
   // Start microphone capture using AudioWorkletNode (modern replacement for deprecated ScriptProcessorNode)
