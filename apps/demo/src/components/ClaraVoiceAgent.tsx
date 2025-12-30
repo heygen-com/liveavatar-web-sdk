@@ -821,12 +821,10 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       }
     },
     onAgentResponse: () => {
-      // New response starting - reset two-phase state for fresh send
-      console.log(
-        "[AUDIO] agent_response received - resetting for new response",
-      );
-      hasSentImmediateRef.current = false;
-      totalChunksReceivedRef.current = 0;
+      // agent_response is just a signal that text is ready, NOT a reset trigger
+      // Don't reset hasSentImmediateRef here - causes multiple fragmented sends
+      // Reset only happens on real interruptions (user speaks)
+      console.log("[AUDIO] agent_response received - continuing to buffer");
     },
     onInterruption: () => {
       // ElevenLabs confirmed user actually interrupted the agent
