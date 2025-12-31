@@ -12,21 +12,22 @@ export interface ElevenLabsAgentState {
 }
 
 // Latency metrics for performance monitoring
+// Simplified to track what matters most: time from user speech to avatar response
 export interface LatencyMetrics {
-  // Timestamps (ms since epoch)
-  userSpeechEndTime: number; // When user_transcript received
-  agentResponseTime: number; // When agent_response received
+  // Response cycle ID (for correlating events)
+  responseId: number;
+
+  // Key timestamps (ms since epoch)
+  userSpeechEndTime: number; // When user_transcript received (STT complete)
   firstAudioChunkTime: number; // When first TTS audio chunk received
   audioSentTime: number; // When audio sent to HeyGen (set externally)
   avatarSpeakStartTime: number; // When avatar starts speaking (set externally)
 
-  // Calculated latencies (ms)
-  sttLatency: number; // Time for speech-to-text (estimated)
-  llmLatency: number; // agentResponseTime - userSpeechEndTime
-  ttsFirstChunkLatency: number; // firstAudioChunkTime - agentResponseTime
-  processingLatency: number; // audioSentTime - firstAudioChunkTime
-  heygenLatency: number; // avatarSpeakStartTime - audioSentTime
-  totalE2ELatency: number; // avatarSpeakStartTime - userSpeechEndTime
+  // Calculated latencies (ms) - what users actually experience
+  timeToFirstAudio: number; // firstAudioChunkTime - userSpeechEndTime (STT→LLM→TTS first byte)
+  processingLatency: number; // audioSentTime - firstAudioChunkTime (buffering + resample)
+  heygenLatency: number; // avatarSpeakStartTime - audioSentTime (HeyGen processing)
+  totalE2ELatency: number; // avatarSpeakStartTime - userSpeechEndTime (full pipeline)
 }
 
 // Customer data for personalization
@@ -153,6 +154,8 @@ export const useElevenLabsAgent = (
   const latencyRef = useRef<Partial<LatencyMetrics>>({});
   const isFirstAudioChunkRef = useRef<boolean>(true);
   const responseIdRef = useRef<number>(0); // Track response cycles
+  const hasTrackedAvatarStartRef = useRef<boolean>(false); // Prevent double tracking per response
+  const lastAudioSentResponseIdRef = useRef<number>(0); // Track which response the audio was sent for
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -375,9 +378,11 @@ export const useElevenLabsAgent = (
 
             // Reset latency tracking for new response cycle
             latencyRef.current = {
+              responseId: currentResponseId,
               userSpeechEndTime: userTranscriptTime,
             };
             isFirstAudioChunkRef.current = true;
+            hasTrackedAvatarStartRef.current = false; // Reset for new response
 
             const transcriptText =
               data.user_transcription_event?.user_transcript ||
@@ -398,21 +403,12 @@ export const useElevenLabsAgent = (
           }
 
           case "agent_response": {
-            // Agent text response - LATENCY TRACKING: LLM response received
-            const agentResponseTime = Date.now();
-            latencyRef.current.agentResponseTime = agentResponseTime;
-
-            // Calculate LLM latency
-            const llmLatency = latencyRef.current.userSpeechEndTime
-              ? agentResponseTime - latencyRef.current.userSpeechEndTime
-              : 0;
-            latencyRef.current.llmLatency = llmLatency;
-
+            // Agent text response received (note: audio often arrives before this)
             const responseText =
               data.agent_response_event?.agent_response || data.agent_response;
 
             console.log(
-              `[LATENCY] #${responseIdRef.current} Agent response: LLM_LATENCY=${llmLatency}ms`,
+              `[AUDIO] Agent response text received for #${responseIdRef.current}`,
             );
 
             setState((prev) => ({
@@ -431,20 +427,21 @@ export const useElevenLabsAgent = (
             if (data.audio_event?.audio_base_64) {
               const base64Audio = data.audio_event.audio_base_64;
 
-              // LATENCY TRACKING: Track first audio chunk (TTS started)
+              // LATENCY TRACKING: Track first audio chunk (TTS started producing output)
               if (isFirstAudioChunkRef.current) {
                 const firstAudioTime = Date.now();
                 latencyRef.current.firstAudioChunkTime = firstAudioTime;
                 isFirstAudioChunkRef.current = false;
 
-                // Calculate TTS first chunk latency
-                const ttsLatency = latencyRef.current.agentResponseTime
-                  ? firstAudioTime - latencyRef.current.agentResponseTime
+                // Calculate time from user speech end to first audio
+                // This captures: STT processing + LLM streaming start + TTS first byte
+                const timeToFirstAudio = latencyRef.current.userSpeechEndTime
+                  ? firstAudioTime - latencyRef.current.userSpeechEndTime
                   : 0;
-                latencyRef.current.ttsFirstChunkLatency = ttsLatency;
+                latencyRef.current.timeToFirstAudio = timeToFirstAudio;
 
                 console.log(
-                  `[LATENCY] #${responseIdRef.current} First TTS chunk: TTS_LATENCY=${ttsLatency}ms`,
+                  `[LATENCY] #${responseIdRef.current} First audio chunk: TIME_TO_FIRST_AUDIO=${timeToFirstAudio}ms`,
                 );
               }
 
@@ -732,6 +729,11 @@ export const useElevenLabsAgent = (
     const audioSentTime = Date.now();
     latencyRef.current.audioSentTime = audioSentTime;
 
+    // Track which response this audio is for (to correlate with avatar start)
+    lastAudioSentResponseIdRef.current = responseIdRef.current;
+    // Reset avatar tracking flag when new audio is sent
+    hasTrackedAvatarStartRef.current = false;
+
     // Calculate processing latency (buffering + resampling)
     const processingLatency = latencyRef.current.firstAudioChunkTime
       ? audioSentTime - latencyRef.current.firstAudioChunkTime
@@ -744,34 +746,47 @@ export const useElevenLabsAgent = (
   }, []);
 
   // Latency tracking: Called when avatar starts speaking
+  // Only tracks FIRST avatar start per audio send (ignores subsequent segments)
   const reportAvatarStarted = useCallback(() => {
+    // Ignore if we already tracked avatar start for this audio send
+    if (hasTrackedAvatarStartRef.current) {
+      console.log(
+        `[LATENCY] #${lastAudioSentResponseIdRef.current} Avatar segment started (already tracked, ignoring)`,
+      );
+      return;
+    }
+
+    // Mark as tracked
+    hasTrackedAvatarStartRef.current = true;
+
     const avatarStartTime = Date.now();
     latencyRef.current.avatarSpeakStartTime = avatarStartTime;
 
-    // Calculate HeyGen latency
+    // Calculate HeyGen latency (time from audio sent to avatar speaking)
     const heygenLatency = latencyRef.current.audioSentTime
       ? avatarStartTime - latencyRef.current.audioSentTime
       : 0;
     latencyRef.current.heygenLatency = heygenLatency;
 
-    // Calculate total E2E latency
+    // Calculate total E2E latency (time from user speech end to avatar speaking)
     const totalE2E = latencyRef.current.userSpeechEndTime
       ? avatarStartTime - latencyRef.current.userSpeechEndTime
       : 0;
     latencyRef.current.totalE2ELatency = totalE2E;
 
+    const responseId = lastAudioSentResponseIdRef.current;
+
     console.log(
-      `[LATENCY] #${responseIdRef.current} Avatar speaking: HEYGEN_LATENCY=${heygenLatency}ms | TOTAL_E2E=${totalE2E}ms`,
+      `[LATENCY] #${responseId} Avatar speaking: HEYGEN=${heygenLatency}ms | TOTAL_E2E=${totalE2E}ms`,
     );
 
-    // Report complete metrics
+    // Report complete metrics with clean format
     const metrics = { ...latencyRef.current };
-    console.log(`[LATENCY] #${responseIdRef.current} Complete metrics:`, {
-      llm: `${metrics.llmLatency}ms`,
-      tts: `${metrics.ttsFirstChunkLatency}ms`,
-      processing: `${metrics.processingLatency}ms`,
-      heygen: `${metrics.heygenLatency}ms`,
-      total: `${metrics.totalE2ELatency}ms`,
+    console.log(`[LATENCY] #${responseId} Complete breakdown:`, {
+      timeToFirstAudio: `${metrics.timeToFirstAudio || 0}ms`,
+      processing: `${metrics.processingLatency || 0}ms`,
+      heygen: `${metrics.heygenLatency || 0}ms`,
+      totalE2E: `${metrics.totalE2ELatency || 0}ms`,
     });
 
     onLatencyMetrics?.(metrics);
