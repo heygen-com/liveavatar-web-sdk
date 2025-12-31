@@ -39,6 +39,9 @@ import {
   Clock,
 } from "lucide-react";
 
+// Debug tools
+import { MobileLogger } from "./debug/MobileLogger";
+
 // ============================================
 // DEVICE DETECTION (runtime, not module-level)
 // ============================================
@@ -1385,6 +1388,9 @@ export const ClaraVoiceAgent: React.FC<ClaraVoiceAgentProps> = ({
           <SessionWrapper onSessionStopped={handleSessionStopped} />
         </LiveAvatarContextProvider>
       )}
+
+      {/* Mobile debug logger - shows [AUDIO] logs on screen */}
+      <MobileLogger enabled={isMobileDevice()} filter="[AUDIO]" maxLogs={100} />
     </div>
   );
 };
