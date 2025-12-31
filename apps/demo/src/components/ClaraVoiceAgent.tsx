@@ -76,9 +76,7 @@ const SESSION_WARNING_SECONDS = 30;
 // ============================================
 // HYBRID AUDIO STRATEGY CONSTANTS
 // ============================================
-// TWO-PHASE: Send first chunks immediately for low latency
-const IMMEDIATE_SEND_CHUNKS = 2; // Send first 2 chunks without delay (first words)
-const IMMEDIATE_SEND_DELAY = IS_MOBILE ? 50 : 80; // Mobile: faster, Desktop: original
+// TWO-PHASE: Send first chunk IMMEDIATELY for lowest latency (synchronous, no timeout)
 const CHUNK_GAP_THRESHOLD = IS_MOBILE ? 150 : 250; // Mobile: more sensitive
 
 // Smart Chunking: Split large audio to avoid HeyGen 1MB limit
@@ -94,12 +92,12 @@ const MAX_BUFFER_SAMPLES = IS_MOBILE ? 32000 : 64000; // 2s vs 4s @ 16kHz source
 const INTERRUPT_DEBOUNCE_MS = 300; // Ignore chunks for 300ms after interrupt
 
 // Silence padding - DIFFERENTIATED BY PHASE for optimal latency
-// PHASE 1 (immediate send): NEEDS MORE silence because HeyGen is "cold" (not yet playing)
-// This is the FIRST audio - avatar needs time to wake up
-const PHASE1_LEADING_SILENCE_MS = 150; // HeyGen needs time to start lip-sync
+// PHASE 1 (immediate send): MINIMAL silence - we want first words OUT ASAP
+// HeyGen can handle audio arriving quickly, trust it
+const PHASE1_LEADING_SILENCE_MS = 30; // Minimal buffer for network jitter
 const PHASE1_TRAILING_SILENCE_MS = 0; // No trailing, more audio coming
 
-// PHASE 2 (gap-detected send): Less silence needed, HeyGen already "warm"
+// PHASE 2 (gap-detected send): Normal padding for quality
 const PHASE2_LEADING_SILENCE_MS = 50; // Just for network jitter (avatar already active)
 const PHASE2_TRAILING_SILENCE_MS = 150; // Ensures last words play
 
@@ -115,8 +113,9 @@ if (typeof window !== "undefined") {
       `UA: ${navigator.userAgent.substring(0, 50)}...`,
   );
   console.log(
-    `[AUDIO] Config: Gap=${CHUNK_GAP_THRESHOLD}ms | MaxBuffer=${MAX_BUFFER_SAMPLES} | ` +
-      `Phase1Silence=${PHASE1_LEADING_SILENCE_MS}ms | Phase2Silence=${PHASE2_LEADING_SILENCE_MS}ms`,
+    `[AUDIO] Config: Phase1=IMMEDIATE(${PHASE1_LEADING_SILENCE_MS}ms) | ` +
+      `Phase2=${PHASE2_LEADING_SILENCE_MS}ms+${PHASE2_TRAILING_SILENCE_MS}ms | ` +
+      `Gap=${CHUNK_GAP_THRESHOLD}ms | MaxBuffer=${MAX_BUFFER_SAMPLES}`,
   );
 }
 
@@ -896,29 +895,15 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       );
 
       // TWO-PHASE STRATEGY:
-      // Phase 1: Send first chunks IMMEDIATELY (contains first words - reduces perceived latency)
-      if (
-        !hassentImmediateRef.current &&
-        currentBufferLength <= IMMEDIATE_SEND_CHUNKS
-      ) {
-        // Clear any existing immediate timeout
-        if (immediateSendTimeoutRef.current) {
-          clearTimeout(immediateSendTimeoutRef.current);
-        }
-
-        // Wait a tiny bit for chunks to arrive together, then send
-        immediateSendTimeoutRef.current = setTimeout(() => {
-          if (
-            audioBufferRef.current.length > 0 &&
-            !hassentImmediateRef.current
-          ) {
-            hassentImmediateRef.current = true;
-            console.log(
-              `[AUDIO] PHASE 1: Immediate send ${audioBufferRef.current.length} chunks (first words)`,
-            );
-            sendAllAudioToAvatar(true); // isImmediateSend = true for minimal silence
-          }
-        }, IMMEDIATE_SEND_DELAY);
+      // Phase 1: Send first chunk IMMEDIATELY (contains first words - reduces perceived latency)
+      // This is SYNCHRONOUS - no timeout, no delay, just send NOW
+      if (!hassentImmediateRef.current && currentBufferLength === 1) {
+        hassentImmediateRef.current = true;
+        console.log(
+          `[AUDIO] PHASE 1: IMMEDIATE send first chunk (first words) - NO DELAY`,
+        );
+        // Send synchronously - first words go out ASAP
+        sendAllAudioToAvatar(true); // isImmediateSend = true for minimal silence
         return;
       }
 
