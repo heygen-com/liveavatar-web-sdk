@@ -1,44 +1,58 @@
 # Clara Voice Agent - Session Progress
 
-## 2025-12-30: Smart Chunking Implementation
+## 2024-12-31: Branch Consolidation + Claude Code Setup
 
-### Problem
-Audio responses > 1MB (1.77MB, ~28s) were being truncated by HeyGen's buffer limit.
-- HeyGen limit: < 1MB, ≤ 15s
-- Result: ~5 seconds of audio lost at the end
+### Branch Consolidation
 
-### Solution Implemented
-Smart Chunking - divide large audio post-accumulation and send sequentially:
+Merged `origin/claude/duplicate-master-branch-ncdGC` into `develop`:
 
-1. Added module-level constants:
-   - `MAX_AUDIO_SIZE_BYTES = 600 * 1024` (600KB per chunk)
-   - `CHUNK_WAIT_TIMEOUT_MS = 20000` (20s timeout per chunk)
+**Commit**: `a462b6d`
 
-2. Added `waitForAvatarSpeakEnded()` helper:
-   - Listens for `avatar.speak_ended` event
-   - Has 20s timeout fallback
+**Features consolidated**:
+- TWO-PHASE audio strategy (immediate first words + gap detection)
+- Smart Chunking at 800KB threshold
+- Mobile-adaptive buffer limits (32K samples on mobile)
+- Phase-differentiated silence padding
+- Latency metrics tracking
+- iOS-style monochromatic UI
+- MobileLogger debug component
+- ElevenLabs dynamic_variables fix
+- Audio troubleshooting documentation
 
-3. Added `smartSplitAudio()` utility:
-   - Splits base64 audio into chunks of ~600KB
+**NOT included**:
+- Gate mechanism (isGateOpenRef) - conflicts with PHASE 1 immediate send
 
-4. Added `sendChunkedAudio()` function:
-   - Sends chunks sequentially
-   - Waits for `avatar.speak_ended` between each chunk
-   - Prevents SDK entanglement (only 1 audio active at a time)
+### Claude Code Setup
 
-5. Modified `sendAllAudioToAvatar()`:
-   - Checks if audio > 600KB
-   - If yes, uses smart chunking
-   - If no, uses normal single send
+Created `.claude/` structure:
 
-### Commit
-`11c0058` - feat(audio): implement smart chunking for large audio (>600KB)
+```
+.claude/
+├── settings.json              # Hooks (auto-prettier)
+├── sessions/
+│   └── claude-progress.txt    # This file
+├── commands/
+│   ├── deploy.md              # /deploy staging|production
+│   └── fix-audio.md           # /fix-audio [symptom]
+├── agents/
+│   └── audio-expert.md        # Audio pipeline specialist
+└── skills/
+    └── clara-voice-agent/
+        ├── SKILL.md           # Project knowledge
+        └── references/
+            ├── audio-pipeline.md
+            └── heygen-limits.md
+```
 
-### Expected Behavior
-- Short responses (< 600KB): single send, no change
-- Long responses (> 600KB): chunked sequentially with ~12s segments
+### Next Steps
 
-### Testing Required
-- Test with short question: "hola"
-- Test with long question: "explícame la niacinamida en detalle"
-- Verify no audio truncation on long responses
+1. [ ] Test on staging (testers.betaskintech.com)
+2. [ ] Verify mobile performance with MobileLogger
+3. [ ] Create PR develop → master when stable
+4. [ ] Add more commands as needed (/test, /review-pr)
+
+### Known Issues to Monitor
+
+1. **Micro-pausa entre chunks**: ~150-300ms gap when Smart Chunking activates
+2. **Mobile latency**: May be higher on slow networks
+3. **Safari iOS**: Not supported (SafariFallbackScreen shows message)
