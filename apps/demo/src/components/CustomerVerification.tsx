@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from "./ui/alert";
 import { Separator } from "./ui/separator";
 import type { VerifyCustomerResponse } from "@/src/shopify";
 import type { CustomerData } from "@/src/liveavatar/types";
+import Image from "next/image";
 
 interface CustomerVerificationProps {
   onVerified: (customerData: CustomerData) => void;
@@ -160,7 +161,7 @@ export default function CustomerVerification({
           <div className="flex flex-col gap-2 mt-4">
             <Button
               onClick={() => window.open("https://betaskintech.cl", "_blank")}
-              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+              className="bg-gradient-to-br from-neutral-600 via-neutral-700 to-neutral-800 hover:from-neutral-700 hover:to-neutral-900"
             >
               Ir a la tienda
             </Button>
@@ -198,7 +199,7 @@ export default function CustomerVerification({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@email.com"
-              className="h-11 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500"
+              className="h-11 border-gray-200 focus:border-neutral-500 focus:ring-neutral-500"
               required
               disabled={verificationState === "loading"}
             />
@@ -209,7 +210,7 @@ export default function CustomerVerification({
 
           <Button
             type="submit"
-            className="w-full h-11 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-md transition-all duration-200"
+            className="w-full h-11 bg-gradient-to-br from-neutral-600 via-neutral-700 to-neutral-800 hover:from-neutral-700 hover:to-neutral-900 text-white font-medium shadow-md transition-all duration-200"
             disabled={verificationState === "loading"}
           >
             {verificationState === "loading" ? (
@@ -301,20 +302,26 @@ export default function CustomerVerification({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" />
+        <div className="bg-blur-circle-1 -top-40 -right-40" />
+        <div className="bg-blur-circle-2 -bottom-40 -left-40" />
       </div>
 
-      <Card className="w-full max-w-md relative z-10 shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+      <Card className="w-full max-w-md relative z-10 shadow-xl border-0 card-ios">
         <CardHeader className="text-center pb-2">
           {/* Clara Logo/Branding */}
-          <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-            <span className="text-2xl font-bold text-white">C</span>
+          <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-gradient-to-br from-neutral-100 to-neutral-200 flex items-center justify-center shadow-lg border border-white/50 overflow-hidden p-2">
+            <Image
+              src="/images/clara-logo.png"
+              alt="Clara"
+              width={64}
+              height={64}
+              className="w-full h-full object-contain"
+            />
           </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          <CardTitle className="text-2xl font-bold text-neutral-900">
             Bienvenida a Clara
           </CardTitle>
           <CardDescription className="text-gray-500">

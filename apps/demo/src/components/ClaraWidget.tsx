@@ -11,6 +11,7 @@ import {
   CustomerData,
 } from "../liveavatar";
 import { useScreenSize, useFixedHeight } from "../hooks";
+import Image from "next/image";
 
 // Icons (inline SVGs for simplicity)
 const PhoneIcon = ({ className }: { className?: string }) => (
@@ -233,8 +234,16 @@ const LandingScreen: React.FC<LandingScreenProps> = ({
     <div className="flex-1 flex flex-col items-center justify-center p-6 landing-gradient">
       <div className="landing-card max-w-sm w-full text-center">
         {/* Avatar placeholder */}
-        <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center shadow-lg">
-          <span className="text-4xl text-white">AI</span>
+        <div className="avatar-ring-ios mx-auto mb-6">
+          <div className="h-20 w-20 rounded-full bg-gradient-to-br from-neutral-100 to-neutral-200 flex items-center justify-center overflow-hidden p-3 border border-white/40">
+            <Image
+              src="/images/clara-logo.png"
+              alt="Clara Logo"
+              width={80}
+              height={80}
+              className="w-full h-full object-contain"
+            />
+          </div>
         </div>
 
         {/* Greeting */}

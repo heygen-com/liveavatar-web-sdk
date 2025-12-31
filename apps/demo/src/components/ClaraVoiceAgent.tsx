@@ -25,8 +25,8 @@ import {
   CardTitle,
 } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Skeleton } from "./ui/skeleton";
+import Image from "next/image";
 
 // Lucide icons
 import {
@@ -284,21 +284,23 @@ const LandingScreen: React.FC<LandingScreenProps> = ({
       <Card className="max-w-sm w-full glass-morphism border-0 shadow-2xl">
         <CardHeader className="text-center pb-2">
           {/* Clara Avatar */}
-          <Avatar className="w-24 h-24 mx-auto mb-4 ring-4 ring-white/50 shadow-xl">
-            <AvatarImage src="/clara-avatar.png" alt="Clara" />
-            <AvatarFallback className="bg-gradient-to-br from-indigo-400 to-purple-500 text-white text-3xl font-bold">
-              C
-            </AvatarFallback>
-          </Avatar>
+          <div className="avatar-ring-ios mx-auto mb-4">
+            <div className="h-20 w-20 rounded-full bg-gradient-to-br from-neutral-100 to-neutral-200 flex items-center justify-center overflow-hidden p-3 border border-white/40">
+              <Image
+                src="/images/clara-logo.png"
+                alt="Clara Logo"
+                width={80}
+                height={80}
+                className="w-full h-full object-contain"
+              />
+            </div>
+          </div>
 
           {/* Badge */}
-          <Badge
-            variant="secondary"
-            className="mx-auto mb-3 bg-indigo-100 text-indigo-700 hover:bg-indigo-100"
-          >
-            <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse mr-2" />
+          <div className="badge-ios mx-auto mb-3 text-neutral-900">
+            <span className="w-2 h-2 bg-neutral-500 rounded-full animate-pulse" />
             Clara Skin Care Assistant
-          </Badge>
+          </div>
 
           <CardTitle className="text-2xl text-slate-800">
             {displayName ? `Hola, ${displayName}!` : "Hola!"}
@@ -314,7 +316,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({
             onClick={onStartCall}
             disabled={isLoading}
             size="lg"
-            className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg h-14 text-base"
+            className="btn-ios-primary"
           >
             {isLoading ? (
               <>
