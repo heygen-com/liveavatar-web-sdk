@@ -1025,7 +1025,13 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         console.log(
           "[AUDIO] User spoke after avatar finished - preserving buffer",
         );
-        // Just set the interrupt flag for leading silence on next response
+
+        // CRITICAL FIX: Reset hassentImmediateRef for the NEW conversation turn
+        // Without this, PHASE 1 (100ms silence) is skipped and only PHASE 2 (80ms) runs
+        // This caused first words to be cut off on subsequent responses
+        hassentImmediateRef.current = false;
+
+        // Set the interrupt flag for leading silence on next response
         isAfterInterruptRef.current = true;
       }
     },

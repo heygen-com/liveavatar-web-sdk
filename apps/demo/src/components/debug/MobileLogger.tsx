@@ -12,13 +12,13 @@ interface LogEntry {
 interface MobileLoggerProps {
   enabled?: boolean;
   maxLogs?: number;
-  filter?: string; // Solo mostrar logs que contengan este string
+  filter?: string; // Solo mostrar logs que contengan este string (empty = show all)
 }
 
 export const MobileLogger: React.FC<MobileLoggerProps> = ({
   enabled = true,
-  maxLogs = 50,
-  filter = "[AUDIO]", // Por defecto, solo logs de audio
+  maxLogs = 100, // Increased to show more history
+  filter = "", // Empty = show ALL logs
 }) => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -123,6 +123,38 @@ export const MobileLogger: React.FC<MobileLoggerProps> = ({
     }
   };
 
+  const copyAllLogs = async () => {
+    const logText = logs
+      .map(
+        (log) =>
+          `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`,
+      )
+      .join("\n");
+
+    try {
+      await navigator.clipboard.writeText(logText);
+      // Visual feedback
+      const btn = document.getElementById("copy-logs-btn");
+      if (btn) {
+        const originalText = btn.textContent;
+        btn.textContent = "Copied!";
+        setTimeout(() => {
+          btn.textContent = originalText;
+        }, 1500);
+      }
+    } catch {
+      // Fallback for mobile browsers that don't support clipboard API
+      const textarea = document.createElement("textarea");
+      textarea.value = logText;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+  };
+
   return (
     <div
       className={`fixed z-[9999] bg-black/90 backdrop-blur-sm text-white font-mono text-[10px] leading-tight rounded-lg shadow-2xl border border-white/20 ${
@@ -137,6 +169,13 @@ export const MobileLogger: React.FC<MobileLoggerProps> = ({
           📱 Mobile Logs {filter && `(${filter})`}
         </span>
         <div className="flex gap-2">
+          <button
+            id="copy-logs-btn"
+            onClick={copyAllLogs}
+            className="px-2 py-1 bg-blue-500/30 rounded text-[9px] hover:bg-blue-500/50"
+          >
+            Copy All
+          </button>
           <button
             onClick={() => setLogs([])}
             className="px-2 py-1 bg-red-500/30 rounded text-[9px] hover:bg-red-500/50"
