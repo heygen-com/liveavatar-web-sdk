@@ -40,6 +40,19 @@ import {
 } from "lucide-react";
 
 // ============================================
+// DEVICE DETECTION (must be first - used by other constants)
+// ============================================
+const isMobileDevice = (): boolean => {
+  if (typeof window === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent,
+  );
+};
+
+// Detect device type at module load (for adaptive constants)
+const IS_MOBILE = isMobileDevice();
+
+// ============================================
 // SESSION LIMIT CONFIGURATION
 // ============================================
 // Toggle: false = no limit (beta), true = enforce limit (production)
@@ -54,12 +67,17 @@ const SESSION_WARNING_SECONDS = 30;
 // ============================================
 // TWO-PHASE: Send first chunks immediately for low latency
 const IMMEDIATE_SEND_CHUNKS = 2; // Send first 2 chunks without delay (first words)
-const IMMEDIATE_SEND_DELAY = 80; // ms to wait for chunks to arrive together
-const CHUNK_GAP_THRESHOLD = 250; // ms gap = end of stream (for remaining chunks)
+const IMMEDIATE_SEND_DELAY = IS_MOBILE ? 50 : 80; // Mobile: faster, Desktop: original
+const CHUNK_GAP_THRESHOLD = IS_MOBILE ? 150 : 250; // Mobile: more sensitive
 
 // Smart Chunking: Split large audio to avoid HeyGen 1MB limit
 const MAX_AUDIO_SIZE_BYTES = 800 * 1024; // 800KB per chunk (~16s audio)
 const CHUNK_WAIT_TIMEOUT_MS = 20000; // 20s timeout per chunk
+
+// MOBILE OPTIMIZATION: Buffer limit to prevent CPU overload from large resamples
+// Mobile CPUs are ~10x slower for audio processing - limit buffer to 2s
+// Desktop can handle 4s without issues
+const MAX_BUFFER_SAMPLES = IS_MOBILE ? 32000 : 64000; // 2s vs 4s @ 16kHz source
 
 // Ghost chunk protection: Ignore chunks arriving shortly after interrupt
 const INTERRUPT_DEBOUNCE_MS = 300; // Ignore chunks for 300ms after interrupt
@@ -75,6 +93,13 @@ const PHASE2_TRAILING_SILENCE_MS = 150; // Ensures last words play
 
 // Target sample rate for HeyGen
 const TARGET_SAMPLE_RATE = 24000;
+
+// Log device detection at startup
+if (typeof window !== "undefined") {
+  console.log(
+    `[AUDIO] Device: ${IS_MOBILE ? "MOBILE" : "DESKTOP"} | Gap: ${CHUNK_GAP_THRESHOLD}ms | MaxBuffer: ${MAX_BUFFER_SAMPLES} samples`,
+  );
+}
 
 // ============================================
 // SAFARI iOS DETECTION
@@ -447,6 +472,18 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   // Latency tracking refs - populated after useElevenLabsAgent is called
   const reportAudioSentRef = useRef<(() => void) | null>(null);
   const reportAvatarStartedRef = useRef<(() => void) | null>(null);
+
+  // Calculate total samples in buffer (for mobile buffer limit check)
+  // Used to prevent accumulating too much audio before processing
+  const calculateBufferSamples = useCallback((chunks: string[]): number => {
+    let totalBytes = 0;
+    for (const chunk of chunks) {
+      // base64 → bytes: multiply by 0.75
+      totalBytes += Math.round(chunk.length * 0.75);
+    }
+    // PCM 16-bit = 2 bytes per sample
+    return Math.floor(totalBytes / 2);
+  }, []);
 
   // Generate silence in PCM 16-bit signed, 24kHz mono format (base64)
   const generateSilence = useCallback((durationMs: number): string => {
@@ -863,6 +900,22 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
             sendAllAudioToAvatar(true); // isImmediateSend = true for minimal silence
           }
         }, IMMEDIATE_SEND_DELAY);
+        return;
+      }
+
+      // MOBILE OPTIMIZATION: Check if buffer exceeds limit
+      // Mobile CPUs struggle with large resamples - process in smaller batches
+      const currentSamples = calculateBufferSamples(audioBufferRef.current);
+      if (currentSamples >= MAX_BUFFER_SAMPLES) {
+        console.log(
+          `[AUDIO] BUFFER LIMIT: ${currentSamples} samples >= ${MAX_BUFFER_SAMPLES}, processing NOW (mobile optimization)`,
+        );
+        // Clear gap detection since we're processing now
+        if (gapCheckIntervalRef.current) {
+          clearInterval(gapCheckIntervalRef.current);
+          gapCheckIntervalRef.current = null;
+        }
+        sendAllAudioToAvatar(false); // PHASE 2 style padding
         return;
       }
 
