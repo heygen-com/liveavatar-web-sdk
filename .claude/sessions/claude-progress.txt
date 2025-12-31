@@ -1,0 +1,44 @@
+# Clara Voice Agent - Session Progress
+
+## 2025-12-30: Smart Chunking Implementation
+
+### Problem
+Audio responses > 1MB (1.77MB, ~28s) were being truncated by HeyGen's buffer limit.
+- HeyGen limit: < 1MB, ≤ 15s
+- Result: ~5 seconds of audio lost at the end
+
+### Solution Implemented
+Smart Chunking - divide large audio post-accumulation and send sequentially:
+
+1. Added module-level constants:
+   - `MAX_AUDIO_SIZE_BYTES = 600 * 1024` (600KB per chunk)
+   - `CHUNK_WAIT_TIMEOUT_MS = 20000` (20s timeout per chunk)
+
+2. Added `waitForAvatarSpeakEnded()` helper:
+   - Listens for `avatar.speak_ended` event
+   - Has 20s timeout fallback
+
+3. Added `smartSplitAudio()` utility:
+   - Splits base64 audio into chunks of ~600KB
+
+4. Added `sendChunkedAudio()` function:
+   - Sends chunks sequentially
+   - Waits for `avatar.speak_ended` between each chunk
+   - Prevents SDK entanglement (only 1 audio active at a time)
+
+5. Modified `sendAllAudioToAvatar()`:
+   - Checks if audio > 600KB
+   - If yes, uses smart chunking
+   - If no, uses normal single send
+
+### Commit
+`11c0058` - feat(audio): implement smart chunking for large audio (>600KB)
+
+### Expected Behavior
+- Short responses (< 600KB): single send, no change
+- Long responses (> 600KB): chunked sequentially with ~12s segments
+
+### Testing Required
+- Test with short question: "hola"
+- Test with long question: "explícame la niacinamida en detalle"
+- Verify no audio truncation on long responses

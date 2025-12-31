@@ -11,6 +11,25 @@ export interface ElevenLabsAgentState {
   agentResponse: string | null;
 }
 
+// Latency metrics for performance monitoring
+// Simplified to track what matters most: time from user speech to avatar response
+export interface LatencyMetrics {
+  // Response cycle ID (for correlating events)
+  responseId: number;
+
+  // Key timestamps (ms since epoch)
+  userSpeechEndTime: number; // When user_transcript received (STT complete)
+  firstAudioChunkTime: number; // When first TTS audio chunk received
+  audioSentTime: number; // When audio sent to HeyGen (set externally)
+  avatarSpeakStartTime: number; // When avatar starts speaking (set externally)
+
+  // Calculated latencies (ms) - what users actually experience
+  timeToFirstAudio: number; // firstAudioChunkTime - userSpeechEndTime (STT→LLM→TTS first byte)
+  processingLatency: number; // audioSentTime - firstAudioChunkTime (buffering + resample)
+  heygenLatency: number; // avatarSpeakStartTime - audioSentTime (HeyGen processing)
+  totalE2ELatency: number; // avatarSpeakStartTime - userSpeechEndTime (full pipeline)
+}
+
 // Customer data for personalization
 export interface CustomerDataForAgent {
   firstName?: string;
@@ -22,12 +41,13 @@ export interface CustomerDataForAgent {
 }
 
 export interface UseElevenLabsAgentConfig {
-  onAudioData?: (audioBase64: string, sampleRate: number) => void; // Raw audio + sample rate (no resampling)
+  onAudioData?: (audioBase64: string, sampleRate: number) => void; // Raw audio + sample rate (no resampling in hook)
   onAgentResponse?: (text: string) => void;
-  // NOTE: agent_response_end doesn't exist in ElevenLabs API - audio end detected via gap detection
+  onAgentResponseEnd?: () => void; // Called when agent finishes speaking (all audio sent)
   onInterruption?: () => void; // Called when user interrupts the agent
   onUserTranscript?: (text: string) => void;
   onError?: (error: string) => void;
+  onLatencyMetrics?: (metrics: Partial<LatencyMetrics>) => void; // Called with latency data for analytics
   customerData?: CustomerDataForAgent; // Customer data for ElevenLabs dynamic variables
 }
 
@@ -36,6 +56,10 @@ export interface UseElevenLabsAgentReturn extends ElevenLabsAgentState {
   disconnect: () => void;
   startListening: () => void;
   stopListening: () => void;
+  // Latency tracking methods
+  reportAudioSent: () => void; // Call when audio is sent to HeyGen
+  reportAvatarStarted: () => void; // Call when avatar starts speaking
+  getLatencyMetrics: () => Partial<LatencyMetrics>;
 }
 
 // Convert ArrayBuffer to base64 string
@@ -85,9 +109,11 @@ export const useElevenLabsAgent = (
   const {
     onAudioData,
     onAgentResponse,
+    onAgentResponseEnd,
     onInterruption,
     onUserTranscript,
     onError,
+    onLatencyMetrics,
     customerData,
   } = config;
 
@@ -123,6 +149,13 @@ export const useElevenLabsAgent = (
   const reconnectAttemptsRef = useRef<number>(0);
   const maxReconnectAttempts = 3;
   const shouldReconnectRef = useRef<boolean>(true);
+
+  // Latency tracking refs
+  const latencyRef = useRef<Partial<LatencyMetrics>>({});
+  const isFirstAudioChunkRef = useRef<boolean>(true);
+  const responseIdRef = useRef<number>(0); // Track response cycles
+  const hasTrackedAvatarStartRef = useRef<boolean>(false); // Prevent double tracking per response
+  const lastAudioSentResponseIdRef = useRef<number>(0); // Track which response the audio was sent for
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -190,23 +223,10 @@ export const useElevenLabsAgent = (
       setState((prev) => ({ ...prev, error: null, isConnecting: true }));
 
       console.log("useElevenLabsAgent: Fetching signed URL...");
-      console.log(
-        "useElevenLabsAgent: customerData exists:",
-        !!customerData,
-        customerData,
-      );
       // Get signed URL from backend
-      // Include x-shopify-validated header if user came from Shopify
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (customerData) {
-        headers["x-shopify-validated"] = "true";
-        console.log("useElevenLabsAgent: Adding x-shopify-validated header");
-      }
       const res = await fetch("/api/elevenlabs-conversation", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
       });
       console.log("useElevenLabsAgent: Fetch response status:", res.status);
 
@@ -305,16 +325,16 @@ export const useElevenLabsAgent = (
       onError?.(errorMessage);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cleanup, onError, customerData]); // Intentionally omit handleWebSocketMessage and startMicrophoneCapture to prevent callback recreation
+  }, [cleanup, onError]); // Intentionally omit handleWebSocketMessage and startMicrophoneCapture to prevent callback recreation
 
   // Handle WebSocket messages from ElevenLabs
   const handleWebSocketMessage = useCallback(
     (event: MessageEvent) => {
       // Binary data = audio (raw PCM from ElevenLabs)
       // NO RESAMPLING HERE - pass raw audio with sample rate to allow single resample after concatenation
+      // This eliminates discontinuities that occurred when resampling per-chunk
       if (event.data instanceof Blob) {
         event.data.arrayBuffer().then((buffer) => {
-          // Pass raw audio without resampling - resampling will happen ONCE after concatenation
           const base64Audio = arrayBufferToBase64(buffer);
           audioChunksRef.current.push(base64Audio);
           onAudioData?.(base64Audio, elevenLabsSampleRateRef.current);
@@ -350,48 +370,87 @@ export const useElevenLabsAgent = (
             break;
           }
 
-          case "user_transcript":
-            // User speech transcribed
+          case "user_transcript": {
+            // User speech transcribed - LATENCY TRACKING: Start of new response cycle
+            const userTranscriptTime = Date.now();
+            responseIdRef.current++;
+            const currentResponseId = responseIdRef.current;
+
+            // Reset latency tracking for new response cycle
+            latencyRef.current = {
+              responseId: currentResponseId,
+              userSpeechEndTime: userTranscriptTime,
+            };
+            isFirstAudioChunkRef.current = true;
+            hasTrackedAvatarStartRef.current = false; // Reset for new response
+
+            const transcriptText =
+              data.user_transcription_event?.user_transcript ||
+              data.user_transcript;
+
+            console.log(
+              `[LATENCY] #${currentResponseId} User transcript received at ${userTranscriptTime}`,
+            );
+            console.log(`[AUDIO] User said: ${transcriptText}`);
+
             setState((prev) => ({
               ...prev,
-              transcript:
-                data.user_transcription_event?.user_transcript ||
-                data.user_transcript,
+              transcript: transcriptText,
               isThinking: true,
             }));
-            onUserTranscript?.(
-              data.user_transcription_event?.user_transcript ||
-                data.user_transcript,
-            );
+            onUserTranscript?.(transcriptText);
             break;
+          }
 
-          case "agent_response":
-            // Agent text response
+          case "agent_response": {
+            // Agent text response received (note: audio often arrives before this)
+            const responseText =
+              data.agent_response_event?.agent_response || data.agent_response;
+
+            console.log(
+              `[AUDIO] Agent response text received for #${responseIdRef.current}`,
+            );
+
             setState((prev) => ({
               ...prev,
-              agentResponse:
-                data.agent_response_event?.agent_response ||
-                data.agent_response,
+              agentResponse: responseText,
               isThinking: false,
               isSpeaking: true,
             }));
-            onAgentResponse?.(
-              data.agent_response_event?.agent_response || data.agent_response,
-            );
+            onAgentResponse?.(responseText);
             break;
+          }
 
-          case "audio":
+          case "audio": {
             // Audio chunk (some implementations send base64 in JSON instead of binary)
-            // NO RESAMPLING HERE - pass raw audio with sample rate
+            // NO RESAMPLING HERE - pass raw audio with sample rate to allow single resample after concatenation
             if (data.audio_event?.audio_base_64) {
-              audioChunksRef.current.push(data.audio_event.audio_base_64);
-              onAudioData?.(
-                data.audio_event.audio_base_64,
-                elevenLabsSampleRateRef.current,
-              );
+              const base64Audio = data.audio_event.audio_base_64;
+
+              // LATENCY TRACKING: Track first audio chunk (TTS started producing output)
+              if (isFirstAudioChunkRef.current) {
+                const firstAudioTime = Date.now();
+                latencyRef.current.firstAudioChunkTime = firstAudioTime;
+                isFirstAudioChunkRef.current = false;
+
+                // Calculate time from user speech end to first audio
+                // This captures: STT processing + LLM streaming start + TTS first byte
+                const timeToFirstAudio = latencyRef.current.userSpeechEndTime
+                  ? firstAudioTime - latencyRef.current.userSpeechEndTime
+                  : 0;
+                latencyRef.current.timeToFirstAudio = timeToFirstAudio;
+
+                console.log(
+                  `[LATENCY] #${responseIdRef.current} First audio chunk: TIME_TO_FIRST_AUDIO=${timeToFirstAudio}ms`,
+                );
+              }
+
+              audioChunksRef.current.push(base64Audio);
+              onAudioData?.(base64Audio, elevenLabsSampleRateRef.current);
             }
             // Don't change state here - let agent_response handle isSpeaking
             break;
+          }
 
           case "agent_response_correction":
             // Agent corrected their response
@@ -434,8 +493,16 @@ export const useElevenLabsAgent = (
             }
             break;
 
-          // NOTE: agent_response_end does NOT exist in ElevenLabs API
-          // Audio end is detected via gap detection in ClaraVoiceAgent
+          case "agent_response_end":
+            // Agent finished speaking - go back to listening
+            console.log("[ElevenLabs] agent_response_end - all audio sent");
+            setState((prev) => ({
+              ...prev,
+              isSpeaking: false,
+              isListening: true,
+            }));
+            onAgentResponseEnd?.();
+            break;
 
           case "internal_tentative_agent_response":
             // Internal event - ignore to prevent state toggling
@@ -451,7 +518,13 @@ export const useElevenLabsAgent = (
         console.error("Failed to parse WebSocket message:", e);
       }
     },
-    [onAudioData, onAgentResponse, onInterruption, onUserTranscript],
+    [
+      onAudioData,
+      onAgentResponse,
+      onAgentResponseEnd,
+      onInterruption,
+      onUserTranscript,
+    ],
   );
 
   // Start microphone capture using AudioWorkletNode (modern replacement for deprecated ScriptProcessorNode)
@@ -484,26 +557,19 @@ export const useElevenLabsAgent = (
           `[MIC] Configuring ElevenLabs with input format: ${inputFormat}`,
         );
 
-        // Build dynamic variables from customer data for personalization
-        const dynamicVariables = customerData
-          ? {
-              user_name: customerData.firstName || "",
-              skin_type: customerData.skinType || "desconocido",
-              skin_concerns: customerData.skinConcerns?.join(", ") || "",
-              total_purchases: String(customerData.ordersCount || 0),
-            }
-          : {};
+        // Build dynamic variables - user_name is REQUIRED by ElevenLabs agent
+        // Use customerData if available, otherwise default values
+        const dynamicVariables = {
+          user_name: customerData?.firstName || "amigo",
+          skin_type: customerData?.skinType || "desconocido",
+          skin_concerns: customerData?.skinConcerns?.join(", ") || "",
+          total_purchases: String(customerData?.ordersCount || 0),
+        };
 
-        // NOTE: first_message override requires enabling "Allow client overrides"
-        // in ElevenLabs Dashboard. For now, we use dynamic_variables only.
-        // The agent's first_message in ElevenLabs can use {{user_name}} variable.
-
-        if (customerData) {
-          console.log(
-            "[ElevenLabs] Sending dynamic_variables:",
-            dynamicVariables,
-          );
-        }
+        console.log(
+          "[ElevenLabs] Sending dynamic_variables:",
+          dynamicVariables,
+        );
 
         sendMessage(wsRef.current, {
           type: "conversation_initiation_client_data",
@@ -658,6 +724,79 @@ export const useElevenLabsAgent = (
     }
   }, []);
 
+  // Latency tracking: Called when audio is sent to HeyGen
+  const reportAudioSent = useCallback(() => {
+    const audioSentTime = Date.now();
+    latencyRef.current.audioSentTime = audioSentTime;
+
+    // Track which response this audio is for (to correlate with avatar start)
+    lastAudioSentResponseIdRef.current = responseIdRef.current;
+    // Reset avatar tracking flag when new audio is sent
+    hasTrackedAvatarStartRef.current = false;
+
+    // Calculate processing latency (buffering + resampling)
+    const processingLatency = latencyRef.current.firstAudioChunkTime
+      ? audioSentTime - latencyRef.current.firstAudioChunkTime
+      : 0;
+    latencyRef.current.processingLatency = processingLatency;
+
+    console.log(
+      `[LATENCY] #${responseIdRef.current} Audio sent to HeyGen: PROCESSING_LATENCY=${processingLatency}ms`,
+    );
+  }, []);
+
+  // Latency tracking: Called when avatar starts speaking
+  // Only tracks FIRST avatar start per audio send (ignores subsequent segments)
+  const reportAvatarStarted = useCallback(() => {
+    // Ignore if we already tracked avatar start for this audio send
+    if (hasTrackedAvatarStartRef.current) {
+      console.log(
+        `[LATENCY] #${lastAudioSentResponseIdRef.current} Avatar segment started (already tracked, ignoring)`,
+      );
+      return;
+    }
+
+    // Mark as tracked
+    hasTrackedAvatarStartRef.current = true;
+
+    const avatarStartTime = Date.now();
+    latencyRef.current.avatarSpeakStartTime = avatarStartTime;
+
+    // Calculate HeyGen latency (time from audio sent to avatar speaking)
+    const heygenLatency = latencyRef.current.audioSentTime
+      ? avatarStartTime - latencyRef.current.audioSentTime
+      : 0;
+    latencyRef.current.heygenLatency = heygenLatency;
+
+    // Calculate total E2E latency (time from user speech end to avatar speaking)
+    const totalE2E = latencyRef.current.userSpeechEndTime
+      ? avatarStartTime - latencyRef.current.userSpeechEndTime
+      : 0;
+    latencyRef.current.totalE2ELatency = totalE2E;
+
+    const responseId = lastAudioSentResponseIdRef.current;
+
+    console.log(
+      `[LATENCY] #${responseId} Avatar speaking: HEYGEN=${heygenLatency}ms | TOTAL_E2E=${totalE2E}ms`,
+    );
+
+    // Report complete metrics with clean format
+    const metrics = { ...latencyRef.current };
+    console.log(`[LATENCY] #${responseId} Complete breakdown:`, {
+      timeToFirstAudio: `${metrics.timeToFirstAudio || 0}ms`,
+      processing: `${metrics.processingLatency || 0}ms`,
+      heygen: `${metrics.heygenLatency || 0}ms`,
+      totalE2E: `${metrics.totalE2ELatency || 0}ms`,
+    });
+
+    onLatencyMetrics?.(metrics);
+  }, [onLatencyMetrics]);
+
+  // Get current latency metrics
+  const getLatencyMetrics = useCallback(() => {
+    return { ...latencyRef.current };
+  }, []);
+
   // Cleanup on unmount - use empty deps and ref to avoid StrictMode issues
   const cleanupRef = useRef(cleanup);
   cleanupRef.current = cleanup;
@@ -686,5 +825,9 @@ export const useElevenLabsAgent = (
     disconnect,
     startListening,
     stopListening,
+    // Latency tracking
+    reportAudioSent,
+    reportAvatarStarted,
+    getLatencyMetrics,
   };
 };
