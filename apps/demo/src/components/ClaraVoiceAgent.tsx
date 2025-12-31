@@ -49,8 +49,19 @@ const isMobileDevice = (): boolean => {
   );
 };
 
-// Detect device type at module load (for adaptive constants)
-const IS_MOBILE = isMobileDevice();
+// Detect device type - evaluated lazily to handle SSR correctly
+// Uses getter pattern to ensure detection happens on client, not during SSR module caching
+let _isMobileCache: boolean | null = null;
+const getIsMobile = (): boolean => {
+  if (_isMobileCache === null) {
+    _isMobileCache = isMobileDevice();
+  }
+  return _isMobileCache;
+};
+
+// For module-level constants, use conservative defaults (desktop values)
+// The actual mobile detection happens at runtime in the component
+const IS_MOBILE = typeof window !== "undefined" ? isMobileDevice() : false;
 
 // ============================================
 // SESSION LIMIT CONFIGURATION
@@ -83,21 +94,29 @@ const MAX_BUFFER_SAMPLES = IS_MOBILE ? 32000 : 64000; // 2s vs 4s @ 16kHz source
 const INTERRUPT_DEBOUNCE_MS = 300; // Ignore chunks for 300ms after interrupt
 
 // Silence padding - DIFFERENTIATED BY PHASE for optimal latency
-// PHASE 1 (immediate send): Minimal padding, avatar already active
-const PHASE1_LEADING_SILENCE_MS = 50; // Just for network jitter
+// PHASE 1 (immediate send): NEEDS MORE silence because HeyGen is "cold" (not yet playing)
+// This is the FIRST audio - avatar needs time to wake up
+const PHASE1_LEADING_SILENCE_MS = 150; // HeyGen needs time to start lip-sync
 const PHASE1_TRAILING_SILENCE_MS = 0; // No trailing, more audio coming
 
-// PHASE 2 (gap-detected send): Normal padding for quality
-const PHASE2_LEADING_SILENCE_MS = 100; // Reduced from 200ms
+// PHASE 2 (gap-detected send): Less silence needed, HeyGen already "warm"
+const PHASE2_LEADING_SILENCE_MS = 50; // Just for network jitter (avatar already active)
 const PHASE2_TRAILING_SILENCE_MS = 150; // Ensures last words play
 
 // Target sample rate for HeyGen
 const TARGET_SAMPLE_RATE = 24000;
 
-// Log device detection at startup
+// Log device detection at startup (client-side only)
 if (typeof window !== "undefined") {
+  // Re-check mobile detection to ensure SSR didn't cache wrong value
+  const actualMobile = getIsMobile();
   console.log(
-    `[AUDIO] Device: ${IS_MOBILE ? "MOBILE" : "DESKTOP"} | Gap: ${CHUNK_GAP_THRESHOLD}ms | MaxBuffer: ${MAX_BUFFER_SAMPLES} samples`,
+    `[AUDIO] Device: ${actualMobile ? "MOBILE" : "DESKTOP"} | ` +
+      `UA: ${navigator.userAgent.substring(0, 50)}...`,
+  );
+  console.log(
+    `[AUDIO] Config: Gap=${CHUNK_GAP_THRESHOLD}ms | MaxBuffer=${MAX_BUFFER_SAMPLES} | ` +
+      `Phase1Silence=${PHASE1_LEADING_SILENCE_MS}ms | Phase2Silence=${PHASE2_LEADING_SILENCE_MS}ms`,
   );
 }
 
