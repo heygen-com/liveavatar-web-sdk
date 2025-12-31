@@ -11,6 +11,24 @@ export interface ElevenLabsAgentState {
   agentResponse: string | null;
 }
 
+// Latency metrics for performance monitoring
+export interface LatencyMetrics {
+  // Timestamps (ms since epoch)
+  userSpeechEndTime: number; // When user_transcript received
+  agentResponseTime: number; // When agent_response received
+  firstAudioChunkTime: number; // When first TTS audio chunk received
+  audioSentTime: number; // When audio sent to HeyGen (set externally)
+  avatarSpeakStartTime: number; // When avatar starts speaking (set externally)
+
+  // Calculated latencies (ms)
+  sttLatency: number; // Time for speech-to-text (estimated)
+  llmLatency: number; // agentResponseTime - userSpeechEndTime
+  ttsFirstChunkLatency: number; // firstAudioChunkTime - agentResponseTime
+  processingLatency: number; // audioSentTime - firstAudioChunkTime
+  heygenLatency: number; // avatarSpeakStartTime - audioSentTime
+  totalE2ELatency: number; // avatarSpeakStartTime - userSpeechEndTime
+}
+
 // Customer data for personalization
 export interface CustomerDataForAgent {
   firstName?: string;
@@ -28,6 +46,7 @@ export interface UseElevenLabsAgentConfig {
   onInterruption?: () => void; // Called when user interrupts the agent
   onUserTranscript?: (text: string) => void;
   onError?: (error: string) => void;
+  onLatencyMetrics?: (metrics: Partial<LatencyMetrics>) => void; // Called with latency data for analytics
   customerData?: CustomerDataForAgent; // Customer data for ElevenLabs dynamic variables
 }
 
@@ -36,6 +55,10 @@ export interface UseElevenLabsAgentReturn extends ElevenLabsAgentState {
   disconnect: () => void;
   startListening: () => void;
   stopListening: () => void;
+  // Latency tracking methods
+  reportAudioSent: () => void; // Call when audio is sent to HeyGen
+  reportAvatarStarted: () => void; // Call when avatar starts speaking
+  getLatencyMetrics: () => Partial<LatencyMetrics>;
 }
 
 // Convert ArrayBuffer to base64 string
@@ -89,6 +112,7 @@ export const useElevenLabsAgent = (
     onInterruption,
     onUserTranscript,
     onError,
+    onLatencyMetrics,
     customerData,
   } = config;
 
@@ -124,6 +148,11 @@ export const useElevenLabsAgent = (
   const reconnectAttemptsRef = useRef<number>(0);
   const maxReconnectAttempts = 3;
   const shouldReconnectRef = useRef<boolean>(true);
+
+  // Latency tracking refs
+  const latencyRef = useRef<Partial<LatencyMetrics>>({});
+  const isFirstAudioChunkRef = useRef<boolean>(true);
+  const responseIdRef = useRef<number>(0); // Track response cycles
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -338,46 +367,93 @@ export const useElevenLabsAgent = (
             break;
           }
 
-          case "user_transcript":
-            // User speech transcribed
+          case "user_transcript": {
+            // User speech transcribed - LATENCY TRACKING: Start of new response cycle
+            const userTranscriptTime = Date.now();
+            responseIdRef.current++;
+            const currentResponseId = responseIdRef.current;
+
+            // Reset latency tracking for new response cycle
+            latencyRef.current = {
+              userSpeechEndTime: userTranscriptTime,
+            };
+            isFirstAudioChunkRef.current = true;
+
+            const transcriptText =
+              data.user_transcription_event?.user_transcript ||
+              data.user_transcript;
+
+            console.log(
+              `[LATENCY] #${currentResponseId} User transcript received at ${userTranscriptTime}`,
+            );
+            console.log(`[AUDIO] User said: ${transcriptText}`);
+
             setState((prev) => ({
               ...prev,
-              transcript:
-                data.user_transcription_event?.user_transcript ||
-                data.user_transcript,
+              transcript: transcriptText,
               isThinking: true,
             }));
-            onUserTranscript?.(
-              data.user_transcription_event?.user_transcript ||
-                data.user_transcript,
-            );
+            onUserTranscript?.(transcriptText);
             break;
+          }
 
-          case "agent_response":
-            // Agent text response
+          case "agent_response": {
+            // Agent text response - LATENCY TRACKING: LLM response received
+            const agentResponseTime = Date.now();
+            latencyRef.current.agentResponseTime = agentResponseTime;
+
+            // Calculate LLM latency
+            const llmLatency = latencyRef.current.userSpeechEndTime
+              ? agentResponseTime - latencyRef.current.userSpeechEndTime
+              : 0;
+            latencyRef.current.llmLatency = llmLatency;
+
+            const responseText =
+              data.agent_response_event?.agent_response || data.agent_response;
+
+            console.log(
+              `[LATENCY] #${responseIdRef.current} Agent response: LLM_LATENCY=${llmLatency}ms`,
+            );
+
             setState((prev) => ({
               ...prev,
-              agentResponse:
-                data.agent_response_event?.agent_response ||
-                data.agent_response,
+              agentResponse: responseText,
               isThinking: false,
               isSpeaking: true,
             }));
-            onAgentResponse?.(
-              data.agent_response_event?.agent_response || data.agent_response,
-            );
+            onAgentResponse?.(responseText);
             break;
+          }
 
-          case "audio":
+          case "audio": {
             // Audio chunk (some implementations send base64 in JSON instead of binary)
             // NO RESAMPLING HERE - pass raw audio with sample rate to allow single resample after concatenation
             if (data.audio_event?.audio_base_64) {
               const base64Audio = data.audio_event.audio_base_64;
+
+              // LATENCY TRACKING: Track first audio chunk (TTS started)
+              if (isFirstAudioChunkRef.current) {
+                const firstAudioTime = Date.now();
+                latencyRef.current.firstAudioChunkTime = firstAudioTime;
+                isFirstAudioChunkRef.current = false;
+
+                // Calculate TTS first chunk latency
+                const ttsLatency = latencyRef.current.agentResponseTime
+                  ? firstAudioTime - latencyRef.current.agentResponseTime
+                  : 0;
+                latencyRef.current.ttsFirstChunkLatency = ttsLatency;
+
+                console.log(
+                  `[LATENCY] #${responseIdRef.current} First TTS chunk: TTS_LATENCY=${ttsLatency}ms`,
+                );
+              }
+
               audioChunksRef.current.push(base64Audio);
               onAudioData?.(base64Audio, elevenLabsSampleRateRef.current);
             }
             // Don't change state here - let agent_response handle isSpeaking
             break;
+          }
 
           case "agent_response_correction":
             // Agent corrected their response
@@ -651,6 +727,61 @@ export const useElevenLabsAgent = (
     }
   }, []);
 
+  // Latency tracking: Called when audio is sent to HeyGen
+  const reportAudioSent = useCallback(() => {
+    const audioSentTime = Date.now();
+    latencyRef.current.audioSentTime = audioSentTime;
+
+    // Calculate processing latency (buffering + resampling)
+    const processingLatency = latencyRef.current.firstAudioChunkTime
+      ? audioSentTime - latencyRef.current.firstAudioChunkTime
+      : 0;
+    latencyRef.current.processingLatency = processingLatency;
+
+    console.log(
+      `[LATENCY] #${responseIdRef.current} Audio sent to HeyGen: PROCESSING_LATENCY=${processingLatency}ms`,
+    );
+  }, []);
+
+  // Latency tracking: Called when avatar starts speaking
+  const reportAvatarStarted = useCallback(() => {
+    const avatarStartTime = Date.now();
+    latencyRef.current.avatarSpeakStartTime = avatarStartTime;
+
+    // Calculate HeyGen latency
+    const heygenLatency = latencyRef.current.audioSentTime
+      ? avatarStartTime - latencyRef.current.audioSentTime
+      : 0;
+    latencyRef.current.heygenLatency = heygenLatency;
+
+    // Calculate total E2E latency
+    const totalE2E = latencyRef.current.userSpeechEndTime
+      ? avatarStartTime - latencyRef.current.userSpeechEndTime
+      : 0;
+    latencyRef.current.totalE2ELatency = totalE2E;
+
+    console.log(
+      `[LATENCY] #${responseIdRef.current} Avatar speaking: HEYGEN_LATENCY=${heygenLatency}ms | TOTAL_E2E=${totalE2E}ms`,
+    );
+
+    // Report complete metrics
+    const metrics = { ...latencyRef.current };
+    console.log(`[LATENCY] #${responseIdRef.current} Complete metrics:`, {
+      llm: `${metrics.llmLatency}ms`,
+      tts: `${metrics.ttsFirstChunkLatency}ms`,
+      processing: `${metrics.processingLatency}ms`,
+      heygen: `${metrics.heygenLatency}ms`,
+      total: `${metrics.totalE2ELatency}ms`,
+    });
+
+    onLatencyMetrics?.(metrics);
+  }, [onLatencyMetrics]);
+
+  // Get current latency metrics
+  const getLatencyMetrics = useCallback(() => {
+    return { ...latencyRef.current };
+  }, []);
+
   // Cleanup on unmount - use empty deps and ref to avoid StrictMode issues
   const cleanupRef = useRef(cleanup);
   cleanupRef.current = cleanup;
@@ -679,5 +810,9 @@ export const useElevenLabsAgent = (
     disconnect,
     startListening,
     stopListening,
+    // Latency tracking
+    reportAudioSent,
+    reportAvatarStarted,
+    getLatencyMetrics,
   };
 };

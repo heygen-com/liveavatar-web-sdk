@@ -439,6 +439,10 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   // Track ElevenLabs source sample rate (for resampling)
   const sourceRateRef = useRef<number>(16000);
 
+  // Latency tracking refs - populated after useElevenLabsAgent is called
+  const reportAudioSentRef = useRef<(() => void) | null>(null);
+  const reportAvatarStartedRef = useRef<(() => void) | null>(null);
+
   // Generate silence in PCM 16-bit signed, 24kHz mono format (base64)
   const generateSilence = useCallback((durationMs: number): string => {
     const sampleRate = 24000;
@@ -587,6 +591,11 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
           `[AUDIO] Sending chunk ${i + 1}/${chunks.length} (${sizeKB}KB)`,
         );
 
+        // Report audio sent for latency tracking (only first chunk)
+        if (i === 0) {
+          reportAudioSentRef.current?.();
+        }
+
         isSendingAudioRef.current = true;
         sessionRef.current?.repeatAudio(chunk);
 
@@ -717,6 +726,9 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       `[AUDIO] Sending complete audio (${totalSizeKB}KB) in single call`,
     );
     try {
+      // Report audio sent for latency tracking
+      reportAudioSentRef.current?.();
+
       isSendingAudioRef.current = true;
       sessionRef.current.repeatAudio(finalAudio);
     } catch (error) {
@@ -766,6 +778,9 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     startListening,
     stopListening,
     error: agentError,
+    // Latency tracking
+    reportAudioSent,
+    reportAvatarStarted,
   } = useElevenLabsAgent({
     // Pass customer data for ElevenLabs dynamic variables personalization
     customerData: customerData
@@ -934,6 +949,12 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     },
   });
 
+  // Populate latency tracking refs (for use in callbacks defined before useElevenLabsAgent)
+  useEffect(() => {
+    reportAudioSentRef.current = reportAudioSent;
+    reportAvatarStartedRef.current = reportAvatarStarted;
+  }, [reportAudioSent, reportAvatarStarted]);
+
   // Attach video element when stream is ready
   useEffect(() => {
     if (isStreamReady && videoRef.current) {
@@ -955,6 +976,27 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   useEffect(() => {
     return () => {
       disconnectAgent();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Listen for AVATAR_SPEAK_STARTED to track HeyGen latency
+  useEffect(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+
+    const handleAvatarSpeakStarted = () => {
+      console.log("[LATENCY] Avatar started speaking");
+      reportAvatarStartedRef.current?.();
+    };
+
+    session.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, handleAvatarSpeakStarted);
+
+    return () => {
+      session.off(
+        AgentEventsEnum.AVATAR_SPEAK_STARTED,
+        handleAvatarSpeakStarted,
+      );
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
