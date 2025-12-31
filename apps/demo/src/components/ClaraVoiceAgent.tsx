@@ -64,9 +64,14 @@ const CHUNK_WAIT_TIMEOUT_MS = 20000; // 20s timeout per chunk
 // Ghost chunk protection: Ignore chunks arriving shortly after interrupt
 const INTERRUPT_DEBOUNCE_MS = 300; // Ignore chunks for 300ms after interrupt
 
-// Silence padding (compromise between latency and audio preservation)
-const LEADING_SILENCE_MS = 200; // Leading silence (gives HeyGen time to process)
-const TRAILING_SILENCE_MS = 150; // Trailing silence (ensures last words play)
+// Silence padding - DIFFERENTIATED BY PHASE for optimal latency
+// PHASE 1 (immediate send): Minimal padding, avatar already active
+const PHASE1_LEADING_SILENCE_MS = 50; // Just for network jitter
+const PHASE1_TRAILING_SILENCE_MS = 0; // No trailing, more audio coming
+
+// PHASE 2 (gap-detected send): Normal padding for quality
+const PHASE2_LEADING_SILENCE_MS = 100; // Reduced from 200ms
+const PHASE2_TRAILING_SILENCE_MS = 150; // Ensures last words play
 
 // Target sample rate for HeyGen
 const TARGET_SAMPLE_RATE = 24000;
@@ -614,134 +619,148 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
 
   // Send ALL accumulated audio to avatar (called when gap detected or agent_response_end)
   // HYBRID: Resamples once after concatenation, adds silence, uses Smart Chunking for large audio
-  const sendAllAudioToAvatar = useCallback(() => {
-    // Clear gap check interval
-    if (gapCheckIntervalRef.current) {
-      clearInterval(gapCheckIntervalRef.current);
-      gapCheckIntervalRef.current = null;
-    }
+  // isImmediateSend: true for PHASE 1 (first words, minimal silence), false for PHASE 2 (rest of response)
+  const sendAllAudioToAvatar = useCallback(
+    (isImmediateSend: boolean = false) => {
+      // Clear gap check interval
+      if (gapCheckIntervalRef.current) {
+        clearInterval(gapCheckIntervalRef.current);
+        gapCheckIntervalRef.current = null;
+      }
 
-    // Clear immediate send timeout (TWO-PHASE cleanup)
-    if (immediateSendTimeoutRef.current) {
-      clearTimeout(immediateSendTimeoutRef.current);
-      immediateSendTimeoutRef.current = null;
-    }
+      // Clear immediate send timeout (TWO-PHASE cleanup)
+      if (immediateSendTimeoutRef.current) {
+        clearTimeout(immediateSendTimeoutRef.current);
+        immediateSendTimeoutRef.current = null;
+      }
 
-    if (audioBufferRef.current.length === 0) {
-      console.log("[AUDIO] No audio to send");
-      return;
-    }
+      if (audioBufferRef.current.length === 0) {
+        console.log("[AUDIO] No audio to send");
+        return;
+      }
 
-    const chunks = audioBufferRef.current;
-    audioBufferRef.current = [];
+      const chunks = audioBufferRef.current;
+      audioBufferRef.current = [];
 
-    // 1. Concatenate all RAW chunks (still at source sample rate, e.g., 16kHz)
-    const concatenatedRaw = concatenateBase64Audio(chunks);
-    if (!concatenatedRaw || !sessionRef.current) return;
+      // 1. Concatenate all RAW chunks (still at source sample rate, e.g., 16kHz)
+      const concatenatedRaw = concatenateBase64Audio(chunks);
+      if (!concatenatedRaw || !sessionRef.current) return;
 
-    // 2. Decode base64 → Int16Array (raw PCM)
-    const binaryString = atob(concatenatedRaw);
-    const rawBytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      rawBytes[i] = binaryString.charCodeAt(i);
-    }
-    const sourceBuffer = new Int16Array(rawBytes.buffer);
+      // 2. Decode base64 → Int16Array (raw PCM)
+      const binaryString = atob(concatenatedRaw);
+      const rawBytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        rawBytes[i] = binaryString.charCodeAt(i);
+      }
+      const sourceBuffer = new Int16Array(rawBytes.buffer);
 
-    // 3. Resample ONCE from source rate (16kHz) to target rate (24kHz)
-    const sourceRate = sourceRateRef.current;
-    const resampledBuffer = resampleAudio(
-      sourceBuffer,
-      sourceRate,
-      TARGET_SAMPLE_RATE,
-    );
-
-    console.log(
-      `[AUDIO] Resampled: ${sourceBuffer.length} samples @ ${sourceRate}Hz → ${resampledBuffer.length} samples @ ${TARGET_SAMPLE_RATE}Hz`,
-    );
-
-    // 4. Encode resampled audio back to base64
-    let binary = "";
-    const resampledBytes = new Uint8Array(resampledBuffer.buffer);
-    for (let i = 0; i < resampledBytes.length; i++) {
-      binary += String.fromCharCode(resampledBytes[i]!);
-    }
-    let finalAudio = btoa(binary);
-
-    // 5. Add leading + trailing silence
-    const leadingSilence = generateSilence(LEADING_SILENCE_MS);
-    const trailingSilence = generateSilence(TRAILING_SILENCE_MS);
-    finalAudio = concatenateBase64Audio([
-      leadingSilence,
-      finalAudio,
-      trailingSilence,
-    ]);
-
-    // Reset interrupt flag
-    if (isAfterInterruptRef.current) {
-      isAfterInterruptRef.current = false;
-      console.log(
-        `[AUDIO] Added ${LEADING_SILENCE_MS}ms leading + ${TRAILING_SILENCE_MS}ms trailing silence (post-interrupt)`,
+      // 3. Resample ONCE from source rate (16kHz) to target rate (24kHz)
+      const sourceRate = sourceRateRef.current;
+      const resampledBuffer = resampleAudio(
+        sourceBuffer,
+        sourceRate,
+        TARGET_SAMPLE_RATE,
       );
-    } else {
+
       console.log(
-        `[AUDIO] Added ${LEADING_SILENCE_MS}ms leading + ${TRAILING_SILENCE_MS}ms trailing silence`,
+        `[AUDIO] Resampled: ${sourceBuffer.length} samples @ ${sourceRate}Hz → ${resampledBuffer.length} samples @ ${TARGET_SAMPLE_RATE}Hz`,
       );
-    }
 
-    // === SMART CHUNKING: Check size and split if needed ===
-    const audioSizeBytes = Math.round(finalAudio.length * 0.75);
-    const audioSizeKB = Math.round(audioSizeBytes / 1024);
-    const estimatedDurationSec = audioSizeKB / 48; // ~48KB/s @ 24kHz 16-bit
+      // 4. Encode resampled audio back to base64
+      let binary = "";
+      const resampledBytes = new Uint8Array(resampledBuffer.buffer);
+      for (let i = 0; i < resampledBytes.length; i++) {
+        binary += String.fromCharCode(resampledBytes[i]!);
+      }
+      let finalAudio = btoa(binary);
 
-    console.log(
-      `[AUDIO] Size: ${audioSizeKB}KB (~${estimatedDurationSec.toFixed(1)}s)`,
-    );
+      // 5. Add leading + trailing silence (DIFFERENTIATED BY PHASE)
+      const leadingSilenceMs = isImmediateSend
+        ? PHASE1_LEADING_SILENCE_MS
+        : PHASE2_LEADING_SILENCE_MS;
+      const trailingSilenceMs = isImmediateSend
+        ? PHASE1_TRAILING_SILENCE_MS
+        : PHASE2_TRAILING_SILENCE_MS;
 
-    if (audioSizeBytes > MAX_AUDIO_SIZE_BYTES) {
+      const leadingSilence = generateSilence(leadingSilenceMs);
+      const trailingSilence = generateSilence(trailingSilenceMs);
+
+      // Only add silence if duration > 0
+      const audioWithSilence = [finalAudio];
+      if (leadingSilenceMs > 0) audioWithSilence.unshift(leadingSilence);
+      if (trailingSilenceMs > 0) audioWithSilence.push(trailingSilence);
+      finalAudio = concatenateBase64Audio(audioWithSilence);
+
+      // Log with phase info
+      const phaseLabel = isImmediateSend ? "PHASE 1 (fast)" : "PHASE 2";
+      const interruptNote = isAfterInterruptRef.current
+        ? " (post-interrupt)"
+        : "";
       console.log(
-        `[AUDIO] Audio too large (${audioSizeKB}KB > ${Math.round(MAX_AUDIO_SIZE_BYTES / 1024)}KB), using smart chunking`,
+        `[AUDIO] ${phaseLabel}: ${leadingSilenceMs}ms lead + ${trailingSilenceMs}ms trail${interruptNote}`,
       );
-      // Send chunked - function handles isSendingAudioRef internally
-      sendChunkedAudio(finalAudio);
-      return; // Exit - chunked send handles everything
-    }
 
-    // === Normal path: audio is small enough for single send ===
-    const totalSizeKB = Math.round(finalAudio.length / 1024);
-    const isFirstAudio = isFirstAudioRef.current;
+      // Reset interrupt flag
+      if (isAfterInterruptRef.current) {
+        isAfterInterruptRef.current = false;
+      }
 
-    if (isFirstAudio) {
-      isFirstAudioRef.current = false;
+      // === SMART CHUNKING: Check size and split if needed ===
+      const audioSizeBytes = Math.round(finalAudio.length * 0.75);
+      const audioSizeKB = Math.round(audioSizeBytes / 1024);
+      const estimatedDurationSec = audioSizeKB / 48; // ~48KB/s @ 24kHz 16-bit
+
       console.log(
-        `[AUDIO] First greeting: ${chunks.length} chunks, ${totalSizeKB}KB (resampled once)`,
+        `[AUDIO] Size: ${audioSizeKB}KB (~${estimatedDurationSec.toFixed(1)}s)`,
       );
-    } else {
+
+      if (audioSizeBytes > MAX_AUDIO_SIZE_BYTES) {
+        console.log(
+          `[AUDIO] Audio too large (${audioSizeKB}KB > ${Math.round(MAX_AUDIO_SIZE_BYTES / 1024)}KB), using smart chunking`,
+        );
+        // Send chunked - function handles isSendingAudioRef internally
+        sendChunkedAudio(finalAudio);
+        return; // Exit - chunked send handles everything
+      }
+
+      // === Normal path: audio is small enough for single send ===
+      const totalSizeKB = Math.round(finalAudio.length / 1024);
+      const isFirstAudio = isFirstAudioRef.current;
+
+      if (isFirstAudio) {
+        isFirstAudioRef.current = false;
+        console.log(
+          `[AUDIO] First greeting: ${chunks.length} chunks, ${totalSizeKB}KB (resampled once)`,
+        );
+      } else {
+        console.log(
+          `[AUDIO] Response: ${chunks.length} chunks, ${totalSizeKB}KB (resampled once)`,
+        );
+      }
+
+      // 6. Send ALL audio in a single call
       console.log(
-        `[AUDIO] Response: ${chunks.length} chunks, ${totalSizeKB}KB (resampled once)`,
+        `[AUDIO] Sending complete audio (${totalSizeKB}KB) in single call`,
       );
-    }
+      try {
+        // Report audio sent for latency tracking
+        reportAudioSentRef.current?.();
 
-    // 6. Send ALL audio in a single call
-    console.log(
-      `[AUDIO] Sending complete audio (${totalSizeKB}KB) in single call`,
-    );
-    try {
-      // Report audio sent for latency tracking
-      reportAudioSentRef.current?.();
-
-      isSendingAudioRef.current = true;
-      sessionRef.current.repeatAudio(finalAudio);
-    } catch (error) {
-      console.error("Error sending audio to avatar:", error);
-      isSendingAudioRef.current = false;
-    }
-  }, [
-    concatenateBase64Audio,
-    generateSilence,
-    resampleAudio,
-    sendChunkedAudio,
-    sessionRef,
-  ]);
+        isSendingAudioRef.current = true;
+        sessionRef.current.repeatAudio(finalAudio);
+      } catch (error) {
+        console.error("Error sending audio to avatar:", error);
+        isSendingAudioRef.current = false;
+      }
+    },
+    [
+      concatenateBase64Audio,
+      generateSilence,
+      resampleAudio,
+      sendChunkedAudio,
+      sessionRef,
+    ],
+  );
 
   // Start gap detection - checks if stream ended by detecting pause between chunks
   const startGapDetection = useCallback(() => {
@@ -841,7 +860,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
             console.log(
               `[AUDIO] PHASE 1: Immediate send ${audioBufferRef.current.length} chunks (first words)`,
             );
-            sendAllAudioToAvatar();
+            sendAllAudioToAvatar(true); // isImmediateSend = true for minimal silence
           }
         }, IMMEDIATE_SEND_DELAY);
         return;
