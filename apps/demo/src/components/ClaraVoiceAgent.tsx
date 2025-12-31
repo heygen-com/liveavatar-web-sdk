@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 
 // ============================================
-// DEVICE DETECTION (must be first - used by other constants)
+// DEVICE DETECTION (runtime, not module-level)
 // ============================================
 const isMobileDevice = (): boolean => {
   if (typeof window === "undefined") return false;
@@ -48,20 +48,6 @@ const isMobileDevice = (): boolean => {
     navigator.userAgent,
   );
 };
-
-// Detect device type - evaluated lazily to handle SSR correctly
-// Uses getter pattern to ensure detection happens on client, not during SSR module caching
-let _isMobileCache: boolean | null = null;
-const getIsMobile = (): boolean => {
-  if (_isMobileCache === null) {
-    _isMobileCache = isMobileDevice();
-  }
-  return _isMobileCache;
-};
-
-// For module-level constants, use conservative defaults (desktop values)
-// The actual mobile detection happens at runtime in the component
-const IS_MOBILE = typeof window !== "undefined" ? isMobileDevice() : false;
 
 // ============================================
 // SESSION LIMIT CONFIGURATION
@@ -76,48 +62,52 @@ const SESSION_WARNING_SECONDS = 30;
 // ============================================
 // HYBRID AUDIO STRATEGY CONSTANTS
 // ============================================
-// TWO-PHASE: Send first chunk IMMEDIATELY for lowest latency (synchronous, no timeout)
-const CHUNK_GAP_THRESHOLD = IS_MOBILE ? 150 : 250; // Mobile: more sensitive
+// These are DESKTOP defaults - mobile overrides happen at runtime in component
 
 // Smart Chunking: Split large audio to avoid HeyGen 1MB limit
 const MAX_AUDIO_SIZE_BYTES = 800 * 1024; // 800KB per chunk (~16s audio)
 const CHUNK_WAIT_TIMEOUT_MS = 20000; // 20s timeout per chunk
 
-// MOBILE OPTIMIZATION: Buffer limit to prevent CPU overload from large resamples
-// Mobile CPUs are ~10x slower for audio processing - limit buffer to 2s
-// Desktop can handle 4s without issues
-const MAX_BUFFER_SAMPLES = IS_MOBILE ? 32000 : 64000; // 2s vs 4s @ 16kHz source
-
 // Ghost chunk protection: Ignore chunks arriving shortly after interrupt
 const INTERRUPT_DEBOUNCE_MS = 300; // Ignore chunks for 300ms after interrupt
-
-// Silence padding - DIFFERENTIATED BY PHASE for optimal latency
-// PHASE 1 (immediate send): MINIMAL silence - we want first words OUT ASAP
-// HeyGen can handle audio arriving quickly, trust it
-const PHASE1_LEADING_SILENCE_MS = 30; // Minimal buffer for network jitter
-const PHASE1_TRAILING_SILENCE_MS = 0; // No trailing, more audio coming
-
-// PHASE 2 (gap-detected send): Normal padding for quality
-const PHASE2_LEADING_SILENCE_MS = 50; // Just for network jitter (avatar already active)
-const PHASE2_TRAILING_SILENCE_MS = 150; // Ensures last words play
 
 // Target sample rate for HeyGen
 const TARGET_SAMPLE_RATE = 24000;
 
-// Log device detection at startup (client-side only)
-if (typeof window !== "undefined") {
-  // Re-check mobile detection to ensure SSR didn't cache wrong value
-  const actualMobile = getIsMobile();
-  console.log(
-    `[AUDIO] Device: ${actualMobile ? "MOBILE" : "DESKTOP"} | ` +
-      `UA: ${navigator.userAgent.substring(0, 50)}...`,
-  );
-  console.log(
-    `[AUDIO] Config: Phase1=IMMEDIATE(${PHASE1_LEADING_SILENCE_MS}ms) | ` +
-      `Phase2=${PHASE2_LEADING_SILENCE_MS}ms+${PHASE2_TRAILING_SILENCE_MS}ms | ` +
-      `Gap=${CHUNK_GAP_THRESHOLD}ms | MaxBuffer=${MAX_BUFFER_SAMPLES}`,
-  );
+// ============================================
+// DESKTOP vs MOBILE AUDIO CONFIG
+// ============================================
+// Desktop: Can handle larger buffers, longer gaps, works well with immediate send
+// Mobile: Needs smaller buffers, shorter gaps, and careful timing
+interface AudioConfig {
+  gapThreshold: number; // ms gap to detect end of stream
+  maxBufferSamples: number; // Max samples before forced processing
+  phase1LeadingSilence: number; // Silence before first audio
+  phase1TrailingSilence: number;
+  phase2LeadingSilence: number; // Silence before subsequent audio
+  phase2TrailingSilence: number;
+  immediateFirstChunk: boolean; // Send first chunk without delay?
 }
+
+const DESKTOP_CONFIG: AudioConfig = {
+  gapThreshold: 250,
+  maxBufferSamples: 64000, // 4s @ 16kHz
+  phase1LeadingSilence: 30, // Minimal - HeyGen handles it well
+  phase1TrailingSilence: 0,
+  phase2LeadingSilence: 50,
+  phase2TrailingSilence: 150,
+  immediateFirstChunk: true, // Works great on desktop
+};
+
+const MOBILE_CONFIG: AudioConfig = {
+  gapThreshold: 150, // More sensitive for burst delivery
+  maxBufferSamples: 24000, // 1.5s @ 16kHz - smaller batches for slow CPU
+  phase1LeadingSilence: 100, // More time for HeyGen to wake up on mobile
+  phase1TrailingSilence: 0,
+  phase2LeadingSilence: 80,
+  phase2TrailingSilence: 150,
+  immediateFirstChunk: true, // Still send immediately, but with more silence
+};
 
 // ============================================
 // SAFARI iOS DETECTION
@@ -451,6 +441,18 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   const { fixedHeight, isInIframe } = useFixedHeight();
   const [isMuted, setIsMuted] = useState(false);
 
+  // RUNTIME device detection - select appropriate audio config
+  const audioConfig = React.useMemo(() => {
+    const isMobile = isMobileDevice();
+    const config = isMobile ? MOBILE_CONFIG : DESKTOP_CONFIG;
+    console.log(
+      `[AUDIO] Runtime config: ${isMobile ? "MOBILE" : "DESKTOP"} | ` +
+        `Gap=${config.gapThreshold}ms | MaxBuffer=${config.maxBufferSamples} | ` +
+        `Phase1=${config.phase1LeadingSilence}ms | Phase2=${config.phase2LeadingSilence}ms`,
+    );
+    return config;
+  }, []);
+
   // Session limit state
   const [sessionSecondsRemaining, setSessionSecondsRemaining] = useState(
     SESSION_LIMIT_MINUTES * 60,
@@ -730,12 +732,13 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       let finalAudio = btoa(binary);
 
       // 5. Add leading + trailing silence (DIFFERENTIATED BY PHASE)
+      // Uses runtime audioConfig for device-specific values
       const leadingSilenceMs = isImmediateSend
-        ? PHASE1_LEADING_SILENCE_MS
-        : PHASE2_LEADING_SILENCE_MS;
+        ? audioConfig.phase1LeadingSilence
+        : audioConfig.phase2LeadingSilence;
       const trailingSilenceMs = isImmediateSend
-        ? PHASE1_TRAILING_SILENCE_MS
-        : PHASE2_TRAILING_SILENCE_MS;
+        ? audioConfig.phase1TrailingSilence
+        : audioConfig.phase2TrailingSilence;
 
       const leadingSilence = generateSilence(leadingSilenceMs);
       const trailingSilence = generateSilence(trailingSilenceMs);
@@ -809,6 +812,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       }
     },
     [
+      audioConfig,
       concatenateBase64Audio,
       generateSilence,
       resampleAudio,
@@ -825,21 +829,22 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     }
 
     // Check every 50ms if there's a gap in chunks
+    // Uses runtime audioConfig.gapThreshold for device-specific timing
     gapCheckIntervalRef.current = setInterval(() => {
       const timeSinceLastChunk = Date.now() - lastChunkTimeRef.current;
 
       // If gap exceeds threshold, stream has ended - send buffered audio
       if (
-        timeSinceLastChunk >= CHUNK_GAP_THRESHOLD &&
+        timeSinceLastChunk >= audioConfig.gapThreshold &&
         audioBufferRef.current.length > 0
       ) {
         console.log(
-          `[AUDIO] Gap detected (${timeSinceLastChunk}ms) - sending buffered audio`,
+          `[AUDIO] Gap detected (${timeSinceLastChunk}ms >= ${audioConfig.gapThreshold}ms) - sending buffered audio`,
         );
         sendAllAudioToAvatar();
       }
     }, 50);
-  }, [sendAllAudioToAvatar]);
+  }, [sendAllAudioToAvatar, audioConfig.gapThreshold]);
 
   // ElevenLabs Agent hook - SIMPLE: accumulate all chunks, send when gap detected
   const {
@@ -909,10 +914,11 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
 
       // MOBILE OPTIMIZATION: Check if buffer exceeds limit
       // Mobile CPUs struggle with large resamples - process in smaller batches
+      // Uses runtime audioConfig.maxBufferSamples for device-specific limits
       const currentSamples = calculateBufferSamples(audioBufferRef.current);
-      if (currentSamples >= MAX_BUFFER_SAMPLES) {
+      if (currentSamples >= audioConfig.maxBufferSamples) {
         console.log(
-          `[AUDIO] BUFFER LIMIT: ${currentSamples} samples >= ${MAX_BUFFER_SAMPLES}, processing NOW (mobile optimization)`,
+          `[AUDIO] BUFFER LIMIT: ${currentSamples} samples >= ${audioConfig.maxBufferSamples}, processing NOW`,
         );
         // Clear gap detection since we're processing now
         if (gapCheckIntervalRef.current) {
