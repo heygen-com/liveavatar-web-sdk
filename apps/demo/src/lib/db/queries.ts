@@ -273,6 +273,7 @@ export async function updateDailyMetrics(date: Date) {
     },
   });
 
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   const completedSessions = sessions.filter((s: any) => s.status === "completed");
 
   const totalDuration = completedSessions.reduce(
@@ -285,6 +286,7 @@ export async function updateDailyMetrics(date: Date) {
   const uniqueUsers = new Set(
     sessions.filter((s: any) => s.shopifyEmail).map((s: any) => s.shopifyEmail),
   ).size;
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   const conversations = await prisma.conversation.count({
     where: {

@@ -5,7 +5,7 @@
 // (e.g., network restrictions), the database features will fail gracefully.
 // In production (Vercel), Prisma Client is generated automatically during build.
 
-/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports */
 let PrismaClient: any;
 
 try {
