@@ -7,6 +7,7 @@ import {
 } from "../secrets";
 import { NextRequest } from "next/server";
 import { rateLimitByEndpoint } from "@/src/lib/rate-limit";
+import { createSession } from "@/src/lib/db/queries";
 
 export async function POST(request: Request) {
   // === RATE LIMIT CHECK ===
@@ -125,6 +126,29 @@ export async function POST(request: Request) {
       },
     );
   }
+
+  // === DATABASE TRACKING ===
+  // Track session in database for analytics
+  try {
+    await createSession({
+      sessionToken: session_token,
+      deviceType,
+      userId: session?.user?.id,
+      shopifyEmail: session?.user?.email || undefined,
+    });
+    console.log(
+      "[DB] Session tracked:",
+      session_token,
+      "Device:",
+      deviceType,
+      "User:",
+      session?.user?.email || "anonymous",
+    );
+  } catch (dbError) {
+    // Don't fail the request if DB tracking fails - just log it
+    console.error("[DB] Failed to track session:", dbError);
+  }
+
   return new Response(JSON.stringify({ session_token, session_id }), {
     status: 200,
     headers: {

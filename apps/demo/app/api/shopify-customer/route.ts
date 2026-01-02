@@ -23,6 +23,7 @@ import type {
   ShopifyCustomerResponse,
 } from "@/src/shopify";
 import { rateLimitByEndpoint } from "@/src/lib/rate-limit";
+import { getCachedCustomer, cacheCustomer } from "@/src/lib/db/queries";
 
 export async function POST(request: NextRequest) {
   // === RATE LIMIT CHECK ===
@@ -77,6 +78,34 @@ export async function POST(request: NextRequest) {
       email,
       orders_count,
     } = body;
+
+    // === DATABASE CACHE CHECK ===
+    // Try to get cached customer data to avoid HMAC validation + processing
+    if (email) {
+      try {
+        const cached = await getCachedCustomer(email);
+        if (cached) {
+          console.log("[CACHE HIT] Returning cached customer data for:", email);
+          return NextResponse.json({
+            valid: true,
+            hasOrders: (cached.ordersCount || 0) > 0,
+            customer: {
+              id: cached.shopifyId || customer_id,
+              email: cached.shopifyEmail,
+              firstName: cached.firstName,
+              lastName: cached.lastName,
+              ordersCount: cached.ordersCount || 0,
+              skinType: cached.skinType,
+              skinConcerns: cached.skinConcerns,
+            },
+          });
+        }
+        console.log("[CACHE MISS] No cache found for:", email);
+      } catch (cacheError) {
+        // Cache read failed - continue with normal flow
+        console.error("[CACHE ERROR]", cacheError);
+      }
+    }
 
     // 1. Validate required fields
     if (!customer_id || !shopify_token) {
@@ -137,6 +166,24 @@ export async function POST(request: NextRequest) {
         // Can be added to the iframe URL later if needed
       },
     };
+
+    // === DATABASE CACHE WRITE ===
+    // Cache validated customer data (24 hour TTL)
+    if (email) {
+      try {
+        await cacheCustomer({
+          shopifyEmail: email,
+          shopifyId: cleanId,
+          firstName: first_name || undefined,
+          lastName: last_name || undefined,
+          ordersCount: ordersCountNum,
+        });
+        console.log("[CACHE WRITE] Cached customer data for:", email);
+      } catch (cacheError) {
+        // Cache write failed - don't fail the request
+        console.error("[CACHE WRITE ERROR]", cacheError);
+      }
+    }
 
     return NextResponse.json(response);
   } catch (error) {

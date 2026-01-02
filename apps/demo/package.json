@@ -8,11 +8,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint src app --max-warnings 0",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate || echo 'Prisma generation skipped'",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@auth/core": "^0.34.3",
     "@heygen/liveavatar-web-sdk": "workspace:*",
+    "@prisma/client": "^7.2.0",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-separator": "^1.1.8",
@@ -25,6 +30,7 @@
     "lucide-react": "^0.561.0",
     "next": "^16.0.10",
     "next-auth": "5.0.0-beta.30",
+    "prisma": "^7.2.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "sonner": "^2.0.7",

@@ -1,0 +1,166 @@
+// Prisma Schema for Clara Voice Agent Analytics & Caching
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_PRISMA_URL")
+}
+
+// ============================================
+// SESSION TRACKING
+// ============================================
+model Session {
+  id String @id @default(cuid())
+
+  // Session metadata
+  sessionToken String   @unique
+  deviceType   String // "desktop" | "mobile"
+  status       String // "active" | "completed" | "error" | "timeout"
+  createdAt    DateTime @default(now())
+  endedAt      DateTime?
+
+  // User identification (optional, for logged-in users)
+  userId       String?
+  shopifyEmail String?
+
+  // Session metrics
+  durationSeconds Int? // Total session duration
+
+  // Relations
+  conversations Conversation[]
+  analytics     SessionAnalytics?
+
+  @@index([shopifyEmail])
+  @@index([createdAt])
+  @@index([status])
+  @@map("sessions")
+}
+
+// ============================================
+// CONVERSATION TRACKING
+// ============================================
+model Conversation {
+  id String @id @default(cuid())
+
+  // Relations
+  sessionId String
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Conversation data
+  userMessage      String? // User transcript
+  agentResponse    String? // Agent response
+  productsReferred String[] // Product IDs/names mentioned
+
+  // Metadata
+  timestamp DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([timestamp])
+  @@map("conversations")
+}
+
+// ============================================
+// SESSION ANALYTICS (One-to-One with Session)
+// ============================================
+model SessionAnalytics {
+  id String @id @default(cuid())
+
+  // Relations
+  sessionId String  @unique
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Engagement metrics
+  messagesExchanged   Int      @default(0)
+  averageResponseTime Float? // In seconds
+
+  // Recommendations
+  productsRecommended String[] // Product IDs mentioned
+  skinConcernsAddress String[] // Concerns discussed
+
+  // Outcome
+  leadQuality      String? // "high" | "medium" | "low"
+  conversionIntent String? // "high" | "medium" | "low" | "none"
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("session_analytics")
+}
+
+// ============================================
+// SHOPIFY CUSTOMER CACHE
+// ============================================
+model ShopifyCustomerCache {
+  id String @id @default(cuid())
+
+  // Shopify identifiers
+  shopifyEmail String @unique
+  shopifyId    String?
+
+  // Customer data (JSON cache)
+  firstName    String?
+  lastName     String?
+  skinType     String?
+  skinConcerns String[]
+  ordersCount  Int       @default(0)
+
+  // Cache metadata
+  cachedAt  DateTime @default(now())
+  expiresAt DateTime // TTL for cache invalidation
+
+  @@index([shopifyEmail])
+  @@index([expiresAt])
+  @@map("shopify_customer_cache")
+}
+
+// ============================================
+// PRODUCT ANALYTICS
+// ============================================
+model ProductMention {
+  id String @id @default(cuid())
+
+  // Product identification
+  productId   String // Shopify product ID or name
+  productName String?
+
+  // Mention context
+  sessionId String?
+  mentioned DateTime @default(now())
+  context   String? // "recommendation" | "inquiry" | "purchase_intent"
+
+  // Aggregation helper
+  count Int @default(1)
+
+  @@index([productId])
+  @@index([mentioned])
+  @@map("product_mentions")
+}
+
+// ============================================
+// USAGE METRICS (Daily aggregates)
+// ============================================
+model DailyMetrics {
+  id String @id @default(cuid())
+
+  // Date for metrics
+  date DateTime @unique @db.Date
+
+  // Session stats
+  totalSessions      Int @default(0)
+  completedSessions  Int @default(0)
+  averageDuration    Float?
+
+  // User stats
+  uniqueUsers        Int @default(0)
+  returningUsers     Int @default(0)
+
+  // Engagement
+  totalConversations Int @default(0)
+  totalProductMentions Int @default(0)
+
+  @@index([date])
+  @@map("daily_metrics")
+}
