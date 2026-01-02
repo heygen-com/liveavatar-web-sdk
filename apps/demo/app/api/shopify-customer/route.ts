@@ -22,8 +22,36 @@ import type {
   ShopifyCustomerRequest,
   ShopifyCustomerResponse,
 } from "@/src/shopify";
+import { rateLimitByEndpoint } from "@/src/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
+  // === RATE LIMIT CHECK ===
+  const limitResult = await rateLimitByEndpoint(request, "shopify-customer");
+
+  if (!limitResult.success) {
+    return NextResponse.json(
+      {
+        valid: false,
+        hasOrders: false,
+        customer: null,
+        error: "Too many requests",
+        message: "Demasiados intentos. Espera un momento antes de reintentar.",
+        retryAfter: Math.ceil((limitResult.reset - Date.now()) / 1000),
+      },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": limitResult.limit.toString(),
+          "X-RateLimit-Remaining": limitResult.remaining.toString(),
+          "X-RateLimit-Reset": new Date(limitResult.reset).toISOString(),
+          "Retry-After": Math.ceil(
+            (limitResult.reset - Date.now()) / 1000,
+          ).toString(),
+        },
+      },
+    );
+  }
+
   try {
     // Check if HMAC secret is configured
     if (!isHmacConfigured()) {

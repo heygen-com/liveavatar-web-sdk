@@ -21,11 +21,36 @@ import type {
   VerifyCustomerRequest,
   VerifyCustomerResponse,
 } from "@/src/shopify";
+import { rateLimitByEndpoint } from "@/src/lib/rate-limit";
 
 // Basic email validation regex
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: NextRequest) {
+  // === RATE LIMIT CHECK ===
+  const limitResult = await rateLimitByEndpoint(request, "verify-customer");
+
+  if (!limitResult.success) {
+    return NextResponse.json(
+      {
+        error: "Too many requests",
+        message: "Demasiados intentos de verificación. Espera un momento.",
+        retryAfter: Math.ceil((limitResult.reset - Date.now()) / 1000),
+      },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": limitResult.limit.toString(),
+          "X-RateLimit-Remaining": limitResult.remaining.toString(),
+          "X-RateLimit-Reset": new Date(limitResult.reset).toISOString(),
+          "Retry-After": Math.ceil(
+            (limitResult.reset - Date.now()) / 1000,
+          ).toString(),
+        },
+      },
+    );
+  }
+
   try {
     // Check if Shopify is configured
     if (!isShopifyConfigured()) {

@@ -42,6 +42,9 @@ import {
 // Debug tools
 import { MobileLogger } from "./debug/MobileLogger";
 
+// Toast notifications
+import { toast } from "sonner";
+
 // ============================================
 // DEVICE DETECTION (runtime, not module-level)
 // ============================================
@@ -310,6 +313,8 @@ interface LandingScreenProps {
   isLoading: boolean;
   userName?: string | null;
   customerData?: CustomerData | null;
+  isRateLimited?: boolean;
+  rateLimitCountdown?: number;
 }
 
 const LandingScreen: React.FC<LandingScreenProps> = ({
@@ -317,6 +322,8 @@ const LandingScreen: React.FC<LandingScreenProps> = ({
   isLoading,
   userName,
   customerData,
+  isRateLimited = false,
+  rateLimitCountdown = 0,
 }) => {
   const displayName = customerData?.firstName || userName;
 
@@ -355,7 +362,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({
         <CardContent className="pt-4">
           <Button
             onClick={onStartCall}
-            disabled={isLoading}
+            disabled={isLoading || isRateLimited}
             size="lg"
             className="btn-ios-primary"
           >
@@ -363,6 +370,11 @@ const LandingScreen: React.FC<LandingScreenProps> = ({
               <>
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                 Conectando...
+              </>
+            ) : isRateLimited ? (
+              <>
+                <Clock className="w-5 h-5 mr-2" />
+                Espera {rateLimitCountdown}s
               </>
             ) : (
               <>
@@ -1317,6 +1329,48 @@ export const ClaraVoiceAgent: React.FC<ClaraVoiceAgentProps> = ({
   const { fixedHeight, isInIframe } = useFixedHeight();
   const { isDesktop } = useScreenSize();
 
+  // Rate limit state
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
+  const rateLimitTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup rate limit timer on unmount
+  useEffect(() => {
+    return () => {
+      if (rateLimitTimerRef.current) {
+        clearInterval(rateLimitTimerRef.current);
+        rateLimitTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // Countdown timer for rate limit
+  useEffect(() => {
+    if (rateLimitCountdown > 0) {
+      setIsRateLimited(true);
+      rateLimitTimerRef.current = setInterval(() => {
+        setRateLimitCountdown((prev) => {
+          const newValue = prev - 1;
+          if (newValue <= 0) {
+            setIsRateLimited(false);
+            if (rateLimitTimerRef.current) {
+              clearInterval(rateLimitTimerRef.current);
+              rateLimitTimerRef.current = null;
+            }
+          }
+          return newValue <= 0 ? 0 : newValue;
+        });
+      }, 1000);
+
+      return () => {
+        if (rateLimitTimerRef.current) {
+          clearInterval(rateLimitTimerRef.current);
+          rateLimitTimerRef.current = null;
+        }
+      };
+    }
+  }, [rateLimitCountdown]);
+
   const handleStartCall = useCallback(async () => {
     setIsStarting(true);
     setError(null);
@@ -1335,6 +1389,21 @@ export const ClaraVoiceAgent: React.FC<ClaraVoiceAgentProps> = ({
 
       if (!res.ok) {
         const errorData = await res.json();
+
+        // Handle rate limit (429) specifically
+        if (res.status === 429) {
+          const retryAfter = errorData.retryAfter || 60;
+          setRateLimitCountdown(retryAfter);
+
+          // Show toast notification
+          toast.error("Límite de sesiones alcanzado", {
+            description: `Has iniciado muchas sesiones recientemente. Por favor espera ${retryAfter} segundos antes de intentar nuevamente.`,
+            duration: 5000,
+          });
+
+          return; // Exit early, don't throw error
+        }
+
         throw new Error(errorData.error || "Failed to start session");
       }
 
@@ -1384,6 +1453,8 @@ export const ClaraVoiceAgent: React.FC<ClaraVoiceAgentProps> = ({
           isLoading={isStarting}
           userName={userName}
           customerData={customerData}
+          isRateLimited={isRateLimited}
+          rateLimitCountdown={rateLimitCountdown}
         />
       ) : (
         <LiveAvatarContextProvider

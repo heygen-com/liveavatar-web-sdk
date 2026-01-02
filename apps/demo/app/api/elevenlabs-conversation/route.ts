@@ -1,7 +1,38 @@
 import { auth } from "@/auth";
 import { ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID } from "../secrets";
+import { NextRequest } from "next/server";
+import { rateLimitByEndpoint } from "@/src/lib/rate-limit";
 
 export async function POST(request: Request) {
+  // === RATE LIMIT CHECK ===
+  const limitResult = await rateLimitByEndpoint(
+    request as NextRequest,
+    "elevenlabs-conversation",
+  );
+
+  if (!limitResult.success) {
+    return new Response(
+      JSON.stringify({
+        error: "Too many requests",
+        message: "Por favor espera antes de solicitar una nueva conversación",
+        retryAfter: Math.ceil((limitResult.reset - Date.now()) / 1000),
+      }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "X-RateLimit-Limit": limitResult.limit.toString(),
+          "X-RateLimit-Remaining": limitResult.remaining.toString(),
+          "X-RateLimit-Reset": new Date(limitResult.reset).toISOString(),
+          "Retry-After": Math.ceil(
+            (limitResult.reset - Date.now()) / 1000,
+          ).toString(),
+        },
+      },
+    );
+  }
+
+  // === AUTH GUARD ===
   // Auth guard - allow both next-auth session AND Shopify-validated requests
   const session = await auth();
   const shopifyHeader = request.headers.get("x-shopify-validated");

@@ -5,8 +5,40 @@ import {
   AVATAR_ID_MOBILE,
   AVATAR_ID_DESKTOP,
 } from "../secrets";
+import { NextRequest } from "next/server";
+import { rateLimitByEndpoint } from "@/src/lib/rate-limit";
 
 export async function POST(request: Request) {
+  // === RATE LIMIT CHECK ===
+  // Cast to NextRequest for rate limiting (headers are compatible)
+  const limitResult = await rateLimitByEndpoint(
+    request as NextRequest,
+    "start-custom-session",
+  );
+
+  if (!limitResult.success) {
+    return new Response(
+      JSON.stringify({
+        error: "Too many requests",
+        message: "Por favor espera unos minutos antes de intentar nuevamente",
+        retryAfter: Math.ceil((limitResult.reset - Date.now()) / 1000),
+      }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "X-RateLimit-Limit": limitResult.limit.toString(),
+          "X-RateLimit-Remaining": limitResult.remaining.toString(),
+          "X-RateLimit-Reset": new Date(limitResult.reset).toISOString(),
+          "Retry-After": Math.ceil(
+            (limitResult.reset - Date.now()) / 1000,
+          ).toString(),
+        },
+      },
+    );
+  }
+
+  // === AUTH GUARD ===
   // Auth guard - allow both next-auth session AND Shopify-validated requests
   // Shopify users are validated via /api/shopify-customer before reaching here
   // We check for either: next-auth session OR a custom header set by the client
