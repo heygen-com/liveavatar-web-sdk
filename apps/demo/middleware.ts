@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
 export default auth((req) => {
-  const { pathname } = req.nextUrl;
+  const { pathname, searchParams } = req.nextUrl;
   const session = req.auth;
 
   // ============================================
@@ -34,6 +34,17 @@ export default auth((req) => {
     if (pathname === "/login" && session) {
       return NextResponse.redirect(new URL("/", req.url));
     }
+    return NextResponse.next();
+  }
+
+  // Allow all API routes (they have their own authentication)
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
+  // Allow home page when coming from Shopify iframe with token
+  // The page will validate the token client-side via /api/shopify-customer
+  if (pathname === "/" && searchParams.has("shopify_token")) {
     return NextResponse.next();
   }
 

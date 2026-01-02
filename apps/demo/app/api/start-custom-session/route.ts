@@ -7,9 +7,13 @@ import {
 } from "../secrets";
 
 export async function POST(request: Request) {
-  // Auth guard
+  // Auth guard - allow both next-auth session AND Shopify-validated requests
+  // Shopify users are validated via /api/shopify-customer before reaching here
+  // We check for either: next-auth session OR a custom header set by the client
   const session = await auth();
-  if (!session?.user) {
+  const isShopifyUser = request.headers.get("x-shopify-validated") === "true";
+
+  if (!session?.user && !isShopifyUser) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

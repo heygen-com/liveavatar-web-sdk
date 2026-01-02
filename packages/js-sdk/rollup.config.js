@@ -2,6 +2,7 @@ import commonjs from "@rollup/plugin-commonjs";
 import resolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 import json from "@rollup/plugin-json";
+import nodePolyfills from "rollup-plugin-polyfill-node";
 
 export default [
   // Unbundled builds for npm (lib/)
@@ -43,6 +44,9 @@ export default [
         format: "umd",
         name: "LiveAvatarSDK", // Global variable name for browser
         sourcemap: true,
+        globals: {
+          events: "EventEmitter",
+        },
       },
       {
         file: "dist/index.esm.js",
@@ -52,7 +56,11 @@ export default [
     ],
     plugins: [
       json(),
-      resolve({ browser: true }), // Bundle dependencies
+      nodePolyfills(), // Polyfills for Node built-ins in browser
+      resolve({
+        browser: true,
+        preferBuiltins: false, // Use polyfills instead of Node built-ins
+      }),
       commonjs(),
       typescript({
         declaration: false, // No need for .d.ts in bundled version

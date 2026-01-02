@@ -44,7 +44,7 @@ export function LogoutButton({
               src={session.user.image || undefined}
               alt={session.user.name || "User"}
             />
-            <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs">
+            <AvatarFallback className="bg-gradient-to-br from-neutral-600 to-neutral-800 text-white text-xs">
               {userInitials}
             </AvatarFallback>
           </Avatar>
@@ -95,7 +95,7 @@ export function UserMenu({ className }: { className?: string }) {
           src={session.user.image || undefined}
           alt={session.user.name || "User"}
         />
-        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-[10px]">
+        <AvatarFallback className="bg-gradient-to-br from-neutral-600 to-neutral-800 text-white text-[10px]">
           {userInitials}
         </AvatarFallback>
       </Avatar>

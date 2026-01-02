@@ -27,7 +27,8 @@ const nextConfig = {
               "img-src 'self' data: blob: https://*.heygen.com https://*.liveavatar.com https://*.livekit.cloud",
               "media-src 'self' blob: https://*.heygen.com https://*.liveavatar.com wss://*.livekit.cloud",
               "connect-src 'self' https://*.heygen.com https://*.liveavatar.com https://api.elevenlabs.io wss://*.elevenlabs.io https://api.openai.com https://*.livekit.cloud wss://*.livekit.cloud wss://*.heygen.io https://*.heygen.io",
-              "frame-ancestors 'self' https://*.myshopify.com https://*.shopify.com https://admin.shopify.com http://localhost:*",
+              // Allow embedding from Shopify (myshopify.com, shopify.com) and custom domain (betaskintech.com)
+              "frame-ancestors 'self' https://*.myshopify.com https://*.shopify.com https://admin.shopify.com https://betaskintech.com https://*.betaskintech.com http://localhost:*",
               "worker-src 'self' blob:",
             ].join("; "),
           },
@@ -35,8 +36,10 @@ const nextConfig = {
           {
             key: "Permissions-Policy",
             value:
-              'microphone=(self "https://*.myshopify.com" "https://*.shopify.com")',
+              'microphone=(self "https://*.myshopify.com" "https://*.shopify.com" "https://betaskintech.com")',
           },
+          // X-Frame-Options removed - CSP frame-ancestors takes precedence
+          // Some browsers need this for compatibility
         ],
       },
     ];

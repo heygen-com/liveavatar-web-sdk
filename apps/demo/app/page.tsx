@@ -1,57 +1,385 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import ClaraVoiceAgent from "../src/components/ClaraVoiceAgent";
+import CustomerVerification from "../src/components/CustomerVerification";
 import { CustomerData } from "../src/liveavatar/types";
 import { UserMenu } from "../src/components/auth/LogoutButton";
+import type { ShopifyCustomerResponse } from "@/src/shopify";
+
+type PageState =
+  | "loading"
+  | "verifying_shopify"
+  | "verifying_session"
+  | "needs_verification"
+  | "verified"
+  | "error"
+  | "shopify_redirect";
 
 export default function Home() {
-  const [userName, setUserName] = useState<string | null>(null);
+  const { data: session, status: sessionStatus } = useSession();
+  const [pageState, setPageState] = useState<PageState>("loading");
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Check URL params for personalization data
+  // Verify customer via Shopify API (for users coming from Shopify iframe)
+  const verifyShopifyCustomer = useCallback(async (params: URLSearchParams) => {
+    setPageState("verifying_shopify");
+
+    try {
+      const response = await fetch("/api/shopify-customer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_id: params.get("customer_id"),
+          shopify_token: params.get("shopify_token"),
+          first_name: params.get("first_name"),
+          last_name: params.get("last_name"),
+          email: params.get("email"),
+          orders_count: params.get("orders_count"),
+        }),
+      });
+
+      const data: ShopifyCustomerResponse = await response.json();
+
+      if (!response.ok || !data.valid) {
+        throw new Error(data.error || "Invalid Shopify token");
+      }
+
+      if (!data.hasOrders) {
+        setError("Debes realizar una compra para acceder a Clara");
+        setPageState("error");
+        return;
+      }
+
+      if (data.customer) {
+        setCustomerData({
+          firstName: data.customer.firstName || undefined,
+          lastName: data.customer.lastName || undefined,
+          email: data.customer.email || undefined,
+          ordersCount: data.customer.ordersCount,
+          skinType: data.customer.skinType as CustomerData["skinType"],
+          skinConcerns: data.customer.skinConcerns,
+        });
+        setPageState("verified");
+      }
+    } catch (err) {
+      console.error("Shopify verification error:", err);
+      setError(err instanceof Error ? err.message : "Error de verificacion");
+      setPageState("error");
+    }
+  }, []);
+
+  // Verify customer via email (for users with session)
+  const verifySessionEmail = useCallback(async (email: string) => {
+    setPageState("verifying_session");
+
+    try {
+      const response = await fetch("/api/verify-customer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      // Check for Shopify plan limitation (Basic plan can't access PII via API)
+      if (data.error === "SHOPIFY_PLAN_LIMITED") {
+        setError(
+          data.message ||
+            "Por favor accede a Clara desde tu cuenta en la tienda BetaSkintech",
+        );
+        setPageState("shopify_redirect");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || "Error verifying customer");
+      }
+
+      if (!data.exists || !data.hasOrders) {
+        // User has Google session but hasn't purchased
+        // Show verification screen so they can try another email
+        setPageState("needs_verification");
+        return;
+      }
+
+      if (data.customer) {
+        setCustomerData({
+          firstName: data.customer.firstName || undefined,
+          lastName: data.customer.lastName || undefined,
+          email: data.customer.email || undefined,
+          ordersCount: data.customer.ordersCount,
+          skinType: data.customer.skinType as CustomerData["skinType"],
+          skinConcerns: data.customer.skinConcerns,
+        });
+        setPageState("verified");
+      }
+    } catch (err) {
+      console.error("Session verification error:", err);
+      // On error, let user try manual verification
+      setPageState("needs_verification");
+    }
+  }, []);
+
+  // Main effect to handle page load and determine flow
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
 
-    // Check for customer data in URL params
-    const firstName = params.get("first_name");
-    const lastName = params.get("last_name");
-    const email = params.get("email");
-    const ordersCount = params.get("orders_count");
+    // Flow A: User coming from Shopify iframe with token
+    if (params.has("shopify_token") && params.has("customer_id")) {
+      verifyShopifyCustomer(params);
+      return;
+    }
 
-    if (firstName || lastName || email) {
+    // Flow B: Check URL params for direct customer data (legacy support)
+    const firstName = params.get("first_name");
+    const skinType = params.get("skin_type");
+    const skinConcerns = params.get("skin_concerns");
+
+    if (firstName || skinType || skinConcerns) {
+      // Direct URL params without Shopify token - set data directly
       setCustomerData({
         firstName: firstName || undefined,
-        lastName: lastName || undefined,
-        email: email || undefined,
-        ordersCount: ordersCount ? parseInt(ordersCount, 10) : undefined,
+        lastName: params.get("last_name") || undefined,
+        email: params.get("email") || undefined,
+        ordersCount: params.get("orders_count")
+          ? parseInt(params.get("orders_count")!, 10)
+          : undefined,
+        skinType: (skinType as CustomerData["skinType"]) || undefined,
+        skinConcerns: skinConcerns
+          ? skinConcerns.split(",").map((s) => s.trim())
+          : undefined,
       });
+      setPageState("verified");
+      return;
     }
 
-    // Check for simple userName
-    const name = params.get("name") || params.get("userName");
-    if (name) {
-      setUserName(name);
+    // Flow C: Check session status
+    if (sessionStatus === "loading") {
+      setPageState("loading");
+      return;
     }
 
-    // Check localStorage fallback
-    if (!firstName && !name) {
-      const storedName = localStorage.getItem("clara_user_name");
-      if (storedName) {
-        setUserName(storedName);
+    if (session?.user?.email) {
+      // BYPASS: Test users skip Shopify verification
+      const testEmails = ["tester@betaskintech.com", "demo@clara.ai"];
+      if (testEmails.includes(session.user.email)) {
+        setCustomerData({
+          firstName: session.user.name?.split(" ")[0] || "Tester",
+          email: session.user.email,
+        });
+        setPageState("verified");
+        return;
       }
-    }
-  }, []);
 
+      // User has session - verify their email against Shopify
+      verifySessionEmail(session.user.email);
+      return;
+    }
+
+    // Flow D: No session, no Shopify token - show verification form
+    // Note: middleware redirects to /login if no session and no shopify_token
+    // This state shouldn't normally be reached unless middleware allows it
+    setPageState("needs_verification");
+  }, [session, sessionStatus, verifyShopifyCustomer, verifySessionEmail]);
+
+  // Handle successful verification from CustomerVerification component
+  const handleVerified = (data: CustomerData) => {
+    setCustomerData(data);
+    setPageState("verified");
+  };
+
+  // Loading state
+  if (
+    pageState === "loading" ||
+    pageState === "verifying_shopify" ||
+    pageState === "verifying_session"
+  ) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <div className="text-center">
+          <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg animate-pulse">
+            <span className="text-2xl font-bold text-white">C</span>
+          </div>
+          <p className="text-gray-500">
+            {pageState === "verifying_shopify"
+              ? "Verificando desde Shopify..."
+              : pageState === "verifying_session"
+                ? "Verificando tu cuenta..."
+                : "Cargando..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state - check if it's "no orders" to show promotional screen
+  if (pageState === "error") {
+    const isNoOrdersError = error?.includes("compra");
+
+    if (isNoOrdersError) {
+      // Promotional screen for users without purchases
+      return (
+        <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+          <div className="text-center max-w-md">
+            <div className="mx-auto mb-4 w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+              <svg
+                className="w-10 h-10 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">
+              ¡Desbloquea a Clara!
+            </h2>
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              Clara es exclusiva para clientes de Beta Skin Tech.
+              <br />
+              <span className="font-medium text-indigo-600">
+                Haz tu primera compra
+              </span>{" "}
+              y accede a tu asesora de skincare personal.
+            </p>
+            <a
+              href="https://betaskintech.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md font-medium"
+            >
+              <svg
+                className="w-5 h-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                />
+              </svg>
+              Ir a la tienda
+            </a>
+            <p className="mt-4">
+              <button
+                onClick={() => (window.location.href = "/login")}
+                className="text-sm text-gray-500 hover:text-indigo-600 transition-colors"
+              >
+                Volver al inicio
+              </button>
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Generic error screen for other errors
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <div className="text-center max-w-md">
+          <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+            <svg
+              className="w-8 h-8 text-red-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            Error de verificacion
+          </h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => (window.location.href = "/login")}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            Volver al inicio
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Shopify redirect state - show message to access from store
+  if (pageState === "shopify_redirect") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <div className="text-center max-w-md">
+          <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+            <span className="text-2xl font-bold text-white">C</span>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            Accede desde la tienda
+          </h2>
+          <p className="text-gray-600 mb-6">
+            {error ||
+              "Para usar Clara, ingresa a tu cuenta en BetaSkintech y accede desde ahi."}
+          </p>
+          <a
+            href="https://betaskintech.com/account"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md"
+          >
+            <svg
+              className="w-5 h-5 mr-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+              />
+            </svg>
+            Ir a BetaSkintech
+          </a>
+          <p className="mt-4 text-sm text-gray-500">
+            Una vez en tu cuenta, busca el enlace a Clara
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Needs verification - show CustomerVerification component
+  if (pageState === "needs_verification") {
+    return <CustomerVerification onVerified={handleVerified} />;
+  }
+
+  // Verified - show Clara
   return (
     <div className="min-h-screen">
       {/* User menu for logout */}
       <div className="fixed top-4 right-4 z-50">
         <UserMenu />
       </div>
-      <ClaraVoiceAgent userName={userName} customerData={customerData} />
+      <ClaraVoiceAgent
+        userName={customerData?.firstName || session?.user?.name || null}
+        customerData={customerData}
+      />
     </div>
   );
 }

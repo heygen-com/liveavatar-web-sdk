@@ -2,9 +2,18 @@ import { auth } from "@/auth";
 import { ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID } from "../secrets";
 
 export async function POST(request: Request) {
-  // Auth guard
+  // Auth guard - allow both next-auth session AND Shopify-validated requests
   const session = await auth();
-  if (!session?.user) {
+  const shopifyHeader = request.headers.get("x-shopify-validated");
+  const isShopifyUser = shopifyHeader === "true";
+
+  console.log("=== ElevenLabs Auth Check ===");
+  console.log("session?.user:", !!session?.user);
+  console.log("x-shopify-validated header:", shopifyHeader);
+  console.log("isShopifyUser:", isShopifyUser);
+
+  if (!session?.user && !isShopifyUser) {
+    console.log("UNAUTHORIZED - no session and no shopify header");
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

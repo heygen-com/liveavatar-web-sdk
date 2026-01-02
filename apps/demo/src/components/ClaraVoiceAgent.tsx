@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useEffect, useRef, useCallback, useState } from "react";
-import { SessionState, ConnectionQuality } from "@heygen/liveavatar-web-sdk";
+import {
+  SessionState,
+  ConnectionQuality,
+  AgentEventsEnum,
+} from "@heygen/liveavatar-web-sdk";
 import {
   LiveAvatarContextProvider,
   useSession,
@@ -21,8 +25,8 @@ import {
   CardTitle,
 } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Skeleton } from "./ui/skeleton";
+import Image from "next/image";
 
 // Lucide icons
 import {
@@ -35,6 +39,19 @@ import {
   Clock,
 } from "lucide-react";
 
+// Debug tools
+import { MobileLogger } from "./debug/MobileLogger";
+
+// ============================================
+// DEVICE DETECTION (runtime, not module-level)
+// ============================================
+const isMobileDevice = (): boolean => {
+  if (typeof window === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent,
+  );
+};
+
 // ============================================
 // SESSION LIMIT CONFIGURATION
 // ============================================
@@ -44,6 +61,56 @@ const SESSION_LIMIT_ENABLED = true;
 const SESSION_LIMIT_MINUTES = 10;
 // Warning before session ends (in seconds)
 const SESSION_WARNING_SECONDS = 30;
+
+// ============================================
+// HYBRID AUDIO STRATEGY CONSTANTS
+// ============================================
+// These are DESKTOP defaults - mobile overrides happen at runtime in component
+
+// Smart Chunking: Split large audio to avoid HeyGen 1MB limit
+const MAX_AUDIO_SIZE_BYTES = 800 * 1024; // 800KB per chunk (~16s audio)
+const CHUNK_WAIT_TIMEOUT_MS = 20000; // 20s timeout per chunk
+
+// Ghost chunk protection: Ignore chunks arriving shortly after interrupt
+const INTERRUPT_DEBOUNCE_MS = 300; // Ignore chunks for 300ms after interrupt
+
+// Target sample rate for HeyGen
+const TARGET_SAMPLE_RATE = 24000;
+
+// ============================================
+// DESKTOP vs MOBILE AUDIO CONFIG
+// ============================================
+// Desktop: Can handle larger buffers, longer gaps, works well with immediate send
+// Mobile: Needs smaller buffers, shorter gaps, and careful timing
+interface AudioConfig {
+  gapThreshold: number; // ms gap to detect end of stream
+  maxBufferSamples: number; // Max samples before forced processing
+  phase1LeadingSilence: number; // Silence before first audio
+  phase1TrailingSilence: number;
+  phase2LeadingSilence: number; // Silence before subsequent audio
+  phase2TrailingSilence: number;
+  immediateFirstChunk: boolean; // Send first chunk without delay?
+}
+
+const DESKTOP_CONFIG: AudioConfig = {
+  gapThreshold: 250,
+  maxBufferSamples: 64000, // 4s @ 16kHz
+  phase1LeadingSilence: 30, // Minimal - HeyGen handles it well
+  phase1TrailingSilence: 0,
+  phase2LeadingSilence: 50,
+  phase2TrailingSilence: 150,
+  immediateFirstChunk: true, // Works great on desktop
+};
+
+const MOBILE_CONFIG: AudioConfig = {
+  gapThreshold: 150, // More sensitive for burst delivery
+  maxBufferSamples: 24000, // 1.5s @ 16kHz - smaller batches for slow CPU
+  phase1LeadingSilence: 100, // More time for HeyGen to wake up on mobile
+  phase1TrailingSilence: 0,
+  phase2LeadingSilence: 80,
+  phase2TrailingSilence: 150,
+  immediateFirstChunk: true, // Still send immediately, but with more silence
+};
 
 // ============================================
 // SAFARI iOS DETECTION
@@ -258,21 +325,23 @@ const LandingScreen: React.FC<LandingScreenProps> = ({
       <Card className="max-w-sm w-full glass-morphism border-0 shadow-2xl">
         <CardHeader className="text-center pb-2">
           {/* Clara Avatar */}
-          <Avatar className="w-24 h-24 mx-auto mb-4 ring-4 ring-white/50 shadow-xl">
-            <AvatarImage src="/clara-avatar.png" alt="Clara" />
-            <AvatarFallback className="bg-gradient-to-br from-indigo-400 to-purple-500 text-white text-3xl font-bold">
-              C
-            </AvatarFallback>
-          </Avatar>
+          <div className="avatar-ring-ios mx-auto mb-4">
+            <div className="h-20 w-20 rounded-full bg-gradient-to-br from-neutral-100 to-neutral-200 flex items-center justify-center overflow-hidden p-3 border border-white/40">
+              <Image
+                src="/images/clara-logo.png"
+                alt="Clara Logo"
+                width={80}
+                height={80}
+                className="w-full h-full object-contain"
+              />
+            </div>
+          </div>
 
           {/* Badge */}
-          <Badge
-            variant="secondary"
-            className="mx-auto mb-3 bg-indigo-100 text-indigo-700 hover:bg-indigo-100"
-          >
-            <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse mr-2" />
+          <div className="badge-ios mx-auto mb-3 text-neutral-900">
+            <span className="w-2 h-2 bg-neutral-500 rounded-full animate-pulse" />
             Clara Skin Care Assistant
-          </Badge>
+          </div>
 
           <CardTitle className="text-2xl text-slate-800">
             {displayName ? `Hola, ${displayName}!` : "Hola!"}
@@ -288,7 +357,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({
             onClick={onStartCall}
             disabled={isLoading}
             size="lg"
-            className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg h-14 text-base"
+            className="btn-ios-primary"
           >
             {isLoading ? (
               <>
@@ -375,6 +444,18 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   const { fixedHeight, isInIframe } = useFixedHeight();
   const [isMuted, setIsMuted] = useState(false);
 
+  // RUNTIME device detection - select appropriate audio config
+  const audioConfig = React.useMemo(() => {
+    const isMobile = isMobileDevice();
+    const config = isMobile ? MOBILE_CONFIG : DESKTOP_CONFIG;
+    console.log(
+      `[AUDIO] Runtime config: ${isMobile ? "MOBILE" : "DESKTOP"} | ` +
+        `Gap=${config.gapThreshold}ms | MaxBuffer=${config.maxBufferSamples} | ` +
+        `Phase1=${config.phase1LeadingSilence}ms | Phase2=${config.phase2LeadingSilence}ms`,
+    );
+    return config;
+  }, []);
+
   // Session limit state
   const [sessionSecondsRemaining, setSessionSecondsRemaining] = useState(
     SESSION_LIMIT_MINUTES * 60,
@@ -382,7 +463,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   const [showExpiryWarning, setShowExpiryWarning] = useState(false);
   const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { sessionRef } = useLiveAvatarContext();
+  const { sessionRef, customerData } = useLiveAvatarContext();
   const { isStreamReady, connectionQuality, attachElement } = useSession();
 
   // Flag to prevent multiple agent connection attempts
@@ -402,14 +483,30 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   const hassentImmediateRef = useRef(false); // Track if we already sent immediate chunks
   const isFirstAudioRef = useRef(true); // Track if this is the first audio response
 
-  // TWO-PHASE audio sending strategy constants
-  // Phase 1: Send first chunks IMMEDIATELY (contains first words - reduces perceived latency)
-  // Phase 2: Buffer remaining chunks with gap detection
-  const IMMEDIATE_SEND_CHUNKS = 2; // Send first 2 chunks without delay (first words)
-  const IMMEDIATE_SEND_DELAY = 80; // ms to wait for chunks to arrive together
-  const CHUNK_GAP_THRESHOLD = 250; // ms gap = end of stream (for remaining chunks)
-  // Leading silence duration in ms (gives HeyGen time to process interrupt)
-  const LEADING_SILENCE_MS = 150;
+  // Ghost chunk debounce - ignore chunks arriving shortly after interruption
+  const lastInterruptTimeRef = useRef<number>(0);
+
+  // Track if HeyGen is currently playing audio (for conditional interrupt handling)
+  const isSendingAudioRef = useRef(false);
+
+  // Track ElevenLabs source sample rate (for resampling)
+  const sourceRateRef = useRef<number>(16000);
+
+  // Latency tracking refs - populated after useElevenLabsAgent is called
+  const reportAudioSentRef = useRef<(() => void) | null>(null);
+  const reportAvatarStartedRef = useRef<(() => void) | null>(null);
+
+  // Calculate total samples in buffer (for mobile buffer limit check)
+  // Used to prevent accumulating too much audio before processing
+  const calculateBufferSamples = useCallback((chunks: string[]): number => {
+    let totalBytes = 0;
+    for (const chunk of chunks) {
+      // base64 → bytes: multiply by 0.75
+      totalBytes += Math.round(chunk.length * 0.75);
+    }
+    // PCM 16-bit = 2 bytes per sample
+    return Math.floor(totalBytes / 2);
+  }, []);
 
   // Generate silence in PCM 16-bit signed, 24kHz mono format (base64)
   const generateSilence = useCallback((durationMs: number): string => {
@@ -427,6 +524,37 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     }
     return btoa(binary);
   }, []);
+
+  // Resample audio from source rate to target rate using linear interpolation
+  // Called ONCE on the entire concatenated audio to eliminate chunk boundary discontinuities
+  const resampleAudio = useCallback(
+    (
+      sourceBuffer: Int16Array,
+      sourceRate: number,
+      targetRate: number,
+    ): Int16Array => {
+      if (sourceRate === targetRate) return sourceBuffer;
+
+      const ratio = sourceRate / targetRate;
+      const targetLength = Math.round(sourceBuffer.length / ratio);
+      const targetBuffer = new Int16Array(targetLength);
+
+      for (let i = 0; i < targetLength; i++) {
+        const sourceIndex = i * ratio;
+        const indexFloor = Math.floor(sourceIndex);
+        const indexCeil = Math.min(indexFloor + 1, sourceBuffer.length - 1);
+        const fraction = sourceIndex - indexFloor;
+
+        targetBuffer[i] = Math.round(
+          sourceBuffer[indexFloor]! * (1 - fraction) +
+            sourceBuffer[indexCeil]! * fraction,
+        );
+      }
+
+      return targetBuffer;
+    },
+    [],
+  );
 
   // Concatenate base64 audio chunks into a single base64 string
   const concatenateBase64Audio = useCallback((chunks: string[]): string => {
@@ -465,63 +593,236 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     return btoa(binary);
   }, []);
 
+  // Helper: Wait for avatar to finish current audio segment
+  const waitForAvatarSpeakEnded = useCallback(
+    (timeoutMs: number = CHUNK_WAIT_TIMEOUT_MS): Promise<void> => {
+      return new Promise((resolve) => {
+        const session = sessionRef.current;
+        if (!session) {
+          resolve();
+          return;
+        }
+
+        const handler = () => {
+          session.off(AgentEventsEnum.AVATAR_SPEAK_ENDED, handler);
+          clearTimeout(timeout);
+          console.log("[AUDIO] avatar.speak_ended received");
+          resolve();
+        };
+
+        const timeout = setTimeout(() => {
+          session.off(AgentEventsEnum.AVATAR_SPEAK_ENDED, handler);
+          console.warn(
+            `[AUDIO] Timeout (${timeoutMs}ms) waiting for avatar.speak_ended`,
+          );
+          resolve(); // Continue anyway
+        }, timeoutMs);
+
+        session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, handler);
+      });
+    },
+    [sessionRef],
+  );
+
+  // Split base64 audio into chunks of maxBytes (in decoded bytes)
+  const smartSplitAudio = useCallback(
+    (audioBase64: string, maxBytes: number): string[] => {
+      // Base64: 4 chars = 3 bytes, so maxChars = maxBytes * 4 / 3
+      const maxChars = Math.floor((maxBytes * 4) / 3);
+      const chunks: string[] = [];
+
+      for (let i = 0; i < audioBase64.length; i += maxChars) {
+        chunks.push(audioBase64.slice(i, i + maxChars));
+      }
+
+      return chunks;
+    },
+    [],
+  );
+
+  // Send large audio in sequential chunks (waits for each to finish)
+  const sendChunkedAudio = useCallback(
+    async (audioBase64: string) => {
+      const chunks = smartSplitAudio(audioBase64, MAX_AUDIO_SIZE_BYTES);
+      console.log(
+        `[AUDIO] Smart chunking: ${chunks.length} segments of ~${Math.round(MAX_AUDIO_SIZE_BYTES / 1024)}KB`,
+      );
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i]!;
+        const sizeKB = Math.round((chunk.length * 0.75) / 1024);
+
+        console.log(
+          `[AUDIO] Sending chunk ${i + 1}/${chunks.length} (${sizeKB}KB)`,
+        );
+
+        // Report audio sent for latency tracking (only first chunk)
+        if (i === 0) {
+          reportAudioSentRef.current?.();
+        }
+
+        isSendingAudioRef.current = true;
+        sessionRef.current?.repeatAudio(chunk);
+
+        // Wait for this chunk to finish before sending next
+        if (i < chunks.length - 1) {
+          await waitForAvatarSpeakEnded();
+        }
+      }
+
+      console.log(
+        `[AUDIO] Smart chunking complete: ${chunks.length} chunks sent`,
+      );
+    },
+    [smartSplitAudio, waitForAvatarSpeakEnded, sessionRef],
+  );
+
   // Send ALL accumulated audio to avatar (called when gap detected or agent_response_end)
-  const sendAllAudioToAvatar = useCallback(() => {
-    // Clear gap check interval
-    if (gapCheckIntervalRef.current) {
-      clearInterval(gapCheckIntervalRef.current);
-      gapCheckIntervalRef.current = null;
-    }
+  // HYBRID: Resamples once after concatenation, adds silence, uses Smart Chunking for large audio
+  // isImmediateSend: true for PHASE 1 (first words, minimal silence), false for PHASE 2 (rest of response)
+  const sendAllAudioToAvatar = useCallback(
+    (isImmediateSend: boolean = false) => {
+      // Clear gap check interval
+      if (gapCheckIntervalRef.current) {
+        clearInterval(gapCheckIntervalRef.current);
+        gapCheckIntervalRef.current = null;
+      }
 
-    // Clear immediate send timeout (TWO-PHASE cleanup)
-    if (immediateSendTimeoutRef.current) {
-      clearTimeout(immediateSendTimeoutRef.current);
-      immediateSendTimeoutRef.current = null;
-    }
+      // Clear immediate send timeout (TWO-PHASE cleanup)
+      if (immediateSendTimeoutRef.current) {
+        clearTimeout(immediateSendTimeoutRef.current);
+        immediateSendTimeoutRef.current = null;
+      }
 
-    if (audioBufferRef.current.length === 0) {
-      console.log("[AUDIO] No audio to send");
-      return;
-    }
+      if (audioBufferRef.current.length === 0) {
+        console.log("[AUDIO] No audio to send");
+        return;
+      }
 
-    const chunks = audioBufferRef.current;
-    audioBufferRef.current = [];
+      const chunks = audioBufferRef.current;
+      audioBufferRef.current = [];
 
-    // Concatenate all chunks into one
-    let concatenatedAudio = concatenateBase64Audio(chunks);
-    if (!concatenatedAudio || !sessionRef.current) return;
+      // 1. Concatenate all RAW chunks (still at source sample rate, e.g., 16kHz)
+      const concatenatedRaw = concatenateBase64Audio(chunks);
+      if (!concatenatedRaw || !sessionRef.current) return;
 
-    // Add leading silence after interruption to give HeyGen time to process
-    if (isAfterInterruptRef.current) {
-      const silenceBase64 = generateSilence(LEADING_SILENCE_MS);
-      concatenatedAudio = concatenateBase64Audio([
-        silenceBase64,
-        concatenatedAudio,
-      ]);
-      isAfterInterruptRef.current = false;
-      console.log(
-        `[AUDIO] Added ${LEADING_SILENCE_MS}ms leading silence after interrupt`,
+      // 2. Decode base64 → Int16Array (raw PCM)
+      const binaryString = atob(concatenatedRaw);
+      const rawBytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        rawBytes[i] = binaryString.charCodeAt(i);
+      }
+      const sourceBuffer = new Int16Array(rawBytes.buffer);
+
+      // 3. Resample ONCE from source rate (16kHz) to target rate (24kHz)
+      const sourceRate = sourceRateRef.current;
+      const resampledBuffer = resampleAudio(
+        sourceBuffer,
+        sourceRate,
+        TARGET_SAMPLE_RATE,
       );
-    }
 
-    const sizeKB = Math.round(concatenatedAudio.length / 1024);
-    const isFirstAudio = isFirstAudioRef.current;
-
-    if (isFirstAudio) {
-      isFirstAudioRef.current = false;
       console.log(
-        `[AUDIO] First greeting: ${chunks.length} chunks, ${sizeKB}KB`,
+        `[AUDIO] Resampled: ${sourceBuffer.length} samples @ ${sourceRate}Hz → ${resampledBuffer.length} samples @ ${TARGET_SAMPLE_RATE}Hz`,
       );
-    } else {
-      console.log(`[AUDIO] Sending ${chunks.length} chunks, ${sizeKB}KB total`);
-    }
 
-    try {
-      sessionRef.current.repeatAudio(concatenatedAudio);
-    } catch (error) {
-      console.error("Error sending audio to avatar:", error);
-    }
-  }, [concatenateBase64Audio, generateSilence, sessionRef]);
+      // 4. Encode resampled audio back to base64
+      let binary = "";
+      const resampledBytes = new Uint8Array(resampledBuffer.buffer);
+      for (let i = 0; i < resampledBytes.length; i++) {
+        binary += String.fromCharCode(resampledBytes[i]!);
+      }
+      let finalAudio = btoa(binary);
+
+      // 5. Add leading + trailing silence (DIFFERENTIATED BY PHASE)
+      // Uses runtime audioConfig for device-specific values
+      const leadingSilenceMs = isImmediateSend
+        ? audioConfig.phase1LeadingSilence
+        : audioConfig.phase2LeadingSilence;
+      const trailingSilenceMs = isImmediateSend
+        ? audioConfig.phase1TrailingSilence
+        : audioConfig.phase2TrailingSilence;
+
+      const leadingSilence = generateSilence(leadingSilenceMs);
+      const trailingSilence = generateSilence(trailingSilenceMs);
+
+      // Only add silence if duration > 0
+      const audioWithSilence = [finalAudio];
+      if (leadingSilenceMs > 0) audioWithSilence.unshift(leadingSilence);
+      if (trailingSilenceMs > 0) audioWithSilence.push(trailingSilence);
+      finalAudio = concatenateBase64Audio(audioWithSilence);
+
+      // Log with phase info
+      const phaseLabel = isImmediateSend ? "PHASE 1 (fast)" : "PHASE 2";
+      const interruptNote = isAfterInterruptRef.current
+        ? " (post-interrupt)"
+        : "";
+      console.log(
+        `[AUDIO] ${phaseLabel}: ${leadingSilenceMs}ms lead + ${trailingSilenceMs}ms trail${interruptNote}`,
+      );
+
+      // Reset interrupt flag
+      if (isAfterInterruptRef.current) {
+        isAfterInterruptRef.current = false;
+      }
+
+      // === SMART CHUNKING: Check size and split if needed ===
+      const audioSizeBytes = Math.round(finalAudio.length * 0.75);
+      const audioSizeKB = Math.round(audioSizeBytes / 1024);
+      const estimatedDurationSec = audioSizeKB / 48; // ~48KB/s @ 24kHz 16-bit
+
+      console.log(
+        `[AUDIO] Size: ${audioSizeKB}KB (~${estimatedDurationSec.toFixed(1)}s)`,
+      );
+
+      if (audioSizeBytes > MAX_AUDIO_SIZE_BYTES) {
+        console.log(
+          `[AUDIO] Audio too large (${audioSizeKB}KB > ${Math.round(MAX_AUDIO_SIZE_BYTES / 1024)}KB), using smart chunking`,
+        );
+        // Send chunked - function handles isSendingAudioRef internally
+        sendChunkedAudio(finalAudio);
+        return; // Exit - chunked send handles everything
+      }
+
+      // === Normal path: audio is small enough for single send ===
+      const totalSizeKB = Math.round(finalAudio.length / 1024);
+      const isFirstAudio = isFirstAudioRef.current;
+
+      if (isFirstAudio) {
+        isFirstAudioRef.current = false;
+        console.log(
+          `[AUDIO] First greeting: ${chunks.length} chunks, ${totalSizeKB}KB (resampled once)`,
+        );
+      } else {
+        console.log(
+          `[AUDIO] Response: ${chunks.length} chunks, ${totalSizeKB}KB (resampled once)`,
+        );
+      }
+
+      // 6. Send ALL audio in a single call
+      console.log(
+        `[AUDIO] Sending complete audio (${totalSizeKB}KB) in single call`,
+      );
+      try {
+        // Report audio sent for latency tracking
+        reportAudioSentRef.current?.();
+
+        isSendingAudioRef.current = true;
+        sessionRef.current.repeatAudio(finalAudio);
+      } catch (error) {
+        console.error("Error sending audio to avatar:", error);
+        isSendingAudioRef.current = false;
+      }
+    },
+    [
+      audioConfig,
+      concatenateBase64Audio,
+      generateSilence,
+      resampleAudio,
+      sendChunkedAudio,
+      sessionRef,
+    ],
+  );
 
   // Start gap detection - checks if stream ended by detecting pause between chunks
   const startGapDetection = useCallback(() => {
@@ -531,21 +832,22 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     }
 
     // Check every 50ms if there's a gap in chunks
+    // Uses runtime audioConfig.gapThreshold for device-specific timing
     gapCheckIntervalRef.current = setInterval(() => {
       const timeSinceLastChunk = Date.now() - lastChunkTimeRef.current;
 
       // If gap exceeds threshold, stream has ended - send buffered audio
       if (
-        timeSinceLastChunk >= CHUNK_GAP_THRESHOLD &&
+        timeSinceLastChunk >= audioConfig.gapThreshold &&
         audioBufferRef.current.length > 0
       ) {
         console.log(
-          `[AUDIO] Gap detected (${timeSinceLastChunk}ms) - sending buffered audio`,
+          `[AUDIO] Gap detected (${timeSinceLastChunk}ms >= ${audioConfig.gapThreshold}ms) - sending buffered audio`,
         );
         sendAllAudioToAvatar();
       }
     }, 50);
-  }, [sendAllAudioToAvatar]);
+  }, [sendAllAudioToAvatar, audioConfig.gapThreshold]);
 
   // ElevenLabs Agent hook - SIMPLE: accumulate all chunks, send when gap detected
   const {
@@ -558,9 +860,39 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     startListening,
     stopListening,
     error: agentError,
+    // Latency tracking
+    reportAudioSent,
+    reportAvatarStarted,
   } = useElevenLabsAgent({
-    onAudioData: (audioBase64) => {
-      // Accumulate chunks and track timing for gap detection
+    // Pass customer data for ElevenLabs dynamic variables personalization
+    customerData: customerData
+      ? {
+          firstName: customerData.firstName,
+          lastName: customerData.lastName,
+          email: customerData.email,
+          skinType: customerData.skinType,
+          skinConcerns: customerData.skinConcerns,
+          ordersCount: customerData.ordersCount,
+        }
+      : undefined,
+    onAudioData: (audioBase64, sampleRate) => {
+      // DEBOUNCE: Ignore "ghost" chunks that arrive shortly after interruption
+      // These are in-flight chunks from the previous response
+      const timeSinceInterrupt = Date.now() - lastInterruptTimeRef.current;
+      if (timeSinceInterrupt < INTERRUPT_DEBOUNCE_MS) {
+        console.log(
+          `[AUDIO] Ignoring ghost chunk (${timeSinceInterrupt}ms since interrupt)`,
+        );
+        return;
+      }
+
+      // Store source sample rate from first chunk (used for resampling after concatenation)
+      if (totalChunksReceivedRef.current === 0) {
+        sourceRateRef.current = sampleRate;
+        console.log(`[AUDIO] Source sample rate: ${sampleRate}Hz`);
+      }
+
+      // Accumulate RAW chunks (no resampling) - resampling happens ONCE after concatenation
       totalChunksReceivedRef.current++;
       audioBufferRef.current.push(audioBase64);
       lastChunkTimeRef.current = Date.now();
@@ -571,29 +903,32 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       );
 
       // TWO-PHASE STRATEGY:
-      // Phase 1: Send first chunks IMMEDIATELY (contains first words - reduces perceived latency)
-      if (
-        !hassentImmediateRef.current &&
-        currentBufferLength <= IMMEDIATE_SEND_CHUNKS
-      ) {
-        // Clear any existing immediate timeout
-        if (immediateSendTimeoutRef.current) {
-          clearTimeout(immediateSendTimeoutRef.current);
-        }
+      // Phase 1: Send first chunk IMMEDIATELY (contains first words - reduces perceived latency)
+      // This is SYNCHRONOUS - no timeout, no delay, just send NOW
+      if (!hassentImmediateRef.current && currentBufferLength === 1) {
+        hassentImmediateRef.current = true;
+        console.log(
+          `[AUDIO] PHASE 1: IMMEDIATE send first chunk (first words) - NO DELAY`,
+        );
+        // Send synchronously - first words go out ASAP
+        sendAllAudioToAvatar(true); // isImmediateSend = true for minimal silence
+        return;
+      }
 
-        // Wait a tiny bit for chunks to arrive together, then send
-        immediateSendTimeoutRef.current = setTimeout(() => {
-          if (
-            audioBufferRef.current.length > 0 &&
-            !hassentImmediateRef.current
-          ) {
-            hassentImmediateRef.current = true;
-            console.log(
-              `[AUDIO] PHASE 1: Immediate send ${audioBufferRef.current.length} chunks (first words)`,
-            );
-            sendAllAudioToAvatar();
-          }
-        }, IMMEDIATE_SEND_DELAY);
+      // MOBILE OPTIMIZATION: Check if buffer exceeds limit
+      // Mobile CPUs struggle with large resamples - process in smaller batches
+      // Uses runtime audioConfig.maxBufferSamples for device-specific limits
+      const currentSamples = calculateBufferSamples(audioBufferRef.current);
+      if (currentSamples >= audioConfig.maxBufferSamples) {
+        console.log(
+          `[AUDIO] BUFFER LIMIT: ${currentSamples} samples >= ${audioConfig.maxBufferSamples}, processing NOW`,
+        );
+        // Clear gap detection since we're processing now
+        if (gapCheckIntervalRef.current) {
+          clearInterval(gapCheckIntervalRef.current);
+          gapCheckIntervalRef.current = null;
+        }
+        sendAllAudioToAvatar(false); // PHASE 2 style padding
         return;
       }
 
@@ -613,11 +948,13 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
     },
     onInterruption: () => {
       // ElevenLabs confirmed user actually interrupted the agent
-      // NOW we can safely clear the audio buffer
       console.log("[AUDIO] Interruption confirmed - clearing buffer");
 
       // Set flag to add leading silence on next response (gives HeyGen time after interrupt)
       isAfterInterruptRef.current = true;
+
+      // Record interrupt time for debounce (ignore ghost chunks)
+      lastInterruptTimeRef.current = Date.now();
 
       // Clear buffer and stop gap detection
       if (gapCheckIntervalRef.current) {
@@ -634,6 +971,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       audioBufferRef.current = [];
       totalChunksReceivedRef.current = 0;
       hassentImmediateRef.current = false; // Reset for next response
+      isSendingAudioRef.current = false; // Reset sending state
     },
     onUserTranscript: (text) => {
       console.log("[AUDIO] User said:", text);
@@ -645,22 +983,68 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
         return;
       }
 
-      // Only interrupt HeyGen avatar playback - DON'T clear audio buffer
-      // Buffer will be cleared by onInterruption if ElevenLabs confirms actual interruption
-      // This prevents late user_transcript events from destroying buffered audio
-      console.log("[AUDIO] User spoke - interrupting avatar playback");
-      if (sessionRef.current) {
-        try {
-          sessionRef.current.interrupt();
-        } catch {
-          // Ignore interrupt errors
+      // CONDITIONAL INTERRUPT: Only clear buffer if avatar is CURRENTLY speaking
+      // If avatar finished, chunks arriving are from the NEW response - preserve them
+      if (isSendingAudioRef.current) {
+        console.log("[AUDIO] User interrupted active speech - clearing buffer");
+
+        // Record interrupt time for debounce (ignore ghost chunks)
+        lastInterruptTimeRef.current = Date.now();
+
+        // Cancel gap detection
+        if (gapCheckIntervalRef.current) {
+          clearInterval(gapCheckIntervalRef.current);
+          gapCheckIntervalRef.current = null;
         }
+
+        // Clear immediate send timeout
+        if (immediateSendTimeoutRef.current) {
+          clearTimeout(immediateSendTimeoutRef.current);
+          immediateSendTimeoutRef.current = null;
+        }
+
+        // Clear audio state
+        audioBufferRef.current = [];
+        isSendingAudioRef.current = false;
+        hassentImmediateRef.current = false;
+
+        // Set flag for leading silence on next response
+        isAfterInterruptRef.current = true;
+
+        // Interrupt HeyGen avatar playback
+        if (sessionRef.current) {
+          try {
+            sessionRef.current.interrupt();
+          } catch {
+            // Ignore interrupt errors
+          }
+        }
+      } else {
+        // Avatar already finished - don't clear buffer, don't set debounce
+        // Chunks arriving are from the NEW response being generated
+        console.log(
+          "[AUDIO] User spoke after avatar finished - preserving buffer",
+        );
+
+        // CRITICAL FIX: Reset hassentImmediateRef for the NEW conversation turn
+        // Without this, PHASE 1 (100ms silence) is skipped and only PHASE 2 (80ms) runs
+        // This caused first words to be cut off on subsequent responses
+        hassentImmediateRef.current = false;
+
+        // Set the interrupt flag for leading silence on next response
+        isAfterInterruptRef.current = true;
       }
     },
     onError: (error) => {
       console.error("Agent error:", error);
     },
   });
+
+  // Populate latency tracking refs (for use in callbacks defined before useElevenLabsAgent)
+  useEffect(() => {
+    reportAudioSentRef.current = reportAudioSent;
+    reportAvatarStartedRef.current = reportAvatarStarted;
+  }, [reportAudioSent, reportAvatarStarted]);
 
   // Attach video element when stream is ready
   useEffect(() => {
@@ -683,6 +1067,45 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
   useEffect(() => {
     return () => {
       disconnectAgent();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Listen for AVATAR_SPEAK_STARTED to track HeyGen latency
+  useEffect(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+
+    const handleAvatarSpeakStarted = () => {
+      console.log("[LATENCY] Avatar started speaking");
+      reportAvatarStartedRef.current?.();
+    };
+
+    session.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, handleAvatarSpeakStarted);
+
+    return () => {
+      session.off(
+        AgentEventsEnum.AVATAR_SPEAK_STARTED,
+        handleAvatarSpeakStarted,
+      );
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Listen for AVATAR_SPEAK_ENDED to reset sending state
+  useEffect(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+
+    const handleAvatarSpeakEnded = () => {
+      console.log("[AUDIO] Avatar finished speaking");
+      isSendingAudioRef.current = false;
+    };
+
+    session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, handleAvatarSpeakEnded);
+
+    return () => {
+      session.off(AgentEventsEnum.AVATAR_SPEAK_ENDED, handleAvatarSpeakEnded);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -971,6 +1394,9 @@ export const ClaraVoiceAgent: React.FC<ClaraVoiceAgentProps> = ({
           <SessionWrapper onSessionStopped={handleSessionStopped} />
         </LiveAvatarContextProvider>
       )}
+
+      {/* Mobile debug logger - shows [AUDIO] logs on screen */}
+      <MobileLogger enabled={isMobileDevice()} filter="[AUDIO]" maxLogs={100} />
     </div>
   );
 };

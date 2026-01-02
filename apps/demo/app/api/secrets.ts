@@ -26,3 +26,9 @@ export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
 // ELEVENLABS VOICE AGENT
 export const ELEVENLABS_AGENT_ID = process.env.ELEVENLABS_AGENT_ID || "";
+
+// SHOPIFY Configuration
+export const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || "";
+export const SHOPIFY_ADMIN_ACCESS_TOKEN =
+  process.env.SHOPIFY_ADMIN_ACCESS_TOKEN || "";
+export const SHOPIFY_HMAC_SECRET = process.env.SHOPIFY_HMAC_SECRET || "";
