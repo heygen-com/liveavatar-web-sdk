@@ -375,6 +375,117 @@ Before declaring a fix complete:
 
 ---
 
+## CRITICAL BUG: Multiple repeatAudio() Calls (January 2026)
+
+### Status: DOCUMENTED - FIX PENDING
+
+### The Problem
+
+The current code in `develop` has a bug when handling large audio responses (>800KB):
+
+```typescript
+// ClaraVoiceAgent.tsx lines 778-784
+if (audioSizeBytes > MAX_AUDIO_SIZE_BYTES) {
+  sendChunkedAudio(finalAudio); // ❌ PROBLEM
+  return;
+}
+```
+
+`sendChunkedAudio()` calls `repeatAudio()` multiple times in a loop:
+
+```typescript
+// Lines 651-671
+for (let i = 0; i < chunks.length; i++) {
+  sessionRef.current?.repeatAudio(chunk); // ❌ Each call = new event_id
+  await waitForAvatarSpeakEnded();
+}
+```
+
+### Why This Is Wrong
+
+The HeyGen SDK **already does chunking internally**:
+
+```typescript
+// Inside SDK's repeatAudio():
+const event_id = this.generateEventId(); // ONE event_id per call
+audioChunks = splitPcm24kStringToChunks(audio); // 20ms chunks
+
+for (const audioChunk of audioChunks) {
+  socket.send({ type: "agent.speak", event_id, audio: audioChunk });
+}
+socket.send({ type: "agent.speak_end", event_id }); // Auto-commit
+```
+
+When we call `repeatAudio()` multiple times:
+
+- Each call generates a NEW `event_id`
+- HeyGen treats each as a separate "Task"
+- Tasks can overlap/replace each other
+- Audio gets cut or lost
+
+### The Correct Solution
+
+**Remove `sendChunkedAudio()` entirely**. Always use ONE call to `repeatAudio()`:
+
+```typescript
+// ✅ CORRECT - One call, SDK handles chunking
+const sendAllAudioToAvatar = () => {
+  const fullAudio = concatenateAllChunks(audioBufferRef.current);
+  const resampled = resample16to24(fullAudio);
+  const withSilence = addLeadingSilence(resampled, 100);
+
+  sessionRef.current.repeatAudio(toBase64(withSilence)); // ONE CALL
+  audioBufferRef.current = [];
+};
+```
+
+### Failed Attempt: Custom Streaming API (January 2026)
+
+A session attempted to create a custom Streaming API in the SDK:
+
+```typescript
+// ❌ THESE METHODS DON'T EXIST IN HEYGEN
+beginAudioStream(); // Invented
+sendAudioChunk(); // Invented
+commitAudioStream(); // Invented
+cancelAudioStream(); // Invented
+```
+
+This approach failed because:
+
+1. The WebSocket messages were invented, not real HeyGen protocol
+2. Added 150+ lines to SDK for no benefit
+3. Introduced race conditions and state management complexity
+4. The SDK already handles everything with `repeatAudio()`
+
+**Lesson learned**: Don't modify working SDKs. Understand them first.
+
+### When This Bug Manifests
+
+- Audio responses longer than ~16 seconds (>800KB at 24kHz)
+- Long LLM explanations
+- Multiple consecutive questions without interruption
+
+### Temporary Workaround
+
+Until fixed, the bug only affects audio >800KB. Short responses work correctly because they take the "normal path" (line 811) which uses a single `repeatAudio()` call.
+
+---
+
+## Version History
+
+| Date         | Change                                       |
+| ------------ | -------------------------------------------- |
+| Dec 30, 2024 | TWO-PHASE strategy implemented               |
+| Dec 30, 2024 | Desktop vs Mobile configs added              |
+| Dec 30, 2024 | MobileLogger component created               |
+| Dec 31, 2024 | Fixed `hassentImmediateRef` reset bug        |
+| Dec 31, 2024 | MobileLogger: removed filter, added Copy All |
+| Jan 02, 2026 | Documented multiple repeatAudio() bug        |
+| Jan 02, 2026 | Post-mortem: Failed Streaming API attempt    |
+
+---
+
 ## External Documentation
 
 - [ElevenLabs Conversational AI](https://elevenlabs.io/docs/conversational-ai/overview)
