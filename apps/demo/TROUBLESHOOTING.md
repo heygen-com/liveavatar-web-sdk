@@ -472,6 +472,105 @@ Until fixed, the bug only affects audio >800KB. Short responses work correctly b
 
 ---
 
+## MASTER vs DEVELOP Comparison (January 2026)
+
+### Summary of Differences
+
+| Behavior               | MASTER                  | DEVELOP          |
+| ---------------------- | ----------------------- | ---------------- |
+| Saludo inicial         | ✅ Fluido, sincronizado | ⚠️ Choppy audio  |
+| Primeras palabras      | ✅ No se comen          | ❌ Se cortan     |
+| Audio largo (>800KB)   | ❌ Falla/trunca         | ✅ Funciona      |
+| Resampling             | ❌ No (envía crudo)     | ✅ Sí (16→24kHz) |
+| Configs mobile/desktop | ❌ No                   | ✅ Sí            |
+
+### MASTER: TWO-PHASE Simple
+
+```typescript
+// Constantes
+IMMEDIATE_SEND_CHUNKS = 2     // Envía primeros 2 chunks
+IMMEDIATE_SEND_DELAY = 80ms   // Espera para acumular
+CHUNK_GAP_THRESHOLD = 250ms   // Gap detection
+
+// Flujo
+Chunk 1 → Espera 80ms...
+Chunk 2 → Acumula
+80ms timeout → repeatAudio(chunk1+chunk2)  // UN event_id
+Chunks 3-N → Gap detection → repeatAudio(resto)  // OTRO event_id
+Total: 2 llamadas máximo
+```
+
+**Por qué funciona bien para saludos:**
+
+- 80ms delay permite acumular 2 chunks (~600ms audio)
+- Una llamada tiene todo el inicio → no se cortan palabras
+- Sin resampling = sin posibles artifacts
+
+**Por qué falla con audio largo:**
+
+- No tiene MAX_AUDIO_SIZE_BYTES
+- Intenta enviar todo en una llamada
+- WebSocket/HeyGen tiene límite ~1MB → se trunca
+
+### DEVELOP: Hybrid + Smart Chunking
+
+```typescript
+// Constantes
+maxBufferSamples = 24000 (mobile) / 64000 (desktop)  // ~1.5s / 4s
+MAX_AUDIO_SIZE_BYTES = 800KB
+phase1LeadingSilence = 100ms (mobile) / 30ms (desktop)
+
+// Flujo del saludo (problema)
+Chunk 1 → PHASE 1 IMMEDIATE → repeatAudio()  // event_id=A
+Chunks 2-4 → Buffer se llena (24000 samples)
+BUFFER LIMIT → repeatAudio()  // event_id=B ← PROBLEMA!
+Más chunks → BUFFER LIMIT → repeatAudio()  // event_id=C ← PROBLEMA!
+Total: 3+ llamadas = CHOPPY
+```
+
+**Por qué el saludo es choppy:**
+
+1. Envía primer chunk INMEDIATAMENTE (solo ~200ms audio)
+2. BUFFER_LIMIT (1.5s mobile) fuerza otra llamada
+3. Múltiples `repeatAudio()` = múltiples event_id
+4. HeyGen crea Tasks separados que compiten
+
+**Por qué funciona para conversación:**
+
+- Respuestas cortas (<1.5s) se envían en una llamada
+- Gap detection funciona bien para respuestas normales
+
+### Propuesta de Solución Híbrida (NO IMPLEMENTADA)
+
+Combinar lo mejor de ambos:
+
+```typescript
+// De MASTER: Delay inicial para acumular más
+const IMMEDIATE_SEND_DELAY = 80ms;  // Esperar 80ms
+const IMMEDIATE_SEND_CHUNKS = 2;     // Mínimo 2 chunks
+
+// De DEVELOP: Resampling y configs
+const audioConfig = isMobile ? MOBILE_CONFIG : DESKTOP_CONFIG;
+const resampled = resample16to24(concatenated);
+
+// CRÍTICO: UNA sola llamada repeatAudio() siempre
+// No usar sendChunkedAudio() - SDK ya divide internamente
+sessionRef.current.repeatAudio(finalAudio);  // SIEMPRE UNA
+
+// Para audio largo: dividir ANTES de concatenar
+// NO después con Smart Chunking
+```
+
+### Decisión Pendiente
+
+Opciones:
+
+1. **Rollback a MASTER** - Saludos perfectos, pero no soporta audio largo
+2. **Fix DEVELOP** - Agregar delay inicial, eliminar Smart Chunking
+3. **Híbrido nuevo** - Implementar solución propuesta arriba
+
+---
+
 ## Version History
 
 | Date         | Change                                       |
