@@ -1,4 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
 import { AlertTriangle, Clock, Wrench } from "lucide-react";
 
@@ -35,8 +41,9 @@ export default function MaintenancePage() {
           <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-100">
             <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-amber-800 text-left">
-              La demo está temporalmente fuera de servicio mientras implementamos mejoras.
-              Por favor, vuelve a intentarlo en unos minutos.
+              La demo está temporalmente fuera de servicio mientras
+              implementamos mejoras. Por favor, vuelve a intentarlo en unos
+              minutos.
             </p>
           </div>
 
