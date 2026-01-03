@@ -10,7 +10,13 @@ export default auth((req) => {
   // ============================================
   const isMaintenanceMode = process.env.MAINTENANCE_MODE === "true";
 
-  const maintenanceExemptPaths = ["/maintenance", "/api/health", "/_next"];
+  const maintenanceExemptPaths = [
+    "/maintenance",
+    "/login",
+    "/api/auth",
+    "/api/health",
+    "/_next",
+  ];
   const isExempt = maintenanceExemptPaths.some((path) =>
     pathname.startsWith(path),
   );
