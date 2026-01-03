@@ -200,12 +200,17 @@ export default function Home() {
     pageState === "verifying_session"
   ) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <div className="text-center">
-          <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg animate-pulse">
-            <span className="text-2xl font-bold text-white">C</span>
+      <div className="min-h-screen flex items-center justify-center landing-gradient">
+        <div className="text-center relative z-10">
+          <div className="mx-auto mb-4 w-16 h-16 rounded-full glass-morphism-strong flex items-center justify-center shadow-lg animate-pulse">
+            <span
+              className="text-2xl font-bold"
+              style={{ color: "var(--platinum-800)" }}
+            >
+              C
+            </span>
           </div>
-          <p className="text-gray-500">
+          <p className="text-neutral-600 font-medium">
             {pageState === "verifying_shopify"
               ? "Verificando desde Shopify..."
               : pageState === "verifying_session"
@@ -224,11 +229,12 @@ export default function Home() {
     if (isNoOrdersError) {
       // Promotional screen for users without purchases
       return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-          <div className="text-center max-w-md">
-            <div className="mx-auto mb-4 w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+        <div className="min-h-screen flex items-center justify-center p-4 landing-gradient">
+          <div className="text-center max-w-md card-ios relative z-10">
+            <div className="mx-auto mb-4 w-20 h-20 rounded-full avatar-ring-ios">
               <svg
-                className="w-10 h-10 text-white"
+                className="w-10 h-10"
+                style={{ color: "var(--platinum-700)" }}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -241,13 +247,13 @@ export default function Home() {
                 />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-3">
+            <h2 className="text-2xl font-bold text-neutral-800 mb-3">
               ¡Desbloquea a Clara!
             </h2>
-            <p className="text-gray-600 mb-6 leading-relaxed">
+            <p className="text-neutral-600 mb-6 leading-relaxed">
               Clara es exclusiva para clientes de Beta Skin Tech.
               <br />
-              <span className="font-medium text-indigo-600">
+              <span className="font-semibold text-neutral-800">
                 Haz tu primera compra
               </span>{" "}
               y accede a tu asesora de skincare personal.
@@ -256,7 +262,7 @@ export default function Home() {
               href="https://betaskintech.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md font-medium"
+              className="inline-flex items-center px-6 py-3 btn-ios-primary rounded-2xl shadow-md font-medium"
             >
               <svg
                 className="w-5 h-5 mr-2"
@@ -276,7 +282,7 @@ export default function Home() {
             <p className="mt-4">
               <button
                 onClick={() => (window.location.href = "/login")}
-                className="text-sm text-gray-500 hover:text-indigo-600 transition-colors"
+                className="text-sm text-neutral-500 hover:text-neutral-800 transition-colors font-medium"
               >
                 Volver al inicio
               </button>
@@ -288,9 +294,15 @@ export default function Home() {
 
     // Generic error screen for other errors
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <div className="text-center max-w-md">
-          <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center p-4 landing-gradient">
+        <div className="text-center max-w-md card-ios relative z-10">
+          <div
+            className="mx-auto mb-4 w-16 h-16 rounded-full glass-morphism flex items-center justify-center"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05))",
+            }}
+          >
             <svg
               className="w-8 h-8 text-red-600"
               fill="none"
@@ -305,13 +317,13 @@ export default function Home() {
               />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+          <h2 className="text-xl font-semibold text-neutral-800 mb-2">
             Error de verificacion
           </h2>
-          <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-neutral-600 mb-4">{error}</p>
           <button
             onClick={() => (window.location.href = "/login")}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            className="px-6 py-3 btn-ios-primary rounded-2xl transition-all font-medium"
           >
             Volver al inicio
           </button>
@@ -323,15 +335,20 @@ export default function Home() {
   // Shopify redirect state - show message to access from store
   if (pageState === "shopify_redirect") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <div className="text-center max-w-md">
-          <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-            <span className="text-2xl font-bold text-white">C</span>
+      <div className="min-h-screen flex items-center justify-center p-4 landing-gradient">
+        <div className="text-center max-w-md card-ios relative z-10">
+          <div className="mx-auto mb-4 w-16 h-16 rounded-full glass-morphism-strong flex items-center justify-center shadow-lg">
+            <span
+              className="text-2xl font-bold"
+              style={{ color: "var(--platinum-800)" }}
+            >
+              C
+            </span>
           </div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+          <h2 className="text-xl font-semibold text-neutral-800 mb-2">
             Accede desde la tienda
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-neutral-600 mb-6">
             {error ||
               "Para usar Clara, ingresa a tu cuenta en BetaSkintech y accede desde ahi."}
           </p>
@@ -339,7 +356,7 @@ export default function Home() {
             href="https://betaskintech.com/account"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md"
+            className="inline-flex items-center px-6 py-3 btn-ios-primary rounded-2xl shadow-md font-medium"
           >
             <svg
               className="w-5 h-5 mr-2"
@@ -356,7 +373,7 @@ export default function Home() {
             </svg>
             Ir a BetaSkintech
           </a>
-          <p className="mt-4 text-sm text-gray-500">
+          <p className="mt-4 text-sm text-neutral-500 font-medium">
             Una vez en tu cuenta, busca el enlace a Clara
           </p>
         </div>

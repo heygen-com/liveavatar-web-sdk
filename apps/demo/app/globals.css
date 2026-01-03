@@ -3,53 +3,71 @@
 @tailwind utilities;
 
 /* ============================================
-   CSS VARIABLES - CLARA MONOCHROMATIC iOS-STYLE
-   shadcn/ui compatible
+   CSS VARIABLES - PLATINUM MONOCHROMATIC GLASS
+   Apple minimalist design system
    ============================================ */
 :root {
-  /* Monochromatic Backgrounds */
-  --background: 0 0% 98%;
-  --foreground: 0 0% 13%;
+  /* Platinum Monochromatic Palette */
+  --background: 0 0% 97%;
+  --foreground: 0 0% 15%;
 
-  /* Card */
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 13%;
+  /* Card - Ultra light glass */
+  --card: 0 0% 99%;
+  --card-foreground: 0 0% 15%;
 
   /* Popover */
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 13%;
+  --popover: 0 0% 98%;
+  --popover-foreground: 0 0% 15%;
 
-  /* Primary Colors (Monochromatic Dark) */
-  --primary: 0 0% 18%;
+  /* Primary - Platinum dark */
+  --primary: 0 0% 20%;
   --primary-foreground: 0 0% 98%;
 
-  /* Secondary */
-  --secondary: 0 0% 95%;
-  --secondary-foreground: 0 0% 18%;
+  /* Secondary - Silver */
+  --secondary: 0 0% 92%;
+  --secondary-foreground: 0 0% 20%;
 
-  /* Muted */
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
+  /* Muted - Light platinum */
+  --muted: 0 0% 94%;
+  --muted-foreground: 0 0% 50%;
 
-  /* Accent */
-  --accent: 0 0% 94%;
-  --accent-foreground: 0 0% 18%;
+  /* Accent - Soft platinum */
+  --accent: 0 0% 90%;
+  --accent-foreground: 0 0% 20%;
 
   /* Destructive */
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
 
-  /* Border & Input & Ring */
-  --border: 0 0% 90%;
-  --input: 0 0% 92%;
-  --ring: 0 0% 60%;
+  /* Border & Input - Platinum tones */
+  --border: 0 0% 88%;
+  --input: 0 0% 90%;
+  --ring: 0 0% 65%;
 
-  /* Radius - iOS style rounded */
-  --radius: 1rem;
+  /* Radius - Apple style */
+  --radius: 1.25rem;
 
-  /* Semantic Colors (custom) */
-  --success: #22c55e;
-  --success-light: #dcfce7;
+  /* Glass-morphism Variables */
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-bg-strong: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-shadow: rgba(0, 0, 0, 0.05);
+  --glass-shadow-strong: rgba(0, 0, 0, 0.12);
+
+  /* Platinum gradient stops */
+  --platinum-100: #f8f9fa;
+  --platinum-200: #e9ecef;
+  --platinum-300: #dee2e6;
+  --platinum-400: #ced4da;
+  --platinum-500: #adb5bd;
+  --platinum-600: #6c757d;
+  --platinum-700: #495057;
+  --platinum-800: #343a40;
+  --platinum-900: #212529;
+
+  /* Semantic Colors (glass-compatible) */
+  --success: #10b981;
+  --success-light: #d1fae5;
   --info: #3b82f6;
   --info-light: #dbeafe;
   --warning: #f59e0b;
@@ -80,27 +98,65 @@
 }
 
 /* ============================================
-   GLASSMORPHISM BASE STYLES
+   PLATINUM GLASS-MORPHISM SYSTEM
+   Ultra-modern Apple-inspired glass effects
    ============================================ */
 .glass-morphism {
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.7) 0%,
+    rgba(255, 255, 255, 0.6) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
-.glass-morphism-dark {
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.glass-morphism-strong {
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(255, 255, 255, 0.75) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .glass-morphism-subtle {
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
-  background: rgba(255, 255, 255, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(255, 255, 255, 0.35) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.glass-morphism-dark {
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: linear-gradient(
+    135deg,
+    rgba(30, 30, 30, 0.7) 0%,
+    rgba(20, 20, 20, 0.6) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* ============================================
@@ -314,28 +370,91 @@
 }
 
 /* ============================================
-   AVATAR VIDEO CONTAINER
+   PLATINUM AVATAR VIDEO CONTAINER
+   Modern minimalist background with floating orbs
    ============================================ */
 .avatar-container {
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+  background: linear-gradient(
+    135deg,
+    var(--platinum-100) 0%,
+    var(--platinum-200) 50%,
+    var(--platinum-300) 100%
+  );
+}
+
+.avatar-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at 20% 30%,
+      rgba(255, 255, 255, 0.4) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 70%,
+      rgba(200, 200, 200, 0.3) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(220, 220, 220, 0.2) 0%,
+      transparent 60%
+    );
+  animation: orb-float 20s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes orb-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.6;
+  }
+  33% {
+    transform: translate(20px, -30px) scale(1.1);
+    opacity: 0.8;
+  }
+  66% {
+    transform: translate(-15px, 25px) scale(0.95);
+    opacity: 0.7;
+  }
 }
 
 .avatar-container video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  position: relative;
+  z-index: 1;
 }
 
-/* Video placeholder gradient */
+/* Video placeholder - platinum gradient with pulse */
 .avatar-placeholder {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-  opacity: 0.1;
+  background: linear-gradient(
+    135deg,
+    rgba(169, 169, 169, 0.15) 0%,
+    rgba(192, 192, 192, 0.12) 50%,
+    rgba(211, 211, 211, 0.1) 100%
+  );
+  animation: placeholder-pulse 3s ease-in-out infinite;
+}
+
+@keyframes placeholder-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 /* ============================================
@@ -446,17 +565,86 @@
 }
 
 /* ============================================
-   LANDING SCREEN STYLES
+   PLATINUM LANDING SCREEN
+   Animated background with floating orbs
    ============================================ */
 .landing-gradient {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f1f5f9 100%);
+  position: relative;
+  background: linear-gradient(
+    135deg,
+    var(--platinum-100) 0%,
+    var(--platinum-200) 25%,
+    var(--platinum-300) 50%,
+    var(--platinum-200) 75%,
+    var(--platinum-100) 100%
+  );
+  animation: gradient-shift 15s ease-in-out infinite;
+}
+
+@keyframes gradient-shift {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.02);
+  }
+}
+
+.landing-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at 30% 40%,
+      rgba(255, 255, 255, 0.6) 0%,
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 70% 60%,
+      rgba(220, 220, 220, 0.4) 0%,
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 50% 80%,
+      rgba(200, 200, 200, 0.3) 0%,
+      transparent 50%
+    );
+  animation: landing-orbs 25s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes landing-orbs {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0.5;
+  }
+  33% {
+    transform: translate(30px, -40px) rotate(120deg);
+    opacity: 0.7;
+  }
+  66% {
+    transform: translate(-20px, 30px) rotate(240deg);
+    opacity: 0.6;
+  }
 }
 
 .landing-card {
-  @apply bg-white/80 rounded-3xl shadow-xl p-8;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  @apply rounded-3xl shadow-2xl p-8;
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(255, 255, 255, 0.8) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 /* ============================================
@@ -628,72 +816,121 @@
 }
 
 /* ============================================
-   iOS-STYLE BUTTONS (v0 design)
+   PLATINUM GLASS BUTTONS
+   Apple minimalist style with glass effect
    ============================================ */
 .btn-ios-primary {
-  @apply w-full h-14 rounded-2xl text-white font-medium shadow-xl transition-all;
-  background: linear-gradient(to bottom right, #525252, #404040, #262626);
-  border: 1px solid rgba(82, 82, 82, 0.2);
-  box-shadow: 0 10px 15px -3px rgba(163, 163, 163, 0.3);
+  @apply w-full h-14 rounded-2xl text-white font-medium shadow-xl transition-all duration-300;
+  background: linear-gradient(
+    135deg,
+    var(--platinum-700) 0%,
+    var(--platinum-800) 50%,
+    var(--platinum-900) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.15),
+    0 4px 12px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-ios-primary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 .btn-ios-primary:hover {
-  background: linear-gradient(to bottom right, #404040, #262626, #171717);
+  background: linear-gradient(
+    135deg,
+    var(--platinum-600) 0%,
+    var(--platinum-700) 50%,
+    var(--platinum-800) 100%
+  );
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.2),
+    0 6px 16px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
 }
 
 .btn-ios-primary:active {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.99);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    0 3px 8px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* ============================================
-   iOS-STYLE CARDS (v0 design)
+   PLATINUM GLASS CARDS
+   Enhanced depth with layered shadows
    ============================================ */
 .card-ios {
   @apply rounded-3xl p-8;
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
   background: linear-gradient(
-    to bottom right,
-    rgba(255, 255, 255, 0.8),
-    rgba(250, 250, 250, 0.7),
-    rgba(255, 255, 255, 0.6)
+    135deg,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(250, 250, 250, 0.85) 50%,
+    rgba(255, 255, 255, 0.8) 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 25px 50px -12px rgba(163, 163, 163, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 25px 60px rgba(0, 0, 0, 0.08),
+    0 10px 24px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 /* ============================================
-   iOS-STYLE AVATAR RING (v0 design)
+   PLATINUM AVATAR RING
+   Glass effect with inner glow
    ============================================ */
 .avatar-ring-ios {
   @apply h-24 w-24 rounded-full flex items-center justify-center;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   background: linear-gradient(
-    to bottom right,
-    rgba(255, 255, 255, 0.9),
-    rgba(250, 250, 250, 0.8),
-    rgba(255, 255, 255, 0.7)
+    135deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(250, 250, 250, 0.9) 50%,
+    rgba(255, 255, 255, 0.85) 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 20px 25px -5px rgba(163, 163, 163, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.1),
+    0 8px 16px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 0 20px rgba(255, 255, 255, 0.5);
 }
 
 /* ============================================
-   iOS-STYLE STATUS BADGE (v0 design)
+   PLATINUM STATUS BADGE
+   Subtle glass with refined details
    ============================================ */
 .badge-ios {
   @apply inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium tracking-wide;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   background: linear-gradient(
-    to bottom right,
-    rgba(245, 245, 245, 0.9),
-    rgba(250, 250, 250, 0.8),
-    rgba(245, 245, 245, 0.7)
+    135deg,
+    rgba(248, 248, 248, 0.95) 0%,
+    rgba(250, 250, 250, 0.9) 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 /* ============================================

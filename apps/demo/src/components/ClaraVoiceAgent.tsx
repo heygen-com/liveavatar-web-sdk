@@ -219,56 +219,56 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
 
     if (isMuted) {
       return (
-        <Badge className="status-badge bg-red-500/90 text-white border border-red-400/30 hover:bg-red-500/90">
+        <Badge className="status-badge glass-morphism-strong bg-red-500/90 text-white border-red-400/40 hover:bg-red-500 shadow-lg">
           <MicOff className="w-3 h-3 mr-1" />
-          <span>Silenciado</span>
+          <span className="font-medium">Silenciado</span>
         </Badge>
       );
     }
 
     if (isListening) {
       return (
-        <Badge className="status-badge status-badge-success status-pulse hover:bg-green-500/90">
+        <Badge className="status-badge glass-morphism-strong bg-emerald-500/90 text-white border-emerald-400/40 status-pulse hover:bg-emerald-500 shadow-lg">
           <div className="voice-wave text-white mr-1">
             <span></span>
             <span></span>
             <span></span>
             <span></span>
           </div>
-          <span>Escuchando</span>
+          <span className="font-medium">Escuchando</span>
         </Badge>
       );
     }
 
     if (isThinking) {
       return (
-        <Badge className="status-badge status-badge-warning hover:bg-amber-500/90">
+        <Badge className="status-badge glass-morphism-strong bg-amber-500/90 text-white border-amber-400/40 hover:bg-amber-500 shadow-lg">
           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-          <span>Pensando</span>
+          <span className="font-medium">Pensando</span>
         </Badge>
       );
     }
 
     if (isSpeaking) {
       return (
-        <Badge className="status-badge status-badge-info hover:bg-blue-500/90">
+        <Badge className="status-badge glass-morphism-strong bg-blue-500/90 text-white border-blue-400/40 hover:bg-blue-500 shadow-lg">
           <div className="voice-wave text-white mr-1">
             <span></span>
             <span></span>
             <span></span>
             <span></span>
           </div>
-          <span>Respondiendo</span>
+          <span className="font-medium">Respondiendo</span>
         </Badge>
       );
     }
 
     return (
-      <Badge className="status-badge status-badge-neutral hover:bg-white/30">
+      <Badge className="status-badge badge-ios hover:bg-white/40 shadow-md">
         <div
           className={`connection-dot ${connectionQuality === ConnectionQuality.GOOD ? "good" : connectionQuality === ConnectionQuality.BAD ? "bad" : "unknown"} dot-pulse mr-1`}
         />
-        <span>Conectado</span>
+        <span className="font-medium text-neutral-700">Conectado</span>
       </Badge>
     );
   };
@@ -297,7 +297,11 @@ const VoiceControls: React.FC<VoiceControlsProps> = ({
       onClick={onToggleMute}
       variant="ghost"
       size="icon"
-      className={`floating-glass rounded-full w-12 h-12 ${isMuted ? "bg-red-500/80 hover:bg-red-500 text-white" : "bg-slate-800/80 hover:bg-slate-800 text-white"}`}
+      className={`floating-glass rounded-full w-12 h-12 transition-all duration-300 ${
+        isMuted
+          ? "bg-red-500/90 hover:bg-red-500 text-white border-red-400/40 shadow-xl"
+          : "glass-morphism-dark text-white border-white/20 shadow-lg"
+      }`}
       title={isMuted ? "Activar micrófono" : "Silenciar"}
     >
       {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
@@ -329,11 +333,11 @@ const LandingScreen: React.FC<LandingScreenProps> = ({
 
   return (
     <div className="flex-1 w-full flex flex-col items-center justify-center p-6 landing-gradient min-h-screen">
-      <Card className="max-w-sm w-full glass-morphism border-0 shadow-2xl">
+      <Card className="max-w-sm w-full card-ios border-0 shadow-2xl relative z-10">
         <CardHeader className="text-center pb-2">
           {/* Clara Avatar */}
           <div className="avatar-ring-ios mx-auto mb-4">
-            <div className="h-20 w-20 rounded-full bg-gradient-to-br from-neutral-100 to-neutral-200 flex items-center justify-center overflow-hidden p-3 border border-white/40">
+            <div className="h-20 w-20 rounded-full glass-morphism-strong flex items-center justify-center overflow-hidden p-3">
               <Image
                 src="/images/clara-logo.png"
                 alt="Clara Logo"
@@ -345,15 +349,18 @@ const LandingScreen: React.FC<LandingScreenProps> = ({
           </div>
 
           {/* Badge */}
-          <div className="badge-ios mx-auto mb-3 text-neutral-900">
-            <span className="w-2 h-2 bg-neutral-500 rounded-full animate-pulse" />
+          <div className="badge-ios mx-auto mb-3 text-neutral-800">
+            <span
+              className="w-2 h-2 rounded-full animate-pulse"
+              style={{ backgroundColor: "var(--platinum-600)" }}
+            />
             Clara Skin Care Assistant
           </div>
 
-          <CardTitle className="text-2xl text-slate-800">
+          <CardTitle className="text-2xl font-bold text-neutral-800">
             {displayName ? `Hola, ${displayName}!` : "Hola!"}
           </CardTitle>
-          <CardDescription className="text-base mt-2">
+          <CardDescription className="text-base mt-2 text-neutral-600">
             Soy Clara, tu asistente de belleza personal. Estoy aquí para
             ayudarte a encontrar los productos perfectos para ti.
           </CardDescription>
@@ -395,18 +402,23 @@ const LandingScreen: React.FC<LandingScreenProps> = ({
 const ConnectingScreen: React.FC = () => {
   return (
     <div className="flex-1 w-full flex flex-col items-center justify-center p-6 landing-gradient min-h-screen">
-      <Card className="max-w-sm w-full glass-morphism border-0 shadow-xl">
+      <Card className="max-w-sm w-full card-ios border-0 shadow-2xl relative z-10">
         <CardContent className="pt-8 pb-8 text-center">
           <div className="relative w-20 h-20 mx-auto mb-6">
-            <Skeleton className="w-20 h-20 rounded-full" />
+            <Skeleton className="w-20 h-20 rounded-full glass-morphism-subtle" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+              <Loader2
+                className="w-8 h-8 animate-spin"
+                style={{ color: "var(--platinum-700)" }}
+              />
             </div>
           </div>
-          <h2 className="text-xl font-semibold text-slate-700 mb-2">
+          <h2 className="text-xl font-semibold text-neutral-800 mb-2">
             Conectando...
           </h2>
-          <p className="text-slate-500 text-sm">Preparando a Clara</p>
+          <p className="text-neutral-600 text-sm font-medium">
+            Preparando a Clara
+          </p>
         </CardContent>
       </Card>
     </div>
@@ -1251,10 +1263,10 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
                 onClick={onEndCall}
                 variant="destructive"
                 size="lg"
-                className="flex items-center gap-2 flex-1 max-w-xs justify-center floating-glass bg-red-500/90 hover:bg-red-500 border border-red-400/30"
+                className="flex items-center gap-2 flex-1 max-w-xs justify-center floating-glass glass-morphism-strong bg-red-500/95 hover:bg-red-500 border border-red-400/40 shadow-xl transition-all duration-300"
               >
                 <PhoneOff className="w-5 h-5" />
-                <span>Finalizar</span>
+                <span className="font-medium">Finalizar</span>
               </Button>
 
               {/* Spacer for symmetry */}
