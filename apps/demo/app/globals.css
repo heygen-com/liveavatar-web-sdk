@@ -572,62 +572,77 @@
   position: relative;
   background: linear-gradient(
     135deg,
-    var(--platinum-100) 0%,
-    var(--platinum-200) 25%,
-    var(--platinum-300) 50%,
-    var(--platinum-200) 75%,
-    var(--platinum-100) 100%
+    #fafbfc 0%,
+    #f5f7fa 25%,
+    #f0f3f7 50%,
+    #f5f7fa 75%,
+    #fafbfc 100%
   );
-  animation: gradient-shift 15s ease-in-out infinite;
+  overflow: hidden;
 }
 
-@keyframes gradient-shift {
-  0%,
-  100% {
-    filter: brightness(1);
-  }
-  50% {
-    filter: brightness(1.02);
-  }
-}
-
+/* Soft pastel clouds background - white, light pink, light blue */
 .landing-gradient::before {
   content: "";
   position: absolute;
   inset: 0;
   background:
+    /* White cloud - top left */
     radial-gradient(
-      circle at 30% 40%,
-      rgba(255, 255, 255, 0.6) 0%,
-      transparent 40%
+      ellipse 800px 600px at 20% 30%,
+      rgba(255, 255, 255, 0.8) 0%,
+      rgba(255, 255, 255, 0.3) 40%,
+      transparent 70%
     ),
+    /* Light pink cloud - top right */
     radial-gradient(
-      circle at 70% 60%,
-      rgba(220, 220, 220, 0.4) 0%,
-      transparent 40%
-    ),
+        ellipse 700px 500px at 80% 20%,
+        rgba(255, 240, 250, 0.6) 0%,
+        rgba(255, 230, 245, 0.3) 35%,
+        transparent 65%
+      ),
+    /* Light blue cloud - bottom left */
     radial-gradient(
-      circle at 50% 80%,
-      rgba(200, 200, 200, 0.3) 0%,
-      transparent 50%
-    );
-  animation: landing-orbs 25s ease-in-out infinite;
+        ellipse 750px 550px at 15% 85%,
+        rgba(235, 245, 255, 0.7) 0%,
+        rgba(220, 235, 255, 0.3) 40%,
+        transparent 70%
+      ),
+    /* White cloud - bottom right */
+    radial-gradient(
+        ellipse 650px 500px at 85% 75%,
+        rgba(255, 255, 255, 0.6) 0%,
+        rgba(248, 250, 255, 0.2) 45%,
+        transparent 75%
+      ),
+    /* Soft pink cloud - center */
+    radial-gradient(
+        ellipse 900px 700px at 50% 50%,
+        rgba(255, 245, 250, 0.4) 0%,
+        rgba(250, 240, 248, 0.1) 50%,
+        transparent 80%
+      );
+  animation: soft-cloud-float 45s ease-in-out infinite;
   pointer-events: none;
 }
 
-@keyframes landing-orbs {
+@keyframes soft-cloud-float {
   0%,
   100% {
-    transform: translate(0, 0) rotate(0deg);
-    opacity: 0.5;
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
   }
-  33% {
-    transform: translate(30px, -40px) rotate(120deg);
-    opacity: 0.7;
+  25% {
+    transform: translate(15px, -20px) scale(1.02);
+    opacity: 0.95;
   }
-  66% {
-    transform: translate(-20px, 30px) rotate(240deg);
-    opacity: 0.6;
+  50% {
+    transform: translate(25px, -10px) scale(1.03);
+    opacity: 0.98;
+  }
+  75% {
+    transform: translate(10px, -25px) scale(1.01);
+    opacity: 0.96;
   }
 }
 
