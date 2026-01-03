@@ -63,6 +63,13 @@ const providers: Provider[] = [
   }),
 ];
 
+/**
+ * IMPORTANT: For Vercel deployments to work correctly, you must set AUTH_URL:
+ * - Production: https://your-domain.vercel.app
+ * - Preview/Development: Leave empty, NextAuth will use VERCEL_URL automatically
+ *   with trustHost: true enabled
+ */
+
 const nextAuth = NextAuth({
   providers,
   session: {
