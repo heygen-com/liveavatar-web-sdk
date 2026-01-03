@@ -52,23 +52,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" />
-      </div>
-
-      <Card className="w-full max-w-md relative z-10 shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+    <div className="min-h-screen flex items-center justify-center p-4 landing-gradient">
+      <Card className="w-full max-w-md relative z-10 card-ios border-0 shadow-2xl">
         <CardHeader className="text-center pb-2">
           {/* Clara Logo/Branding */}
-          <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-            <span className="text-2xl font-bold text-white">C</span>
+          <div className="mx-auto mb-4 w-16 h-16 rounded-full glass-morphism-strong flex items-center justify-center shadow-lg">
+            <span
+              className="text-2xl font-bold"
+              style={{ color: "var(--platinum-800)" }}
+            >
+              C
+            </span>
           </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          <CardTitle className="text-2xl font-bold text-neutral-800">
             Welcome to Clara
           </CardTitle>
-          <CardDescription className="text-gray-500">
+          <CardDescription className="text-neutral-600">
             Sign in to access your AI voice assistant
           </CardDescription>
         </CardHeader>
@@ -84,7 +83,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleCredentialsSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-700">
+              <Label htmlFor="email" className="text-neutral-700 font-medium">
                 Email
               </Label>
               <Input
@@ -93,14 +92,17 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="demo@clara.ai"
-                className="h-11 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500"
+                className="h-11 border-neutral-300 focus:border-neutral-500 focus:ring-neutral-500"
                 required
                 disabled={isLoading}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-700">
+              <Label
+                htmlFor="password"
+                className="text-neutral-700 font-medium"
+              >
                 Password
               </Label>
               <Input
@@ -109,7 +111,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
-                className="h-11 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500"
+                className="h-11 border-neutral-300 focus:border-neutral-500 focus:ring-neutral-500"
                 required
                 disabled={isLoading}
               />
@@ -117,7 +119,7 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              className="w-full h-11 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-md transition-all duration-200"
+              className="w-full h-11 btn-ios-primary"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -148,7 +150,7 @@ export default function LoginPage() {
 
           <div className="relative">
             <Separator className="my-4" />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3 text-sm text-gray-400">
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 glass-morphism-strong px-3 text-sm text-neutral-500 font-medium">
               or
             </span>
           </div>
@@ -156,7 +158,7 @@ export default function LoginPage() {
           <Button
             type="button"
             variant="outline"
-            className="w-full h-11 border-gray-200 hover:bg-gray-50 font-medium transition-all duration-200"
+            className="w-full h-11 border-neutral-300 hover:bg-neutral-50 font-medium transition-all duration-300 glass-morphism-subtle"
             onClick={handleGoogleSignIn}
             disabled={isGoogleLoading}
           >
