@@ -72,6 +72,8 @@ const nextAuth = NextAuth({
   pages: {
     signIn: "/login",
   },
+  // Trust Vercel proxy headers for dynamic URLs in Preview deployments
+  trustHost: true,
   callbacks: {
     // Add user.id to JWT token during sign-in
     jwt({ token, user }) {
