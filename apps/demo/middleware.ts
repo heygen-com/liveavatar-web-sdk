@@ -10,6 +10,13 @@ export default auth((req) => {
   // ============================================
   const isMaintenanceMode = process.env.MAINTENANCE_MODE === "true";
 
+  // DEBUG: Log maintenance mode status
+  console.log("🔍 MAINTENANCE DEBUG:", {
+    pathname,
+    MAINTENANCE_MODE_RAW: process.env.MAINTENANCE_MODE,
+    isMaintenanceMode,
+  });
+
   // CRITICAL: /login and /api/auth must be exempt from maintenance mode
   // to prevent infinite redirect loop:
   // 1. User visits / → redirects to /maintenance (MAINTENANCE_MODE=true)
@@ -29,6 +36,7 @@ export default auth((req) => {
   );
 
   if (isMaintenanceMode && !isExempt) {
+    console.log("🚨 REDIRECTING TO MAINTENANCE:", { pathname, isExempt });
     return NextResponse.redirect(new URL("/maintenance", req.url));
   }
 
