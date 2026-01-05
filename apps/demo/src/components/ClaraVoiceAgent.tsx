@@ -115,6 +115,10 @@ const MOBILE_CONFIG: AudioConfig = {
   immediateFirstChunk: true, // Still send immediately, but with more silence
 };
 
+// GREETING FIX: Skip immediate send for greeting to accumulate more audio
+// This prevents fragmentation of the greeting message on mobile devices
+const GREETING_SKIP_PHASE1 = true;
+
 // ============================================
 // SAFARI iOS DETECTION
 // ============================================
@@ -815,11 +819,11 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       if (isFirstAudio) {
         isFirstAudioRef.current = false;
         console.log(
-          `[AUDIO] First greeting: ${chunks.length} chunks, ${totalSizeKB}KB (resampled once)`,
+          `[AUDIO] GREETING SENT: ${chunks.length} chunks, ${totalSizeKB}KB, single repeatAudio() call`,
         );
       } else {
         console.log(
-          `[AUDIO] Response: ${chunks.length} chunks, ${totalSizeKB}KB (resampled once)`,
+          `[AUDIO] Response sent: ${chunks.length} chunks, ${totalSizeKB}KB`,
         );
       }
 
@@ -922,38 +926,55 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       lastChunkTimeRef.current = Date.now();
 
       const currentBufferLength = audioBufferRef.current.length;
+      const currentSamplesForLog = calculateBufferSamples(
+        audioBufferRef.current,
+      );
       console.log(
-        `[AUDIO] Chunk #${totalChunksReceivedRef.current} buffered (${currentBufferLength} total)`,
+        `[AUDIO] Chunk #${totalChunksReceivedRef.current}, buffer: ${currentSamplesForLog} samples (${currentBufferLength} chunks), isGreeting: ${isFirstAudioRef.current}`,
       );
 
       // TWO-PHASE STRATEGY:
       // Phase 1: Send first chunk IMMEDIATELY (contains first words - reduces perceived latency)
       // This is SYNCHRONOUS - no timeout, no delay, just send NOW
+      // GREETING FIX: Skip PHASE 1 for greeting to accumulate more audio
       if (!hassentImmediateRef.current && currentBufferLength === 1) {
-        hassentImmediateRef.current = true;
-        console.log(
-          `[AUDIO] PHASE 1: IMMEDIATE send first chunk (first words) - NO DELAY`,
-        );
-        // Send synchronously - first words go out ASAP
-        sendAllAudioToAvatar(true); // isImmediateSend = true for minimal silence
-        return;
+        if (isFirstAudioRef.current && GREETING_SKIP_PHASE1) {
+          console.log("[AUDIO] GREETING: Skipping PHASE 1 (immediate send)");
+          // Don't send yet - continue to gap detection or buffer limit
+        } else {
+          hassentImmediateRef.current = true;
+          console.log(
+            `[AUDIO] PHASE 1: IMMEDIATE send first chunk (first words) - NO DELAY`,
+          );
+          // Send synchronously - first words go out ASAP
+          sendAllAudioToAvatar(true); // isImmediateSend = true for minimal silence
+          return;
+        }
       }
 
       // MOBILE OPTIMIZATION: Check if buffer exceeds limit
       // Mobile CPUs struggle with large resamples - process in smaller batches
       // Uses runtime audioConfig.maxBufferSamples for device-specific limits
+      // GREETING FIX: Skip buffer limit for greeting to accumulate full message
       const currentSamples = calculateBufferSamples(audioBufferRef.current);
       if (currentSamples >= audioConfig.maxBufferSamples) {
-        console.log(
-          `[AUDIO] BUFFER LIMIT: ${currentSamples} samples >= ${audioConfig.maxBufferSamples}, processing NOW`,
-        );
-        // Clear gap detection since we're processing now
-        if (gapCheckIntervalRef.current) {
-          clearInterval(gapCheckIntervalRef.current);
-          gapCheckIntervalRef.current = null;
+        if (isFirstAudioRef.current && GREETING_SKIP_PHASE1) {
+          console.log(
+            `[AUDIO] GREETING: Skipping buffer limit (${currentSamples}/${audioConfig.maxBufferSamples} samples) - accumulating more`,
+          );
+          // Continue to gap detection - don't return
+        } else {
+          console.log(
+            `[AUDIO] BUFFER LIMIT: ${currentSamples} samples >= ${audioConfig.maxBufferSamples}, processing NOW`,
+          );
+          // Clear gap detection since we're processing now
+          if (gapCheckIntervalRef.current) {
+            clearInterval(gapCheckIntervalRef.current);
+            gapCheckIntervalRef.current = null;
+          }
+          sendAllAudioToAvatar(false); // PHASE 2 style padding
+          return;
         }
-        sendAllAudioToAvatar(false); // PHASE 2 style padding
-        return;
       }
 
       // Phase 2: For remaining chunks, use gap detection
@@ -967,8 +988,12 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
       sendAllAudioToAvatar();
     },
     onAgentResponse: () => {
-      // Agent started responding - just log for debugging
       console.log("[AUDIO] agent_response received - new response starting");
+
+      // GREETING FIX: Reset interrupt debounce to accept new audio chunks immediately
+      // Without this, fast responses (<300ms) get discarded as "ghost chunks"
+      lastInterruptTimeRef.current = 0;
+      console.log("[AUDIO] Reset interrupt debounce for new response");
     },
     onInterruption: () => {
       // ElevenLabs confirmed user actually interrupted the agent

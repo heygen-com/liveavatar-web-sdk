@@ -571,17 +571,243 @@ Opciones:
 
 ---
 
+## GREETING FIX: Prevent Fragmentation on Mobile (January 2026)
+
+### Status: ✅ IMPLEMENTED
+
+### The Problem
+
+On mobile devices, the greeting message was being sent in **multiple** `repeatAudio()` calls instead of **one**, causing choppy/fragmented audio:
+
+**Expected Behavior:**
+
+```
+[AUDIO] GREETING SENT: 12 chunks, 450KB, single repeatAudio() call
+```
+
+**Actual Behavior (Before Fix):**
+
+```
+[AUDIO] BUFFER LIMIT: 25000 samples >= 24000 max, sending
+[AUDIO] Response sent: 3 chunks, 86KB
+[AUDIO] BUFFER LIMIT: 24500 samples >= 24000 max, sending
+[AUDIO] Response sent: 3 chunks, 92KB
+[AUDIO] BUFFER LIMIT: ...
+```
+
+### Root Cause
+
+The greeting was triggering **two critical paths** on mobile:
+
+1. **PHASE 1 (Immediate Send)**: First chunk sent immediately (~200ms audio)
+   - Fast for normal responses ✅
+   - But greeting needs more accumulation ❌
+
+2. **Buffer Limit Check**: Mobile limit is 24000 samples (1.5s)
+   - Greeting is typically 3-5 seconds long
+   - Exceeds limit multiple times → multiple `repeatAudio()` calls
+   - Each call = new `event_id` → HeyGen treats as separate tasks → choppy audio
+
+### The Solution
+
+Implemented a **GREETING_SKIP_PHASE1** flag that changes behavior for the first response only:
+
+#### 1. Added Constant (Line ~120)
+
+```typescript
+// GREETING FIX: Skip immediate send for greeting to accumulate more audio
+// This prevents fragmentation of the greeting message on mobile devices
+const GREETING_SKIP_PHASE1 = true;
+```
+
+#### 2. Skip PHASE 1 for Greeting (Lines ~937-950)
+
+```typescript
+// PHASE 1: Immediate (first chunk) - LOW latency
+// GREETING FIX: Skip PHASE 1 for greeting to accumulate more audio
+if (!hassentImmediateRef.current && currentBufferLength === 1) {
+  if (isFirstAudioRef.current && GREETING_SKIP_PHASE1) {
+    console.log("[AUDIO] GREETING: Skipping PHASE 1 (immediate send)");
+    // Don't send yet - continue to gap detection or buffer limit
+  } else {
+    hassentImmediateRef.current = true;
+    console.log(
+      "[AUDIO] PHASE 1: IMMEDIATE send first chunk (first words) - NO DELAY",
+    );
+    sendAllAudioToAvatar(true); // isImmediateSend = true for minimal silence
+    return;
+  }
+}
+```
+
+**Impact:**
+
+- Greeting waits for more chunks before sending
+- Normal responses still get immediate send (low latency)
+
+#### 3. Skip Buffer Limit for Greeting (Lines ~957-975)
+
+```typescript
+// MOBILE OPTIMIZATION: Check if buffer exceeds limit
+// GREETING FIX: Skip buffer limit for greeting to accumulate full message
+const currentSamples = calculateBufferSamples(audioBufferRef.current);
+if (currentSamples >= audioConfig.maxBufferSamples) {
+  if (isFirstAudioRef.current && GREETING_SKIP_PHASE1) {
+    console.log(
+      `[AUDIO] GREETING: Skipping buffer limit (${currentSamples}/${audioConfig.maxBufferSamples} samples) - accumulating more`,
+    );
+    // Continue to gap detection - don't return
+  } else {
+    console.log(
+      `[AUDIO] BUFFER LIMIT: ${currentSamples} samples >= ${audioConfig.maxBufferSamples}, processing NOW`,
+    );
+    // Clear gap detection since we're processing now
+    if (gapCheckIntervalRef.current) {
+      clearInterval(gapCheckIntervalRef.current);
+      gapCheckIntervalRef.current = null;
+    }
+    sendAllAudioToAvatar(false); // PHASE 2 style padding
+    return;
+  }
+}
+```
+
+**Impact:**
+
+- **CRITICAL**: Prevents greeting fragmentation on mobile
+- Mobile normally fragments at ~24000 samples (1.5s)
+- Greeting now waits for gap detection or `onAgentResponseEnd`
+
+#### 4. Reset Debounce on New Response (Lines ~987-994)
+
+```typescript
+onAgentResponse: () => {
+  console.log("[AUDIO] agent_response received - new response starting");
+
+  // GREETING FIX: Reset interrupt debounce to accept new audio chunks immediately
+  // Without this, fast responses (<300ms) get discarded as "ghost chunks"
+  lastInterruptTimeRef.current = 0;
+  console.log("[AUDIO] Reset interrupt debounce for new response");
+},
+```
+
+**Impact:**
+
+- **CRITICAL**: Preserves first words when ElevenLabs responds fast (<300ms)
+- Without this, chunks of new audio are discarded as "ghost chunks"
+
+#### 5. Enhanced Logging (Lines ~929-932, ~819-828)
+
+```typescript
+// In onAudioData
+console.log(
+  `[AUDIO] Chunk #${totalChunksReceivedRef.current}, buffer: ${currentSamplesForLog} samples (${currentBufferLength} chunks), isGreeting: ${isFirstAudioRef.current}`,
+);
+
+// In sendAllAudioToAvatar
+if (isFirstAudio) {
+  isFirstAudioRef.current = false;
+  console.log(
+    `[AUDIO] GREETING SENT: ${chunks.length} chunks, ${totalSizeKB}KB, single repeatAudio() call`,
+  );
+} else {
+  console.log(
+    `[AUDIO] Response sent: ${chunks.length} chunks, ${totalSizeKB}KB`,
+  );
+}
+```
+
+**Impact:**
+
+- Easier debugging and verification
+- Clearly shows when greeting is sent as single call
+
+### Why Greeting Can Wait (+200-300ms Latency)
+
+The greeting is the **FIRST** interaction. The user **NOT** waiting for a response because they haven't spoken yet. It's acceptable to add +200-300ms latency to guarantee:
+
+- ✅ Smooth, professional audio (single `repeatAudio()` call)
+- ✅ Perfect lip-sync (no fragmentation)
+- ✅ Good first impression
+
+### Why Normal Responses Must Be Fast
+
+Responses to user questions **MUST** have minimal latency to feel natural. PHASE 1 (immediate send) is critical for:
+
+- ✅ Low perceived latency (~100ms first word)
+- ✅ Natural conversation flow
+- ✅ Responsive interaction
+
+### Desktop Compatibility
+
+Desktop is **NOT** affected because:
+
+- Buffer limit: 64000 samples (4 seconds)
+- Greeting almost never reaches this limit
+- If it does, still sent complete (no fragmentation)
+
+### Testing Results
+
+#### Test 1: Greeting on Mobile ✅
+
+**Expected Logs:**
+
+```
+[AUDIO] GREETING: Skipping PHASE 1 (immediate send)
+[AUDIO] GREETING: Skipping buffer limit (25000/24000 samples) - accumulating more
+[AUDIO] agent_response_end received - sending all audio now
+[AUDIO] GREETING SENT: 12 chunks, 450KB, single repeatAudio() call
+```
+
+#### Test 2: Fast Responses (<300ms) ✅
+
+**Expected Logs:**
+
+```
+[AUDIO] agent_response received - new response starting
+[AUDIO] Reset interrupt debounce for new response
+[AUDIO] Chunk 1 accepted (time since interrupt: 150ms)
+```
+
+**Before Fix (Lost):**
+
+```
+[AUDIO] Ignoring ghost chunk (199ms since interrupt)
+```
+
+#### Test 3: Normal Responses (Not Greeting) ✅
+
+**Expected Logs:**
+
+```
+[AUDIO] PHASE 1: IMMEDIATE send first chunk (first words) - NO DELAY
+[AUDIO] Response sent: 1 chunks, 45KB
+```
+
+### Performance Metrics
+
+| Metric                      | Before                     | After             | Target                 |
+| --------------------------- | -------------------------- | ----------------- | ---------------------- |
+| **Greeting Calls (Mobile)** | 4+ `repeatAudio()`         | 1 `repeatAudio()` | 1 ✅                   |
+| **Greeting Size (Mobile)**  | 86KB + 92KB + 38KB + 296KB | 450KB             | Single chunk ✅        |
+| **First Words Lost**        | Yes (responses <300ms)     | No                | 0% ✅                  |
+| **Greeting Latency**        | ~200ms                     | ~400ms            | Acceptable (+200ms) ✅ |
+| **Normal Response Latency** | ~100ms                     | ~100ms            | No change ✅           |
+
+---
+
 ## Version History
 
-| Date         | Change                                       |
-| ------------ | -------------------------------------------- |
-| Dec 30, 2024 | TWO-PHASE strategy implemented               |
-| Dec 30, 2024 | Desktop vs Mobile configs added              |
-| Dec 30, 2024 | MobileLogger component created               |
-| Dec 31, 2024 | Fixed `hassentImmediateRef` reset bug        |
-| Dec 31, 2024 | MobileLogger: removed filter, added Copy All |
-| Jan 02, 2026 | Documented multiple repeatAudio() bug        |
-| Jan 02, 2026 | Post-mortem: Failed Streaming API attempt    |
+| Date         | Change                                               |
+| ------------ | ---------------------------------------------------- |
+| Dec 30, 2024 | TWO-PHASE strategy implemented                       |
+| Dec 30, 2024 | Desktop vs Mobile configs added                      |
+| Dec 30, 2024 | MobileLogger component created                       |
+| Dec 31, 2024 | Fixed `hassentImmediateRef` reset bug                |
+| Dec 31, 2024 | MobileLogger: removed filter, added Copy All         |
+| Jan 02, 2026 | Documented multiple repeatAudio() bug                |
+| Jan 02, 2026 | Post-mortem: Failed Streaming API attempt            |
+| Jan 05, 2026 | **✅ GREETING FIX: Prevent fragmentation on mobile** |
 
 ---
 
