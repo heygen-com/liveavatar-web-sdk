@@ -49,8 +49,12 @@ export default auth((req) => {
   // AUTH CHECK (existing logic)
   // ============================================
 
-  // Allow login page and auth API routes
-  if (pathname.startsWith("/login") || pathname.startsWith("/api/auth")) {
+  // Allow public pages (login, maintenance, auth)
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/maintenance")
+  ) {
     // If already logged in and trying to access login, redirect to home
     if (pathname === "/login" && session) {
       return NextResponse.redirect(new URL("/", req.url));
