@@ -57,6 +57,7 @@ const providers: Provider[] = [
 
 const nextAuth = NextAuth({
   providers,
+  trustHost: true, // CRITICAL: Required for Vercel Preview (dynamic URLs)
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days

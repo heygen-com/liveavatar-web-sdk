@@ -10,9 +10,22 @@ export default auth((req) => {
   // ============================================
   const isMaintenanceMode = process.env.MAINTENANCE_MODE === "true";
 
-  const maintenanceExemptPaths = ["/maintenance", "/api/health", "/_next"];
+  // CRITICAL: /login and /api/auth must be exempt from maintenance mode
+  // to prevent infinite redirect loop:
+  // 1. User visits / → redirects to /maintenance (MAINTENANCE_MODE=true)
+  // 2. /maintenance requires auth → redirects to /login
+  // 3. /login not exempt → redirects to /maintenance
+  // 4. LOOP ♾️
+  const maintenanceExemptPaths = [
+    "/maintenance",
+    "/login", // Prevents loop (user can access login page)
+    "/api/auth", // Prevents loop (NextAuth callbacks work)
+    "/api/health",
+    "/_next",
+    "/favicon.ico",
+  ];
   const isExempt = maintenanceExemptPaths.some((path) =>
-    pathname.startsWith(path)
+    pathname.startsWith(path),
   );
 
   if (isMaintenanceMode && !isExempt) {
