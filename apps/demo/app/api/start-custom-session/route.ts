@@ -8,6 +8,11 @@ import {
 import { NextRequest } from "next/server";
 import { rateLimitByEndpoint } from "@/src/lib/rate-limit";
 import { createSession } from "@/src/lib/db/queries";
+import {
+  verifyCustomerToken,
+  isValidCustomerId,
+  cleanCustomerId,
+} from "@/src/shopify";
 
 export async function POST(request: Request) {
   // === RATE LIMIT CHECK ===
@@ -39,33 +44,59 @@ export async function POST(request: Request) {
     );
   }
 
-  // === AUTH GUARD ===
-  // Auth guard - allow both next-auth session AND Shopify-validated requests
-  // Shopify users are validated via /api/shopify-customer before reaching here
-  // We check for either: next-auth session OR a custom header set by the client
-  const session = await auth();
-  const isShopifyUser = request.headers.get("x-shopify-validated") === "true";
-
-  if (!session?.user && !isShopifyUser) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  let session_token = "";
-  let session_id = "";
-
-  // Parse request body to get device type
+  // === PARSE REQUEST BODY ===
   let deviceType: "mobile" | "desktop" = "desktop";
+  let shopifyCustomerId: string | undefined;
+  let shopifyToken: string | undefined;
+
   try {
     const body = await request.json();
     if (body.deviceType === "mobile") {
       deviceType = "mobile";
     }
+    // Optional Shopify credentials for iframe users
+    shopifyCustomerId = body.customer_id;
+    shopifyToken = body.shopify_token;
   } catch {
     // No body or invalid JSON, use default (desktop)
   }
+
+  // === AUTH GUARD ===
+  // Allow either:
+  // 1. NextAuth session (Google/Credentials login)
+  // 2. Valid Shopify HMAC token (iframe users)
+  const session = await auth();
+  let isShopifyUser = false;
+
+  // Validate Shopify credentials if provided
+  if (shopifyCustomerId && shopifyToken) {
+    const cleanId = cleanCustomerId(shopifyCustomerId);
+    if (
+      isValidCustomerId(cleanId) &&
+      verifyCustomerToken(shopifyToken, cleanId)
+    ) {
+      isShopifyUser = true;
+      console.log("[AUTH] Valid Shopify HMAC for customer:", cleanId);
+    } else {
+      console.warn("[AUTH] Invalid Shopify HMAC attempt for:", cleanId);
+    }
+  }
+
+  if (!session?.user && !isShopifyUser) {
+    return new Response(
+      JSON.stringify({
+        error: "Unauthorized",
+        message: "Valid session or Shopify credentials required",
+      }),
+      {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  let session_token = "";
+  let session_id = "";
 
   // Select avatar based on device type
   const avatarId =
