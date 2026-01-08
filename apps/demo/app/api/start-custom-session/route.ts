@@ -13,6 +13,7 @@ import {
   isValidCustomerId,
   cleanCustomerId,
 } from "@/src/shopify";
+import { logger } from "@/src/lib/logger/secure-logger";
 
 export async function POST(request: Request) {
   // === RATE LIMIT CHECK ===
@@ -76,9 +77,17 @@ export async function POST(request: Request) {
       verifyCustomerToken(shopifyToken, cleanId)
     ) {
       isShopifyUser = true;
-      console.log("[AUTH] Valid Shopify HMAC for customer:", cleanId);
+      logger.info(
+        "Valid Shopify HMAC",
+        { customerId: cleanId },
+        { route: "/api/start-custom-session" },
+      );
     } else {
-      console.warn("[AUTH] Invalid Shopify HMAC attempt for:", cleanId);
+      logger.warn(
+        "Invalid Shopify HMAC attempt",
+        { customerId: cleanId },
+        { route: "/api/start-custom-session" },
+      );
     }
   }
 
@@ -101,11 +110,10 @@ export async function POST(request: Request) {
   // Select avatar based on device type
   const avatarId =
     deviceType === "desktop" ? AVATAR_ID_DESKTOP : AVATAR_ID_MOBILE;
-  console.log(
-    "Starting CUSTOM session with avatar:",
-    avatarId,
-    "deviceType:",
-    deviceType,
+  logger.info(
+    "Starting CUSTOM session",
+    { avatarId, deviceType },
+    { route: "/api/start-custom-session" },
   );
 
   try {
@@ -139,7 +147,9 @@ export async function POST(request: Request) {
       );
     }
     const data = await res.json();
-    console.log(data);
+    logger.debug("Session token received", data, {
+      route: "/api/start-custom-session",
+    });
 
     session_token = data.data.session_token;
     session_id = data.data.session_id;
@@ -167,17 +177,20 @@ export async function POST(request: Request) {
       userId: session?.user?.id,
       shopifyEmail: session?.user?.email || undefined,
     });
-    console.log(
-      "[DB] Session tracked:",
-      session_token,
-      "Device:",
-      deviceType,
-      "User:",
-      session?.user?.email || "anonymous",
+    logger.info(
+      "Session tracked in database",
+      {
+        sessionToken: session_token,
+        deviceType,
+        userEmail: session?.user?.email || "anonymous",
+      },
+      { route: "/api/start-custom-session" },
     );
   } catch (dbError) {
     // Don't fail the request if DB tracking fails - just log it
-    console.error("[DB] Failed to track session:", dbError);
+    logger.error("Failed to track session in database", dbError, {
+      route: "/api/start-custom-session",
+    });
   }
 
   return new Response(JSON.stringify({ session_token, session_id }), {

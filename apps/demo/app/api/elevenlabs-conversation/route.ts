@@ -7,6 +7,7 @@ import {
   isValidCustomerId,
   cleanCustomerId,
 } from "@/src/shopify";
+import { logger } from "@/src/lib/logger/secure-logger";
 
 export async function POST(request: Request) {
   // === RATE LIMIT CHECK ===
@@ -69,18 +70,33 @@ export async function POST(request: Request) {
       verifyCustomerToken(shopifyToken, cleanId)
     ) {
       isShopifyUser = true;
-      console.log("[AUTH] Valid Shopify HMAC for customer:", cleanId);
+      logger.info(
+        "Valid Shopify HMAC",
+        { customerId: cleanId },
+        { route: "/api/elevenlabs-conversation" },
+      );
     } else {
-      console.warn("[AUTH] Invalid Shopify HMAC attempt for:", cleanId);
+      logger.warn(
+        "Invalid Shopify HMAC attempt",
+        { customerId: cleanId },
+        { route: "/api/elevenlabs-conversation" },
+      );
     }
   }
 
-  console.log("=== ElevenLabs Auth Check ===");
-  console.log("session?.user:", !!session?.user);
-  console.log("isShopifyUser (HMAC validated):", isShopifyUser);
+  logger.debug(
+    "ElevenLabs auth check",
+    {
+      hasSession: !!session?.user,
+      isShopifyUser,
+    },
+    { route: "/api/elevenlabs-conversation" },
+  );
 
   if (!session?.user && !isShopifyUser) {
-    console.log("UNAUTHORIZED - no session and no valid Shopify HMAC");
+    logger.warn("Unauthorized request - no valid session or HMAC", null, {
+      route: "/api/elevenlabs-conversation",
+    });
     return new Response(
       JSON.stringify({
         error: "Unauthorized",
@@ -93,9 +109,14 @@ export async function POST(request: Request) {
     );
   }
 
-  console.log("=== ElevenLabs Conversation API Called ===");
-  console.log("ELEVENLABS_API_KEY exists:", !!ELEVENLABS_API_KEY);
-  console.log("ELEVENLABS_AGENT_ID:", ELEVENLABS_AGENT_ID);
+  logger.debug(
+    "ElevenLabs Conversation API called",
+    {
+      hasApiKey: !!ELEVENLABS_API_KEY,
+      agentId,
+    },
+    { route: "/api/elevenlabs-conversation" },
+  );
 
   try {
     if (!ELEVENLABS_API_KEY) {
@@ -131,7 +152,11 @@ export async function POST(request: Request) {
 
     if (!res.ok) {
       const errorData = await res.text();
-      console.error("ElevenLabs API error:", errorData);
+      logger.error(
+        "ElevenLabs API error",
+        { errorData, status: res.status },
+        { route: "/api/elevenlabs-conversation" },
+      );
       return new Response(
         JSON.stringify({
           error: "Failed to get signed URL",
@@ -145,7 +170,11 @@ export async function POST(request: Request) {
     }
 
     const data = await res.json();
-    console.log("ElevenLabs signed URL obtained successfully");
+    logger.info(
+      "ElevenLabs signed URL obtained",
+      { agentId },
+      { route: "/api/elevenlabs-conversation" },
+    );
 
     return new Response(
       JSON.stringify({
@@ -158,7 +187,9 @@ export async function POST(request: Request) {
       },
     );
   } catch (error) {
-    console.error("Error getting signed URL:", error);
+    logger.error("Failed to get signed URL", error, {
+      route: "/api/elevenlabs-conversation",
+    });
     return new Response(JSON.stringify({ error: "Failed to get signed URL" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

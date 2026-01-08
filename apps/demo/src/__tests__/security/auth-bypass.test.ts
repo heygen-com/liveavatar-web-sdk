@@ -105,11 +105,11 @@ describe("Auth Bypass Prevention", () => {
       );
       const routeCode = await fs.readFile(routePath, "utf-8");
 
-      // Debe loggear cuando HMAC es válido
-      expect(routeCode).toMatch(/console\.log.*Valid Shopify HMAC/);
+      // Debe loggear cuando HMAC es válido (usando logger.info)
+      expect(routeCode).toMatch(/logger\.info[\s\S]*?"Valid Shopify HMAC"/);
 
-      // Debe loggear (warn) cuando HMAC es inválido
-      expect(routeCode).toMatch(/console\.warn.*Invalid.*HMAC/);
+      // Debe loggear (warn) cuando HMAC es inválido (usando logger.warn)
+      expect(routeCode).toMatch(/logger\.warn[\s\S]*?"Invalid.*HMAC/);
     });
   });
 
