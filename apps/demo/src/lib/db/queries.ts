@@ -274,7 +274,9 @@ export async function updateDailyMetrics(date: Date) {
   });
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  const completedSessions = sessions.filter((s: any) => s.status === "completed");
+  const completedSessions = sessions.filter(
+    (s: any) => s.status === "completed",
+  );
 
   const totalDuration = completedSessions.reduce(
     (sum: number, s: any) => sum + (s.durationSeconds || 0),
