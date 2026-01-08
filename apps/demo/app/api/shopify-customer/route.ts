@@ -24,6 +24,7 @@ import type {
 } from "@/src/shopify";
 import { rateLimitByEndpoint } from "@/src/lib/rate-limit";
 import { getCachedCustomer, cacheCustomer } from "@/src/lib/db/queries";
+import { prisma } from "@/src/lib/db/prisma";
 
 export async function POST(request: NextRequest) {
   // === RATE LIMIT CHECK ===
@@ -137,6 +138,35 @@ export async function POST(request: NextRequest) {
     // 3. Verify HMAC token (timing-safe)
     if (!verifyCustomerToken(shopify_token, cleanId)) {
       console.warn(`Invalid HMAC token for customer ${cleanId}`);
+
+      // Log invalid token attempt
+      try {
+        const customerFullName =
+          [first_name, last_name].filter(Boolean).join(" ") || null;
+
+        await prisma.session.create({
+          data: {
+            sessionToken: `shopify_invalid_${cleanId}_${Date.now()}`,
+            deviceType: request.headers.get("user-agent")?.includes("Mobile")
+              ? "mobile"
+              : "desktop",
+            status: "error",
+            shopifyEmail: email || null,
+            shopifyCustomerId: cleanId,
+            customerName: customerFullName,
+            ordersCount: orders_count ? parseInt(orders_count, 10) : null,
+            accessGranted: false,
+            verificationStatus: "invalid_token",
+          },
+        });
+        console.log(
+          "[SESSION TRACKING] Logged invalid token attempt for:",
+          cleanId,
+        );
+      } catch (trackingError) {
+        console.error("[SESSION TRACKING ERROR]", trackingError);
+      }
+
       return NextResponse.json(
         {
           valid: false,
@@ -183,6 +213,36 @@ export async function POST(request: NextRequest) {
         // Cache write failed - don't fail the request
         console.error("[CACHE WRITE ERROR]", cacheError);
       }
+    }
+
+    // === SESSION TRACKING ===
+    // Log verification attempt for analytics
+    try {
+      const customerFullName =
+        [first_name, last_name].filter(Boolean).join(" ") || null;
+
+      await prisma.session.create({
+        data: {
+          sessionToken: `shopify_${cleanId}_${Date.now()}`,
+          deviceType: request.headers.get("user-agent")?.includes("Mobile")
+            ? "mobile"
+            : "desktop",
+          status: hasOrders ? "active" : "error",
+          shopifyEmail: email || null,
+          shopifyCustomerId: cleanId,
+          customerName: customerFullName,
+          ordersCount: ordersCountNum,
+          accessGranted: hasOrders,
+          verificationStatus: hasOrders ? "verified" : "no_orders",
+        },
+      });
+      console.log(
+        "[SESSION TRACKING] Logged verification for customer:",
+        cleanId,
+      );
+    } catch (trackingError) {
+      // Tracking failed - don't fail the request
+      console.error("[SESSION TRACKING ERROR]", trackingError);
     }
 
     return NextResponse.json(response);

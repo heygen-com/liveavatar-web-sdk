@@ -25,6 +25,13 @@ model Session {
   userId       String?
   shopifyEmail String?
 
+  // Shopify integration tracking
+  shopifyCustomerId   String? // Shopify customer ID (numeric)
+  customerName        String? // Full customer name
+  ordersCount         Int? // Number of orders at verification time
+  accessGranted       Boolean  @default(false) // Whether access was granted
+  verificationStatus  String? // "verified" | "no_orders" | "invalid_token" | "error"
+
   // Session metrics
   durationSeconds Int? // Total session duration
 
@@ -33,8 +40,10 @@ model Session {
   analytics     SessionAnalytics?
 
   @@index([shopifyEmail])
+  @@index([shopifyCustomerId])
   @@index([createdAt])
   @@index([status])
+  @@index([verificationStatus])
   @@map("sessions")
 }
 

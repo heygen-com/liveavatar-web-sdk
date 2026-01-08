@@ -7,6 +7,15 @@ import CustomerVerification from "../src/components/CustomerVerification";
 import { CustomerData } from "../src/liveavatar/types";
 import { UserMenu } from "../src/components/auth/LogoutButton";
 import type { ShopifyCustomerResponse } from "@/src/shopify";
+import {
+  ShopifyVerificationStates,
+  type PageState as VerificationState,
+} from "../src/components/ShopifyVerificationStates";
+import {
+  getMockCustomer,
+  isMockMode,
+  getMockScenario,
+} from "@/src/lib/mock-data";
 
 type PageState =
   | "loading"
@@ -15,7 +24,10 @@ type PageState =
   | "needs_verification"
   | "verified"
   | "error"
-  | "shopify_redirect";
+  | "shopify_redirect"
+  | "no_orders"
+  | "invalid_token"
+  | "maintenance";
 
 export default function Home() {
   const { data: session, status: sessionStatus } = useSession();
@@ -43,25 +55,60 @@ export default function Home() {
 
       const data: ShopifyCustomerResponse = await response.json();
 
-      if (!response.ok || !data.valid) {
-        throw new Error(data.error || "Invalid Shopify token");
+      // Handle specific error cases with dedicated states
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Invalid HMAC token
+          setCustomerData({
+            firstName: params.get("first_name") || undefined,
+            email: params.get("email") || undefined,
+          });
+          setPageState("invalid_token");
+          return;
+        }
+        if (response.status === 403 && !data.hasOrders) {
+          // Valid token but no orders
+          setCustomerData({
+            firstName: params.get("first_name") || undefined,
+            email: params.get("email") || undefined,
+            ordersCount: 0,
+          });
+          setPageState("no_orders");
+          return;
+        }
+        throw new Error(data.error || "Verification failed");
       }
 
-      if (!data.hasOrders) {
-        setError("Debes realizar una compra para acceder a Clara");
-        setPageState("error");
+      if (!data.valid || !data.hasOrders) {
+        setCustomerData({
+          firstName: params.get("first_name") || undefined,
+          email: params.get("email") || undefined,
+          ordersCount: data.customer?.ordersCount || 0,
+        });
+        setPageState("no_orders");
         return;
       }
 
       if (data.customer) {
-        setCustomerData({
+        const customer = {
           firstName: data.customer.firstName || undefined,
           lastName: data.customer.lastName || undefined,
           email: data.customer.email || undefined,
           ordersCount: data.customer.ordersCount,
           skinType: data.customer.skinType as CustomerData["skinType"],
           skinConcerns: data.customer.skinConcerns,
-        });
+        };
+        setCustomerData(customer);
+
+        // Cache verified customer data in localStorage (24h TTL)
+        localStorage.setItem(
+          "clara_verified",
+          JSON.stringify({
+            customer,
+            verified_at: Date.now(),
+          }),
+        );
+
         setPageState("verified");
       }
     } catch (err) {
@@ -129,6 +176,38 @@ export default function Home() {
 
     const params = new URLSearchParams(window.location.search);
 
+    // Flow 0: Mock mode for testing (use ?mock=scenario_name)
+    if (isMockMode(params)) {
+      const scenario = getMockScenario(params);
+      const mockCustomer = scenario ? getMockCustomer(scenario) : null;
+
+      if (mockCustomer) {
+        // Build params from mock customer data
+        const mockParams = new URLSearchParams({
+          customer_id: mockCustomer.customer_id,
+          shopify_token: mockCustomer.shopify_token,
+          first_name: mockCustomer.first_name,
+          last_name: mockCustomer.last_name,
+          email: mockCustomer.email,
+          orders_count: mockCustomer.orders_count.toString(),
+        });
+
+        if (mockCustomer.last_order_date) {
+          mockParams.set("last_order_date", mockCustomer.last_order_date);
+        }
+        if (mockCustomer.last_product) {
+          mockParams.set("last_product", mockCustomer.last_product);
+        }
+        if (mockCustomer.skin_type) {
+          mockParams.set("skin_type", mockCustomer.skin_type);
+        }
+
+        // Verify mock customer (will test full flow)
+        verifyShopifyCustomer(mockParams);
+        return;
+      }
+    }
+
     // Flow A: User coming from Shopify iframe with token
     if (params.has("shopify_token") && params.has("customer_id")) {
       verifyShopifyCustomer(params);
@@ -193,32 +272,31 @@ export default function Home() {
     setPageState("verified");
   };
 
-  // Loading state
+  // Handle retry action
+  const handleRetry = useCallback(() => {
+    window.location.reload();
+  }, []);
+
+  // Use ShopifyVerificationStates for loading, no_orders, invalid_token, maintenance
   if (
     pageState === "loading" ||
     pageState === "verifying_shopify" ||
-    pageState === "verifying_session"
+    pageState === "verifying_session" ||
+    pageState === "no_orders" ||
+    pageState === "invalid_token" ||
+    pageState === "maintenance"
   ) {
+    const state: VerificationState =
+      pageState === "verifying_shopify" || pageState === "verifying_session"
+        ? "loading"
+        : (pageState as VerificationState);
+
     return (
-      <div className="min-h-screen flex items-center justify-center landing-gradient">
-        <div className="text-center relative z-10">
-          <div className="mx-auto mb-4 w-16 h-16 rounded-full glass-morphism-strong flex items-center justify-center shadow-lg animate-pulse">
-            <span
-              className="text-2xl font-bold"
-              style={{ color: "var(--platinum-800)" }}
-            >
-              C
-            </span>
-          </div>
-          <p className="text-neutral-600 font-medium">
-            {pageState === "verifying_shopify"
-              ? "Verificando desde Shopify..."
-              : pageState === "verifying_session"
-                ? "Verificando tu cuenta..."
-                : "Cargando..."}
-          </p>
-        </div>
-      </div>
+      <ShopifyVerificationStates
+        state={state}
+        customerData={customerData || undefined}
+        onRetry={handleRetry}
+      />
     );
   }
 
