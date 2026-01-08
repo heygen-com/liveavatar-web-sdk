@@ -9,6 +9,9 @@
     "start": "next start",
     "lint": "eslint src app --max-warnings 0",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "postinstall": "prisma generate || echo 'Prisma generation skipped'",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
@@ -43,11 +46,14 @@
     "@types/node": "^22.15.3",
     "@types/react": "19.1.0",
     "@types/react-dom": "19.1.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^2.1.8",
     "autoprefixer": "10.4.19",
     "eslint": "^9.31.0",
     "postcss": "8.4.38",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "5.8.2"
+    "typescript": "5.8.2",
+    "vitest": "^2.1.8"
   }
 }
