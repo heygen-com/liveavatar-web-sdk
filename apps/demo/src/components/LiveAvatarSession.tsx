@@ -50,6 +50,8 @@ const LiveAvatarSessionComponent: React.FC<{
     stop,
     mute,
     unmute,
+    startPushToTalk,
+    stopPushToTalk,
   } = useVoiceChat();
 
   const { interrupt, repeat, startListening, stopListening } =
@@ -104,6 +106,24 @@ const LiveAvatarSessionComponent: React.FC<{
           }}
         >
           {isMuted ? "Unmute" : "Mute"}
+        </Button>
+      )}
+      {isActive && (
+        <Button
+          onClick={() => {
+            startPushToTalk();
+          }}
+        >
+          Start Push to Talk
+        </Button>
+      )}
+      {isActive && (
+        <Button
+          onClick={() => {
+            stopPushToTalk();
+          }}
+        >
+          Stop Push to Talk
         </Button>
       )}
     </>

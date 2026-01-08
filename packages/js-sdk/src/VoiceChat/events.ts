@@ -13,3 +13,15 @@ export type VoiceChatEventCallbacks = {
   // [VoiceChatEvent.DEVICE_CHANGED]: (deviceId: string) => void;
   [VoiceChatEvent.STATE_CHANGED]: (state: VoiceChatState) => void;
 };
+
+export enum PushToTalkCommandEvent {
+  START = "user.start_push_to_talk",
+  STOP = "user.stop_push_to_talk",
+}
+
+export enum PushToTalkServerEvent {
+  START_SUCCESS = "user.push_to_talk_started",
+  START_FAILED = "user.push_to_talk_start_failed",
+  STOP_SUCCESS = "user.push_to_talk_stopped",
+  STOP_FAILED = "user.push_to_talk_stop_failed",
+}
