@@ -18,7 +18,7 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@auth/core": "^0.34.3",
+    "@auth/core": "^0.41.1",
     "@heygen/liveavatar-web-sdk": "workspace:*",
     "@prisma/client": "^7.2.0",
     "@radix-ui/react-avatar": "^1.1.11",
@@ -47,13 +47,13 @@
     "@types/react": "19.1.0",
     "@types/react-dom": "19.1.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/coverage-v8": "^4.0.16",
     "autoprefixer": "10.4.19",
-    "eslint": "^9.31.0",
+    "eslint": "^9.39.2",
     "postcss": "8.4.38",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.8.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.0.16"
   }
 }
