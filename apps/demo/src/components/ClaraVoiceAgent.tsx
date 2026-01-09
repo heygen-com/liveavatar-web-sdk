@@ -107,7 +107,7 @@ const DESKTOP_CONFIG: AudioConfig = {
 
 const MOBILE_CONFIG: AudioConfig = {
   gapThreshold: 150, // More sensitive for burst delivery
-  maxBufferSamples: 24000, // 1.5s @ 16kHz - smaller batches for slow CPU
+  maxBufferSamples: 48000, // 3s @ 16kHz - prevents premature buffer limit
   phase1LeadingSilence: 100, // More time for HeyGen to wake up on mobile
   phase1TrailingSilence: 0,
   phase2LeadingSilence: 80,
@@ -130,16 +130,16 @@ const GREETING_SKIP_PHASE1 = true;
  *   - Safety margin: 16000 samples (1.0s)
  *   - Rationale: Works perfectly, no changes needed
  *
- * Mobile: 20000 samples (1.25s @ 16kHz)
- *   - maxBufferSamples: 24000 (1.5s)
- *   - Safety margin: 4000 samples (0.25s)
- *   - Rationale: Prevents truncation while maintaining low latency
+ * Mobile: 36000 samples (2.25s @ 16kHz)
+ *   - maxBufferSamples: 48000 (3.0s)
+ *   - Safety margin: 12000 samples (0.75s)
+ *   - Rationale: Ensures complete thoughts, prevents BUFFER LIMIT override
  *
  * @param isMobile - Whether device is mobile (phone/tablet)
  * @returns Minimum samples threshold for PHASE 1
  */
 const getMinPhase1Samples = (isMobile: boolean): number => {
-  return isMobile ? 20000 : 48000;
+  return isMobile ? 36000 : 48000; // Mobile: 2.25s, Desktop: 3s
 };
 
 // ============================================
