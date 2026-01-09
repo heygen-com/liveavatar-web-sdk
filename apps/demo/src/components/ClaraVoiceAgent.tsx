@@ -119,10 +119,28 @@ const MOBILE_CONFIG: AudioConfig = {
 // This prevents fragmentation of the greeting message on mobile devices
 const GREETING_SKIP_PHASE1 = true;
 
-// PHASE 1 MINIMUM SAMPLES: Require minimum audio duration before immediate send
-// Prevents truncation when first chunk is too small (< 3s)
-// 48000 samples = 3 seconds @ 16kHz
-const MIN_PHASE1_SAMPLES = 48000;
+/**
+ * Get minimum samples required for PHASE 1 immediate send.
+ *
+ * CRITICAL CONSTRAINT: Must be LESS than maxBufferSamples to avoid
+ * truncation from BUFFER LIMIT override.
+ *
+ * Desktop: 48000 samples (3.0s @ 16kHz)
+ *   - maxBufferSamples: 64000 (4.0s)
+ *   - Safety margin: 16000 samples (1.0s)
+ *   - Rationale: Works perfectly, no changes needed
+ *
+ * Mobile: 20000 samples (1.25s @ 16kHz)
+ *   - maxBufferSamples: 24000 (1.5s)
+ *   - Safety margin: 4000 samples (0.25s)
+ *   - Rationale: Prevents truncation while maintaining low latency
+ *
+ * @param isMobile - Whether device is mobile (phone/tablet)
+ * @returns Minimum samples threshold for PHASE 1
+ */
+const getMinPhase1Samples = (isMobile: boolean): number => {
+  return isMobile ? 20000 : 48000;
+};
 
 // ============================================
 // SAFARI iOS DETECTION
@@ -952,16 +970,20 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
           const firstChunk = audioBufferRef.current[0]!;
           const estimatedSamples = Math.round((firstChunk.length * 0.75) / 2);
 
-          if (estimatedSamples < MIN_PHASE1_SAMPLES) {
+          // Device-aware threshold to prevent mobile truncation
+          const isMobile = isMobileDevice();
+          const minPhase1Samples = getMinPhase1Samples(isMobile);
+
+          if (estimatedSamples < minPhase1Samples) {
             console.log(
-              `[AUDIO] PHASE 1: First chunk too small (${estimatedSamples}/${MIN_PHASE1_SAMPLES} samples), waiting for more`,
+              `[AUDIO] PHASE 1 [${isMobile ? "MOBILE" : "DESKTOP"}]: First chunk too small (${estimatedSamples}/${minPhase1Samples} samples), waiting for more`,
             );
             // Don't send yet - let gap detection or buffer limit handle it
             // Continue to PHASE 2 logic below
           } else {
             hassentImmediateRef.current = true;
             console.log(
-              `[AUDIO] PHASE 1: IMMEDIATE send with sufficient content (${estimatedSamples} samples)`,
+              `[AUDIO] PHASE 1 [${isMobile ? "MOBILE" : "DESKTOP"}]: IMMEDIATE send with sufficient content (${estimatedSamples} samples, threshold: ${minPhase1Samples})`,
             );
             // Send synchronously - first words go out ASAP
             sendAllAudioToAvatar(true); // isImmediateSend = true for minimal silence
