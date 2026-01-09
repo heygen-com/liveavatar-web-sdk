@@ -223,7 +223,7 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
 
     if (isMuted) {
       return (
-        <Badge className="status-badge glass-morphism-strong bg-red-500/90 text-white border-red-400/40 hover:bg-red-500 shadow-lg">
+        <Badge className="status-badge glass-morphism-strong bg-red-500/90 text-gray-900 border-red-400/40 hover:bg-red-500 shadow-lg">
           <MicOff className="w-3 h-3 mr-1" />
           <span className="font-medium">Silenciado</span>
         </Badge>
@@ -232,8 +232,8 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
 
     if (isListening) {
       return (
-        <Badge className="status-badge glass-morphism-strong bg-emerald-500/90 text-white border-emerald-400/40 status-pulse hover:bg-emerald-500 shadow-lg">
-          <div className="voice-wave text-white mr-1">
+        <Badge className="status-badge glass-morphism-strong bg-emerald-500/90 text-gray-900 border-emerald-400/40 status-pulse hover:bg-emerald-500 shadow-lg">
+          <div className="voice-wave text-gray-900 mr-1">
             <span></span>
             <span></span>
             <span></span>
@@ -246,7 +246,7 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
 
     if (isThinking) {
       return (
-        <Badge className="status-badge glass-morphism-strong bg-amber-500/90 text-white border-amber-400/40 hover:bg-amber-500 shadow-lg">
+        <Badge className="status-badge glass-morphism-strong bg-amber-500/90 text-gray-900 border-amber-400/40 hover:bg-amber-500 shadow-lg">
           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
           <span className="font-medium">Pensando</span>
         </Badge>
@@ -255,8 +255,8 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
 
     if (isSpeaking) {
       return (
-        <Badge className="status-badge glass-morphism-strong bg-blue-500/90 text-white border-blue-400/40 hover:bg-blue-500 shadow-lg">
-          <div className="voice-wave text-white mr-1">
+        <Badge className="status-badge glass-morphism-strong bg-blue-500/90 text-gray-900 border-blue-400/40 hover:bg-blue-500 shadow-lg">
+          <div className="voice-wave text-gray-900 mr-1">
             <span></span>
             <span></span>
             <span></span>
@@ -303,8 +303,8 @@ const VoiceControls: React.FC<VoiceControlsProps> = ({
       size="icon"
       className={`floating-glass rounded-full w-12 h-12 transition-all duration-300 ${
         isMuted
-          ? "bg-red-500/90 hover:bg-red-500 text-white border-red-400/40 shadow-xl"
-          : "glass-morphism-dark text-white border-white/20 shadow-lg"
+          ? "bg-red-500/90 hover:bg-red-500 text-gray-900 border-red-400/40 shadow-xl"
+          : "glass-morphism-dark text-gray-900 border-white/20 shadow-lg"
       }`}
       title={isMuted ? "Activar micrófono" : "Silenciar"}
     >
@@ -1288,7 +1288,7 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
                 onClick={onEndCall}
                 variant="destructive"
                 size="lg"
-                className="flex items-center gap-2 flex-1 max-w-xs justify-center floating-glass glass-morphism-strong bg-red-500/95 hover:bg-red-500 border border-red-400/40 shadow-xl transition-all duration-300"
+                className="flex items-center gap-2 flex-1 max-w-xs justify-center floating-glass glass-morphism-strong bg-red-500/95 hover:bg-red-500 border border-red-400/40 shadow-xl transition-all duration-300 text-gray-900"
               >
                 <PhoneOff className="w-5 h-5" />
                 <span className="font-medium">Finalizar</span>
