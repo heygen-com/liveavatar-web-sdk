@@ -119,6 +119,11 @@ const MOBILE_CONFIG: AudioConfig = {
 // This prevents fragmentation of the greeting message on mobile devices
 const GREETING_SKIP_PHASE1 = true;
 
+// PHASE 1 MINIMUM SAMPLES: Require minimum audio duration before immediate send
+// Prevents truncation when first chunk is too small (< 3s)
+// 48000 samples = 3 seconds @ 16kHz
+const MIN_PHASE1_SAMPLES = 48000;
+
 // ============================================
 // SAFARI iOS DETECTION
 // ============================================
@@ -942,13 +947,26 @@ const ConnectedSession: React.FC<ConnectedSessionProps> = ({ onEndCall }) => {
           console.log("[AUDIO] GREETING: Skipping PHASE 1 (immediate send)");
           // Don't send yet - continue to gap detection or buffer limit
         } else {
-          hassentImmediateRef.current = true;
-          console.log(
-            `[AUDIO] PHASE 1: IMMEDIATE send first chunk (first words) - NO DELAY`,
-          );
-          // Send synchronously - first words go out ASAP
-          sendAllAudioToAvatar(true); // isImmediateSend = true for minimal silence
-          return;
+          // TRUNCATION FIX: Check if first chunk has enough audio content
+          // Calculate samples from first chunk (base64 → bytes → samples)
+          const firstChunk = audioBufferRef.current[0]!;
+          const estimatedSamples = Math.round((firstChunk.length * 0.75) / 2);
+
+          if (estimatedSamples < MIN_PHASE1_SAMPLES) {
+            console.log(
+              `[AUDIO] PHASE 1: First chunk too small (${estimatedSamples}/${MIN_PHASE1_SAMPLES} samples), waiting for more`,
+            );
+            // Don't send yet - let gap detection or buffer limit handle it
+            // Continue to PHASE 2 logic below
+          } else {
+            hassentImmediateRef.current = true;
+            console.log(
+              `[AUDIO] PHASE 1: IMMEDIATE send with sufficient content (${estimatedSamples} samples)`,
+            );
+            // Send synchronously - first words go out ASAP
+            sendAllAudioToAvatar(true); // isImmediateSend = true for minimal silence
+            return;
+          }
         }
       }
 
