@@ -2,6 +2,10 @@ export const API_KEY = "YOUR_API_KEY";
 export const API_URL = "https://api.liveavatar.com";
 export const AVATAR_ID = "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a";
 
+// When true, we will call everything in Sandbox mode.
+// Useful for integration and development.
+export const IS_SANDBOX = true;
+
 // FULL MODE Customizations
 // Wayne's avatar voice and context
 export const VOICE_ID = "c2527536-6d1f-4412-a643-53a3497dada9";

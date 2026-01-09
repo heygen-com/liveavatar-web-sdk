@@ -5,6 +5,7 @@ import {
   VOICE_ID,
   CONTEXT_ID,
   LANGUAGE,
+  IS_SANDBOX,
 } from "../secrets";
 
 export async function POST() {
@@ -25,8 +26,10 @@ export async function POST() {
           context_id: CONTEXT_ID,
           language: LANGUAGE,
         },
+        is_sandbox: IS_SANDBOX,
       }),
     });
+
     if (!res.ok) {
       const resp = await res.json();
       const errorMessage =
