@@ -1,4 +1,4 @@
-import { API_KEY, API_URL, AVATAR_ID } from "../secrets";
+import { API_KEY, API_URL, AVATAR_ID, IS_SANDBOX } from "../secrets";
 
 export async function POST() {
   let session_token = "";
@@ -13,6 +13,7 @@ export async function POST() {
       body: JSON.stringify({
         mode: "CUSTOM",
         avatar_id: AVATAR_ID,
+        is_sandbox: IS_SANDBOX,
       }),
     });
     if (!res.ok) {
