@@ -1,4 +1,9 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  experimental: {
+    externalDir: true
+  },
+  transpilePackages: ['@heygen/liveavatar-web-sdk']
+};
 
-export default nextConfig;
+module.exports = nextConfig;
