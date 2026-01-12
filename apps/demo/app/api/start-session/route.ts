@@ -1,60 +1,98 @@
-import {
-  API_KEY,
-  API_URL,
-  AVATAR_ID,
-  VOICE_ID,
-  CONTEXT_ID,
-  LANGUAGE,
-} from "../secrets";
+import { NextResponse } from "next/server";
 
-export async function POST() {
-  let session_token = "";
-  let session_id = "";
+export const runtime = "nodejs"; // keep it predictable on Vercel
+
+function safeJsonParse(text: string) {
   try {
-    const res = await fetch(`${API_URL}/v1/sessions/token`, {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+async function safeReadBody(req: Request) {
+  // Some clients POST with no body; req.json() would throw and cause 500.
+  const ct = req.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) return {};
+  try {
+    return await req.json();
+  } catch {
+    return {};
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY;
+    const API_URL = (process.env.API_URL || "https://api.liveavatar.com").replace(/\/$/, "");
+
+    if (!HEYGEN_API_KEY) {
+      return NextResponse.json(
+        { error: "Missing HEYGEN_API_KEY on server (Vercel env var not set for this environment)" },
+        { status: 500 }
+      );
+    }
+
+    // Read body safely (won’t crash if empty)
+    const body = await safeReadBody(req);
+
+    // Token endpoint
+    const url = `${API_URL}/v1/sessions/token`;
+
+    const upstream = await fetch(url, {
       method: "POST",
       headers: {
-        "X-API-KEY": API_KEY,
         "Content-Type": "application/json",
+        "X-API-KEY": HEYGEN_API_KEY,
       },
-      body: JSON.stringify({
-        mode: "FULL",
-        avatar_id: AVATAR_ID,
-        avatar_persona: {
-          voice_id: VOICE_ID,
-          context_id: CONTEXT_ID,
-          language: LANGUAGE,
+      body: JSON.stringify(body ?? {}),
+    });
+
+    const raw = await upstream.text();
+    const data = safeJsonParse(raw);
+
+    if (!upstream.ok) {
+      return NextResponse.json(
+        {
+          error: "Upstream token request failed",
+          status: upstream.status,
+          contentType: upstream.headers.get("content-type"),
+          raw: raw?.slice(0, 500), // helps debug without blowing logs
         },
-      }),
-    });
-    if (!res.ok) {
-      const resp = await res.json();
-      const errorMessage =
-        resp.data[0].message ?? "Failed to retrieve session token";
-      return new Response(JSON.stringify({ error: errorMessage }), {
-        status: res.status,
-      });
+        { status: 500 }
+      );
     }
-    const data = await res.json();
 
-    session_token = data.data.session_token;
-    session_id = data.data.session_id;
-  } catch (error) {
-    console.error("Error retrieving session token:", error);
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500,
-    });
-  }
+    // If upstream returned non-JSON, fail clearly (don’t crash)
+    if (!data) {
+      return NextResponse.json(
+        {
+          error: "Upstream returned non-JSON response",
+          contentType: upstream.headers.get("content-type"),
+          raw: raw?.slice(0, 500),
+        },
+        { status: 500 }
+      );
+    }
 
-  if (!session_token) {
-    return new Response("Failed to retrieve session token", {
-      status: 500,
-    });
+    // IMPORTANT: return only what the frontend expects
+    // Adjust these keys ONLY if your upstream uses different names.
+    const sessionAccessToken =
+      data.sessionAccessToken ?? data.session_access_token ?? data.data?.sessionAccessToken;
+    const sessionId = data.sessionId ?? data.session_id ?? data.data?.sessionId;
+
+    if (!sessionAccessToken || !sessionId) {
+      return NextResponse.json(
+        { error: "Token response missing sessionAccessToken/sessionId", data },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ sessionAccessToken, sessionId });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: "start-session crashed", message: err?.message || String(err) },
+      { status: 500 }
+    );
   }
-  return new Response(JSON.stringify({ session_token, session_id }), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
 }
