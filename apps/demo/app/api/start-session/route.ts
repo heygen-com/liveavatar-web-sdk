@@ -24,12 +24,17 @@ async function safeReadBody(req: Request) {
 export async function POST(req: Request) {
   try {
     const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY;
-    const API_URL = (process.env.API_URL || "https://api.liveavatar.com").replace(/\/$/, "");
+    const API_URL = (
+      process.env.API_URL || "https://api.liveavatar.com"
+    ).replace(/\/$/, "");
 
     if (!HEYGEN_API_KEY) {
       return NextResponse.json(
-        { error: "Missing HEYGEN_API_KEY on server (Vercel env var not set for this environment)" },
-        { status: 500 }
+        {
+          error:
+            "Missing HEYGEN_API_KEY on server (Vercel env var not set for this environment)",
+        },
+        { status: 500 },
       );
     }
 
@@ -59,7 +64,7 @@ export async function POST(req: Request) {
           contentType: upstream.headers.get("content-type"),
           raw: raw?.slice(0, 500), // helps debug without blowing logs
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -71,20 +76,22 @@ export async function POST(req: Request) {
           contentType: upstream.headers.get("content-type"),
           raw: raw?.slice(0, 500),
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     // IMPORTANT: return only what the frontend expects
     // Adjust these keys ONLY if your upstream uses different names.
     const sessionAccessToken =
-      data.sessionAccessToken ?? data.session_access_token ?? data.data?.sessionAccessToken;
+      data.sessionAccessToken ??
+      data.session_access_token ??
+      data.data?.sessionAccessToken;
     const sessionId = data.sessionId ?? data.session_id ?? data.data?.sessionId;
 
     if (!sessionAccessToken || !sessionId) {
       return NextResponse.json(
         { error: "Token response missing sessionAccessToken/sessionId", data },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -92,7 +99,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     return NextResponse.json(
       { error: "start-session crashed", message: err?.message || String(err) },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
