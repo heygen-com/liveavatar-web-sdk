@@ -53,7 +53,7 @@ const LiveAvatarSessionComponent: React.FC<{
   } = useVoiceChat();
 
   const { interrupt, repeat, startListening, stopListening } =
-    useAvatarActions(mode);
+    useAvatarActions();
 
   const { sendMessage } = useTextChat(mode);
   const videoRef = useRef<HTMLVideoElement>(null);
