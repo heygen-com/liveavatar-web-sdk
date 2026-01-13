@@ -1,69 +1,66 @@
 import { NextResponse } from "next/server";
 
 export async function POST() {
-  const API_URL = process.env.API_URL || "https://api.liveavatar.com";
-  const KEY = process.env.HEYGEN_API_KEY;
+  const API_URL = process.env.API_URL;
+  const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY;
 
-  if (!KEY) {
+  if (!API_URL || !HEYGEN_API_KEY) {
     return NextResponse.json(
-      { error: "Missing HEYGEN_API_KEY in server env" },
+      {
+        error: "Missing env vars",
+        hasApiUrl: !!API_URL,
+        hasHeygenKey: !!HEYGEN_API_KEY,
+      },
       { status: 500 },
     );
   }
 
   const url = `${API_URL.replace(/\/$/, "")}/v1/sessions/token`;
 
-  try {
-    const upstream = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-KEY": KEY, // <-- THIS is the critical part
-      },
-      body: JSON.stringify({}), // avoid empty-body edge cases
-    });
+  const upstreamBody = {
+    mode: "CUSTOM",
+  };
 
-    const text = await upstream.text();
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-KEY": HEYGEN_API_KEY,
+    },
+    body: JSON.stringify(upstreamBody),
+  });
 
-    // If upstream isn't JSON, return it as a helpful error
-    let data: any = null;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch {
-      return NextResponse.json(
-        {
-          error: "Upstream returned non-JSON",
-          upstreamStatus: upstream.status,
-          upstreamBody: text,
-          url,
-        },
-        { status: 502 },
-      );
-    }
+  const contentType = res.headers.get("content-type") || "";
+  const raw = await res.text();
 
-    if (!upstream.ok) {
-      return NextResponse.json(
-        {
-          error: "Upstream rejected request",
-          upstreamStatus: upstream.status,
-          upstreamData: data,
-          url,
-        },
-        { status: upstream.status },
-      );
-    }
+  console.log("CUSTOM_TOKEN_URL:", url);
+  console.log("CUSTOM_TOKEN_STATUS:", res.status);
+  console.log("CUSTOM_TOKEN_CONTENT_TYPE:", contentType);
+  console.log("CUSTOM_TOKEN_REQ_BODY:", JSON.stringify(upstreamBody));
+  console.log("CUSTOM_TOKEN_RAW_BODY:", raw.slice(0, 2000));
 
-    // IMPORTANT: return only what the front-end expects
-    // (Adjust keys ONLY if your UI expects different names)
-    return NextResponse.json({
-      sessionAccessToken:
-        data?.data?.sessionAccessToken ?? data?.sessionAccessToken,
-      sessionId: data?.data?.sessionId ?? data?.sessionId,
-      raw: data, // keep for now; remove later once stable
-    });
-  } catch (e: any) {
+  if (!res.ok) {
     return NextResponse.json(
-      { error: "Server fetch failed", message: e?.message, url },
+      {
+        error: "Failed to retrieve session token",
+        status: res.status,
+        contentType,
+        raw,
+      },
+      { status: 500 },
+    );
+  }
+
+  try {
+    return NextResponse.json(JSON.parse(raw));
+  } catch {
+    return NextResponse.json(
+      {
+        error: "Upstream returned non-JSON",
+        status: res.status,
+        contentType,
+        raw,
+      },
       { status: 500 },
     );
   }
