@@ -1,71 +1,107 @@
+console.log("🔥 start-session route file loaded");
+
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
 export async function POST() {
+  console.log("🔥 start-session POST handler entered");
+
   try {
     const API_URL = (process.env.API_URL || "https://api.liveavatar.com").replace(/\/$/, "");
-    const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY;
-    const AVATAR_ID = process.env.AVATAR_ID;
-    const VOICE_ID = process.env.VOICE_ID;
+    const HEYGEN_API_KEY = (process.env.HEYGEN_API_KEY || "").trim();
+    const AVATAR_ID = (process.env.AVATAR_ID || "").trim();
+    const VOICE_ID = (process.env.VOICE_ID || "").trim();
 
     if (!HEYGEN_API_KEY || !AVATAR_ID) {
       return NextResponse.json(
-        { error: "Missing required env vars", hasKey: !!HEYGEN_API_KEY, hasAvatar: !!AVATAR_ID },
-        { status: 500 }
+        {
+          error: "Missing required env vars",
+          hasKey: !!HEYGEN_API_KEY,
+          hasAvatar: !!AVATAR_ID,
+          hasVoice: !!VOICE_ID,
+        },
+        { status: 500 },
       );
     }
 
-    const res = await fetch(`${API_URL}/v1/sessions/token`, {
+    const url = `${API_URL}/v1/sessions/token`;
+
+    const upstreamBody = {
+      mode: "FULL",
+      avatar_id: AVATAR_ID,
+      avatar_persona: {
+        voice_id: VOICE_ID || undefined,
+        language: "en",
+        prompt: "You are a helpful assistant.",
+      },
+    };
+
+    const upstreamRes = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-API-KEY": HEYGEN_API_KEY,
       },
-      body: JSON.stringify({
-        mode: "FULL",
-        avatar_id: AVATAR_ID,
-        avatar_persona: {
-          voice_id: VOICE_ID,
-          language: "en",
-          prompt: "You are a helpful assistant.",
-        },
-      }),
+      body: JSON.stringify(upstreamBody),
     });
 
-    const text = await res.text();
+    const raw = await upstreamRes.text();
+    const contentType = upstreamRes.headers.get("content-type") || "";
 
-    // 🚨 GUARANTEE JSON
-    if (!res.ok) {
+    if (!upstreamRes.ok) {
+      console.error("🔥 start-session upstream failed:", upstreamRes.status, raw);
       return NextResponse.json(
         {
-          error: "HeyGen token request failed",
-          status: res.status,
-          body: text || "(empty)",
+          error: "Upstream token request failed",
+          upstreamStatus: upstreamRes.status,
+          upstreamContentType: contentType,
+          upstreamBody: raw || "(empty)",
+          sentPayload: upstreamBody,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    if (!text.trim()) {
+    if (!raw.trim()) {
+      console.error("🔥 start-session upstream returned EMPTY body");
       return NextResponse.json(
-        { error: "HeyGen returned empty response" },
-        { status: 500 }
+        { error: "Upstream returned empty body", upstreamStatus: upstreamRes.status },
+        { status: 500 },
       );
     }
 
-    const data = JSON.parse(text);
+    let upstreamJson: any;
+    try {
+      upstreamJson = JSON.parse(raw);
+    } catch {
+      console.error("🔥 start-session upstream returned non-JSON:", raw);
+      return NextResponse.json(
+        { error: "Upstream returned non-JSON", upstreamBody: raw },
+        { status: 500 },
+      );
+    }
 
-    return NextResponse.json({
-      sessionAccessToken: data.sessionAccessToken || data.access_token,
-      sessionId: data.sessionId || null,
-    });
+    const sessionAccessToken =
+      upstreamJson.sessionAccessToken ||
+      upstreamJson.session_access_token ||
+      upstreamJson.access_token;
 
+    const sessionId = upstreamJson.sessionId || upstreamJson.session_id || null;
+
+    if (!sessionAccessToken) {
+      return NextResponse.json(
+        { error: "Missing sessionAccessToken in upstream response", upstreamJson },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ sessionAccessToken, sessionId });
   } catch (err: any) {
-    // 🚨 ABSOLUTE SAFETY NET
+    console.error("🔥 start-session crashed:", err);
     return NextResponse.json(
-      { error: "start-session crashed", message: err?.message || String(err) },
-      { status: 500 }
+      { error: "start-session crashed", message: err?.message ?? String(err) },
+      { status: 500 },
     );
   }
 }
