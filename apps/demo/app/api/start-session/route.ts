@@ -1,12 +1,31 @@
-console.log("🔥 start-session route file loaded");
-
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+// GET is just a quick probe you can open in the browser to prove the route is alive
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    route: "/api/start-session",
+    method: "GET",
+    time: new Date().toISOString(),
+  });
+}
 
 export async function POST() {
-  console.log("🔥 start-session POST handler entered");
+  // 1) PROBE: if this route is executing, you will ALWAYS get JSON from here.
+  // Temporarily keep this return for 1 test. Then remove it after you confirm.
+  return NextResponse.json({
+    ok: true,
+    route: "/api/start-session",
+    method: "POST",
+    probe: "POST handler reached",
+  });
 
+  // 2) After probe succeeds, comment out the return above and use the code below.
+
+  /*
   try {
     const API_URL = (process.env.API_URL || "https://api.liveavatar.com").replace(/\/$/, "");
     const HEYGEN_API_KEY = (process.env.HEYGEN_API_KEY || "").trim();
@@ -21,7 +40,7 @@ export async function POST() {
           hasAvatar: !!AVATAR_ID,
           hasVoice: !!VOICE_ID,
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -50,7 +69,6 @@ export async function POST() {
     const contentType = upstreamRes.headers.get("content-type") || "";
 
     if (!upstreamRes.ok) {
-      console.error("🔥 start-session upstream failed:", upstreamRes.status, raw);
       return NextResponse.json(
         {
           error: "Upstream token request failed",
@@ -59,15 +77,14 @@ export async function POST() {
           upstreamBody: raw || "(empty)",
           sentPayload: upstreamBody,
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
     if (!raw.trim()) {
-      console.error("🔥 start-session upstream returned EMPTY body");
       return NextResponse.json(
         { error: "Upstream returned empty body", upstreamStatus: upstreamRes.status },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -75,10 +92,9 @@ export async function POST() {
     try {
       upstreamJson = JSON.parse(raw);
     } catch {
-      console.error("🔥 start-session upstream returned non-JSON:", raw);
       return NextResponse.json(
         { error: "Upstream returned non-JSON", upstreamBody: raw },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -87,21 +103,22 @@ export async function POST() {
       upstreamJson.session_access_token ||
       upstreamJson.access_token;
 
-    const sessionId = upstreamJson.sessionId || upstreamJson.session_id || null;
+    const sessionId =
+      upstreamJson.sessionId || upstreamJson.session_id || null;
 
     if (!sessionAccessToken) {
       return NextResponse.json(
         { error: "Missing sessionAccessToken in upstream response", upstreamJson },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
     return NextResponse.json({ sessionAccessToken, sessionId });
   } catch (err: any) {
-    console.error("🔥 start-session crashed:", err);
     return NextResponse.json(
       { error: "start-session crashed", message: err?.message ?? String(err) },
-      { status: 500 },
+      { status: 500 }
     );
   }
+  */
 }
