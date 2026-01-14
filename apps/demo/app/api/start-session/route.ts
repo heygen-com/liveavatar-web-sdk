@@ -16,10 +16,9 @@ export async function GET() {
 
 export async function POST() {
   try {
-    const API_URL = (process.env.API_URL || "https://api.liveavatar.com").replace(
-      /\/$/,
-      "",
-    );
+    const API_URL = (
+      process.env.API_URL || "https://api.liveavatar.com"
+    ).replace(/\/$/, "");
     const HEYGEN_API_KEY = (process.env.HEYGEN_API_KEY || "").trim();
     const AVATAR_ID = (process.env.AVATAR_ID || "").trim();
     const VOICE_ID = (process.env.VOICE_ID || "").trim();
