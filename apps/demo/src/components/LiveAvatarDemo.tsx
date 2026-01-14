@@ -1,9 +1,12 @@
+"use client";
+
 import { useState } from "react";
 import { LiveAvatarSession } from "./LiveAvatarSession";
 
-type StartSessionResponse =
-  | { sessionAccessToken: string; sessionId: string }
-  | { session_token: string; session_id?: string }; // fallback if any route still uses old keys
+type StartSessionApiResponse = {
+  sessionAccessToken: string;
+  sessionId: string;
+};
 
 export const LiveAvatarDemo = () => {
   const [sessionToken, setSessionToken] = useState("");
@@ -18,24 +21,16 @@ export const LiveAvatarDemo = () => {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setError(err?.error || "Failed to start session");
+        setError(err?.error ?? "Failed to start session");
         return;
       }
 
-      const data = (await res.json()) as StartSessionResponse;
+      const data = (await res.json()) as StartSessionApiResponse;
 
-      const token =
-        "sessionAccessToken" in data ? data.sessionAccessToken : data.session_token;
-
-      if (!token) {
-        setError("Missing session token in response");
-        return;
-      }
-
-      setSessionToken(token);
+      setSessionToken(data.sessionAccessToken);
       setMode("FULL");
-    } catch (e: any) {
-      setError(e?.message ?? "Unknown error");
+    } catch (e: unknown) {
+      setError((e as Error)?.message ?? "Unknown error");
     }
   };
 
@@ -47,24 +42,16 @@ export const LiveAvatarDemo = () => {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setError(err?.error || "Failed to start custom session");
+        setError(err?.error ?? "Failed to start custom session");
         return;
       }
 
-      const data = (await res.json()) as StartSessionResponse;
+      const data = (await res.json()) as StartSessionApiResponse;
 
-      const token =
-        "sessionAccessToken" in data ? data.sessionAccessToken : data.session_token;
-
-      if (!token) {
-        setError("Missing session token in response");
-        return;
-      }
-
-      setSessionToken(token);
+      setSessionToken(data.sessionAccessToken);
       setMode("CUSTOM");
-    } catch (e: any) {
-      setError(e?.message ?? "Unknown error");
+    } catch (e: unknown) {
+      setError((e as Error)?.message ?? "Unknown error");
     }
   };
 
