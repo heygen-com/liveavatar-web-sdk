@@ -31,6 +31,8 @@ const LiveAvatarSessionComponent: React.FC<{
   onSessionStopped: () => void;
 }> = ({ mode, onSessionStopped }) => {
   const [message, setMessage] = useState("");
+  const [sttSupported, setSttSupported] = useState(true);
+
   const {
     sessionState,
     isStreamReady,
@@ -40,6 +42,7 @@ const LiveAvatarSessionComponent: React.FC<{
     keepAlive,
     attachElement,
   } = useSession();
+
   const {
     isAvatarTalking,
     isUserTalking,
@@ -52,11 +55,78 @@ const LiveAvatarSessionComponent: React.FC<{
     unmute,
   } = useVoiceChat();
 
-  const { interrupt, repeat, startListening, stopListening } =
-    useAvatarActions();
-
+  const { interrupt, repeat, startListening, stopListening } = useAvatarActions();
   const { sendMessage } = useTextChat(mode);
+
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // ---- Browser STT bridge (Web Speech API) ----
+  const speechRecRef = useRef<any>(null);
+
+  useEffect(() => {
+    const Ctor =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!Ctor) setSttSupported(false);
+  }, []);
+
+  const startBrowserSTT = () => {
+    const Ctor =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!Ctor) {
+      setSttSupported(false);
+      return;
+    }
+
+    // If already running, stop then restart cleanly
+    try {
+      speechRecRef.current?.stop?.();
+    } catch {}
+
+    const rec = new Ctor();
+    speechRecRef.current = rec;
+
+    rec.lang = "en-US"; // change if needed
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onresult = (event: any) => {
+      // send only FINAL transcript chunks (so we don’t spam)
+      let finalText = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result?.isFinal) {
+          finalText += (result[0]?.transcript || "").trim() + " ";
+        }
+      }
+
+      const cleaned = finalText.trim();
+      if (cleaned) {
+        // This is the key: feed transcript into text chat
+        sendMessage(cleaned);
+      }
+    };
+
+    rec.onerror = (e: any) => {
+      // Don’t crash the app on STT errors
+      console.warn("Browser STT error:", e?.error || e);
+    };
+
+    try {
+      rec.start();
+    } catch (e) {
+      console.warn("Browser STT start failed:", e);
+    }
+  };
+
+  const stopBrowserSTT = () => {
+    try {
+      speechRecRef.current?.stop?.();
+    } catch {}
+    speechRecRef.current = null;
+  };
+  // ---- end Browser STT bridge ----
 
   useEffect(() => {
     if (sessionState === SessionState.DISCONNECTED) {
@@ -120,41 +190,58 @@ const LiveAvatarSessionComponent: React.FC<{
         />
         <button
           className="absolute bottom-4 right-4 bg-white text-black px-4 py-2 rounded-md"
-          onClick={() => stopSession()}
+          onClick={() => {
+            stopBrowserSTT();
+            stopSession();
+          }}
         >
           Stop
         </button>
       </div>
+
       <div className="w-full h-full flex flex-col items-center justify-center gap-4">
         <p>Session state: {sessionState}</p>
         <p>Connection quality: {connectionQuality}</p>
+
         {mode === "FULL" && (
           <p>User talking: {isUserTalking ? "true" : "false"}</p>
         )}
+
         <p>Avatar talking: {isAvatarTalking ? "true" : "false"}</p>
+
         {mode === "FULL" && VoiceChatComponents}
-        <Button
-          onClick={() => {
-            keepAlive();
-          }}
-        >
-          Keep Alive
-        </Button>
+
+        {!sttSupported && (
+          <p className="text-yellow-300">
+            Browser speech recognition not supported in this browser.
+            Use Chrome/Chromium.
+          </p>
+        )}
+
+        <Button onClick={() => keepAlive()}>Keep Alive</Button>
+
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
           <Button
             onClick={() => {
+              // Keep existing behavior
               startListening();
+
+              // Add browser STT -> sendMessage(transcript)
+              if (mode === "FULL") startBrowserSTT();
             }}
           >
             Start Listening
           </Button>
+
           <Button
             onClick={() => {
               stopListening();
+              stopBrowserSTT();
             }}
           >
             Stop Listening
           </Button>
+
           <Button
             onClick={() => {
               interrupt();
@@ -163,6 +250,7 @@ const LiveAvatarSessionComponent: React.FC<{
             Interrupt
           </Button>
         </div>
+
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
           <input
             type="text"
@@ -199,10 +287,7 @@ export const LiveAvatarSession: React.FC<{
 }> = ({ mode, sessionAccessToken, onSessionStopped }) => {
   return (
     <LiveAvatarContextProvider sessionAccessToken={sessionAccessToken}>
-      <LiveAvatarSessionComponent
-        mode={mode}
-        onSessionStopped={onSessionStopped}
-      />
+      <LiveAvatarSessionComponent mode={mode} onSessionStopped={onSessionStopped} />
     </LiveAvatarContextProvider>
   );
 };
