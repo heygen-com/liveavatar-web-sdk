@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
@@ -10,6 +11,7 @@ export async function GET() {
     time: new Date().toISOString(),
   });
 }
+
 export async function POST() {
   try {
     const API_URL = (
@@ -33,7 +35,7 @@ export async function POST() {
 
     const url = `${API_URL}/v1/sessions/token`;
 
-    // ✅ CORRECT HeyGen FULL payload
+    // ✅ HeyGen LiveAvatar FULL mode payload
     const upstreamBody = {
       mode: "FULL",
       avatar_id: AVATAR_ID,
@@ -41,6 +43,8 @@ export async function POST() {
         voice_id: VOICE_ID || undefined,
         language: "en",
         prompt: "You are a helpful assistant.",
+        // If your account requires CONTEXT_ID instead of prompt:
+        // context_id: (process.env.CONTEXT_ID || "").trim() || undefined,
       },
     };
 
@@ -73,19 +77,39 @@ export async function POST() {
       return NextResponse.json(
         {
           error: "Upstream returned empty body",
+          upstreamStatus: upstreamRes.status,
+          upstreamContentType: contentType,
+          sentPayload: upstreamBody,
         },
         { status: 500 },
       );
     }
 
-    const upstreamJson = JSON.parse(raw);
+    let upstreamJson: unknown;
+    try {
+      upstreamJson = JSON.parse(raw);
+    } catch {
+      return NextResponse.json(
+        {
+          error: "Upstream returned non-JSON",
+          upstreamStatus: upstreamRes.status,
+          upstreamContentType: contentType,
+          upstreamBody: raw,
+          sentPayload: upstreamBody,
+        },
+        { status: 500 },
+      );
+    }
+
+    const u = upstreamJson as Record<string, unknown>;
 
     const sessionAccessToken =
-      upstreamJson.sessionAccessToken ||
-      upstreamJson.session_access_token ||
-      upstreamJson.access_token;
+      (u["sessionAccessToken"] as string) ||
+      (u["session_access_token"] as string) ||
+      (u["access_token"] as string);
 
-    const sessionId = upstreamJson.sessionId || upstreamJson.session_id || null;
+    const sessionId =
+      (u["sessionId"] as string) || (u["session_id"] as string) || null;
 
     if (!sessionAccessToken) {
       return NextResponse.json(
@@ -98,12 +122,11 @@ export async function POST() {
     }
 
     return NextResponse.json({ sessionAccessToken, sessionId });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+
     return NextResponse.json(
-      {
-        error: "start-session crashed",
-        message: err?.message ?? String(err),
-      },
+      { error: "start-session crashed", message },
       { status: 500 },
     );
   }
