@@ -3,8 +3,15 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function pickEnv(...keys: string[]) {
+  for (const k of keys) {
+    const v = process.env[k];
+    if (v && v.trim()) return v.trim();
+  }
+  return "";
+}
+
 // Simple probe to confirm the route is alive in production:
-// Visit: https://<your-vercel-domain>/api/start-session
 export async function GET() {
   return NextResponse.json({
     ok: true,
@@ -16,39 +23,47 @@ export async function GET() {
 
 export async function POST() {
   try {
-    const API_URL = (
-      process.env.API_URL || "https://api.liveavatar.com"
-    ).replace(/\/$/, "");
-    const HEYGEN_API_KEY = (process.env.HEYGEN_API_KEY || "").trim();
-    const AVATAR_ID = (process.env.AVATAR_ID || "").trim();
-    const VOICE_ID = (process.env.VOICE_ID || "").trim();
+    const API_URL = (pickEnv("API_URL") || "https://api.liveavatar.com").replace(
+      /\/$/,
+      "",
+    );
+    const HEYGEN_API_KEY = pickEnv("HEYGEN_API_KEY");
 
-    if (!HEYGEN_API_KEY || !AVATAR_ID) {
+    // Prefer server env vars, but also allow NEXT_PUBLIC_* as fallback
+    const AVATAR_ID = pickEnv("AVATAR_ID", "NEXT_PUBLIC_AVATAR_ID");
+    const VOICE_ID = pickEnv("VOICE_ID", "NEXT_PUBLIC_VOICE_ID");
+
+    if (!HEYGEN_API_KEY) {
+      return NextResponse.json(
+        { error: "Missing HEYGEN_API_KEY in server environment" },
+        { status: 500 },
+      );
+    }
+
+    if (!AVATAR_ID) {
       return NextResponse.json(
         {
-          error: "Missing required env vars",
-          hasKey: !!HEYGEN_API_KEY,
-          hasAvatar: !!AVATAR_ID,
-          hasVoice: !!VOICE_ID,
+          error:
+            "Missing AVATAR_ID. Set AVATAR_ID in Vercel env vars (Preview + Production).",
         },
-        { status: 500 },
+        { status: 400 },
       );
     }
 
     const url = `${API_URL}/v1/sessions/token`;
 
-    // LiveAvatar FULL mode commonly expects avatar_persona.
-    // If your account requires context_id instead of prompt, add CONTEXT_ID to env vars
-    // and replace prompt with context_id.
+    /**
+     * IMPORTANT:
+     * Your 422 error shows the token endpoint is validating a FULL-mode schema
+     * that does NOT accept avatar_id + avatar_persona.
+     *
+     * This payload matches the other working pattern you used:
+     * camelCase keys: avatarId / voiceId
+     */
     const upstreamBody: any = {
       mode: "FULL",
-      avatar_id: AVATAR_ID,
-      avatar_persona: {
-        voice_id: VOICE_ID || undefined,
-        language: "en",
-        prompt: "You are a helpful assistant.",
-        // context_id: (process.env.CONTEXT_ID || "").trim() || undefined,
-      },
+      avatarId: AVATAR_ID,
+      ...(VOICE_ID ? { voiceId: VOICE_ID } : {}),
     };
 
     const upstreamRes = await fetch(url, {
@@ -61,9 +76,9 @@ export async function POST() {
     });
 
     const raw = await upstreamRes.text();
-    const contentType = upstreamRes.headers.get("content-type") || "";
+    const contentType = upstreamRes.headers.get("content-type") || "unknown";
 
-    // Always return JSON for easier debugging + prevents client JSON parse crashes
+    // Always return JSON so the browser never crashes on res.json()
     if (!upstreamRes.ok) {
       return NextResponse.json(
         {
@@ -89,6 +104,7 @@ export async function POST() {
       );
     }
 
+    // Pass through upstream JSON, but normalize the fields the SDK expects
     let upstreamJson: any;
     try {
       upstreamJson = JSON.parse(raw);
@@ -105,7 +121,6 @@ export async function POST() {
       );
     }
 
-    // Normalize fields (different APIs sometimes return different keys)
     const sessionAccessToken =
       upstreamJson.sessionAccessToken ||
       upstreamJson.session_access_token ||
