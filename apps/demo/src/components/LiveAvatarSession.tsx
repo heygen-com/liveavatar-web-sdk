@@ -55,7 +55,8 @@ const LiveAvatarSessionComponent: React.FC<{
     unmute,
   } = useVoiceChat();
 
-  const { interrupt, repeat, startListening, stopListening } = useAvatarActions();
+  const { interrupt, repeat, startListening, stopListening } =
+    useAvatarActions();
   const { sendMessage } = useTextChat(mode);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -65,13 +66,15 @@ const LiveAvatarSessionComponent: React.FC<{
 
   useEffect(() => {
     const Ctor =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
     if (!Ctor) setSttSupported(false);
   }, []);
 
   const startBrowserSTT = () => {
     const Ctor =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
 
     if (!Ctor) {
       setSttSupported(false);
@@ -200,6 +203,7 @@ const LiveAvatarSessionComponent: React.FC<{
       </div>
 
       <div className="w-full h-full flex flex-col items-center justify-center gap-4">
+        <p style={{ color: "yellow" }}>MODE DEBUG: {mode}</p>
         <p>Session state: {sessionState}</p>
         <p>Connection quality: {connectionQuality}</p>
 
@@ -213,8 +217,8 @@ const LiveAvatarSessionComponent: React.FC<{
 
         {!sttSupported && (
           <p className="text-yellow-300">
-            Browser speech recognition not supported in this browser.
-            Use Chrome/Chromium.
+            Browser speech recognition not supported in this browser. Use
+            Chrome/Chromium.
           </p>
         )}
 
@@ -287,7 +291,10 @@ export const LiveAvatarSession: React.FC<{
 }> = ({ mode, sessionAccessToken, onSessionStopped }) => {
   return (
     <LiveAvatarContextProvider sessionAccessToken={sessionAccessToken}>
-      <LiveAvatarSessionComponent mode={mode} onSessionStopped={onSessionStopped} />
+      <LiveAvatarSessionComponent
+        mode={mode}
+        onSessionStopped={onSessionStopped}
+      />
     </LiveAvatarContextProvider>
   );
 };
