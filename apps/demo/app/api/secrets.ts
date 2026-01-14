@@ -1,9 +1,15 @@
 // apps/demo/app/api/secrets.ts
 
-export const API_URL = (process.env.API_URL || "https://api.liveavatar.com").replace(/\/$/, "");
+export const API_URL = (
+  process.env.API_URL || "https://api.liveavatar.com"
+).replace(/\/$/, "");
 
 // HeyGen / LiveAvatar API key (what you currently store in Vercel as HEYGEN_API_KEY)
-export const API_KEY = (process.env.HEYGEN_API_KEY || process.env.API_KEY || "").trim();
+export const API_KEY = (
+  process.env.HEYGEN_API_KEY ||
+  process.env.API_KEY ||
+  ""
+).trim();
 
 export const AVATAR_ID = (process.env.AVATAR_ID || "").trim();
 export const VOICE_ID = (process.env.VOICE_ID || "").trim();

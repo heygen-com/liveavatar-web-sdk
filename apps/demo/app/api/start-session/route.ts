@@ -5,7 +5,9 @@ export const dynamic = "force-dynamic";
 
 export async function POST() {
   try {
-    const API_URL = (process.env.API_URL || "https://api.liveavatar.com").replace(/\/$/, "");
+    const API_URL = (
+      process.env.API_URL || "https://api.liveavatar.com"
+    ).replace(/\/$/, "");
     const API_KEY = (process.env.HEYGEN_API_KEY || "").trim();
     const AVATAR_ID = (process.env.AVATAR_ID || "").trim();
     const VOICE_ID = (process.env.VOICE_ID || "").trim();
@@ -50,14 +52,23 @@ export async function POST() {
       json = JSON.parse(raw);
     } catch {
       return NextResponse.json(
-        { error: "Upstream did not return JSON", status: upstreamRes.status, raw },
+        {
+          error: "Upstream did not return JSON",
+          status: upstreamRes.status,
+          raw,
+        },
         { status: 502 },
       );
     }
 
     if (!upstreamRes.ok) {
       return NextResponse.json(
-        { error: "Upstream request failed", status: upstreamRes.status, json, sent: upstreamBody },
+        {
+          error: "Upstream request failed",
+          status: upstreamRes.status,
+          json,
+          sent: upstreamBody,
+        },
         { status: 502 },
       );
     }
@@ -68,13 +79,19 @@ export async function POST() {
 
     if (!sessionAccessToken || !sessionId) {
       return NextResponse.json(
-        { error: "Missing session_token or session_id in upstream response", json },
+        {
+          error: "Missing session_token or session_id in upstream response",
+          json,
+        },
         { status: 500 },
       );
     }
 
     return NextResponse.json({ sessionAccessToken, sessionId });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message ?? "Unknown error" },
+      { status: 500 },
+    );
   }
 }
