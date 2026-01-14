@@ -2,15 +2,6 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function pickEnv(...keys: string[]) {
-  for (const k of keys) {
-    const v = process.env[k];
-    if (v && v.trim()) return v.trim();
-  }
-  return "";
-}
-
 export async function GET() {
   return NextResponse.json({
     ok: true,
@@ -19,46 +10,37 @@ export async function GET() {
     time: new Date().toISOString(),
   });
 }
-
 export async function POST() {
   try {
-    const API_URL = (pickEnv("API_URL") || "https://api.liveavatar.com").replace(
-      /\/$/,
-      "",
-    );
-    const HEYGEN_API_KEY = pickEnv("HEYGEN_API_KEY");
-    const AVATAR_ID = pickEnv("AVATAR_ID", "NEXT_PUBLIC_AVATAR_ID");
-    const VOICE_ID = pickEnv("VOICE_ID", "NEXT_PUBLIC_VOICE_ID");
+    const API_URL = (
+      process.env.API_URL || "https://api.liveavatar.com"
+    ).replace(/\/$/, "");
+    const HEYGEN_API_KEY = (process.env.HEYGEN_API_KEY || "").trim();
+    const AVATAR_ID = (process.env.AVATAR_ID || "").trim();
+    const VOICE_ID = (process.env.VOICE_ID || "").trim();
 
-    if (!HEYGEN_API_KEY) {
-      return NextResponse.json(
-        { error: "Missing HEYGEN_API_KEY in server environment" },
-        { status: 500 },
-      );
-    }
-
-    if (!AVATAR_ID) {
+    if (!HEYGEN_API_KEY || !AVATAR_ID) {
       return NextResponse.json(
         {
-          error:
-            "Missing AVATAR_ID. Set AVATAR_ID in Vercel env vars (Preview + Production).",
+          error: "Missing required env vars",
+          hasKey: !!HEYGEN_API_KEY,
+          hasAvatar: !!AVATAR_ID,
+          hasVoice: !!VOICE_ID,
         },
-        { status: 400 },
+        { status: 500 },
       );
     }
 
     const url = `${API_URL}/v1/sessions/token`;
 
-    // Upstream requires: body -> FULL -> avatar_id + avatar_persona
-    const upstreamBody: any = {
+    // ✅ CORRECT HeyGen FULL payload
+    const upstreamBody = {
       mode: "FULL",
-      FULL: {
-        avatar_id: AVATAR_ID,
-        avatar_persona: {
-          ...(VOICE_ID ? { voice_id: VOICE_ID } : {}),
-          language: "en",
-          prompt: "You are a helpful assistant.",
-        },
+      avatar_id: AVATAR_ID,
+      avatar_persona: {
+        voice_id: VOICE_ID || undefined,
+        language: "en",
+        prompt: "You are a helpful assistant.",
       },
     };
 
@@ -83,3 +65,46 @@ export async function POST() {
           upstreamBody: raw || "(empty)",
           sentPayload: upstreamBody,
         },
+        { status: 500 },
+      );
+    }
+
+    if (!raw.trim()) {
+      return NextResponse.json(
+        {
+          error: "Upstream returned empty body",
+        },
+        { status: 500 },
+      );
+    }
+
+    const upstreamJson = JSON.parse(raw);
+
+    const sessionAccessToken =
+      upstreamJson.sessionAccessToken ||
+      upstreamJson.session_access_token ||
+      upstreamJson.access_token;
+
+    const sessionId = upstreamJson.sessionId || upstreamJson.session_id || null;
+
+    if (!sessionAccessToken) {
+      return NextResponse.json(
+        {
+          error: "Missing sessionAccessToken in upstream response",
+          upstreamJson,
+        },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ sessionAccessToken, sessionId });
+  } catch (err: any) {
+    return NextResponse.json(
+      {
+        error: "start-session crashed",
+        message: err?.message ?? String(err),
+      },
+      { status: 500 },
+    );
+  }
+}

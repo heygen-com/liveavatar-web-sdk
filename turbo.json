@@ -1,10 +1,34 @@
 {
-  "$schema": "https://turbo.build/schema.json",
-  "tasks": {
+  "pipeline": {
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "dist/**"],
-      "env": ["API_URL", "HEYGEN_API_KEY", "AVATAR_ID", "VOICE_ID"]
+      "env": [
+        "API_URL",
+        "HEYGEN_API_KEY",
+        "AVATAR_ID",
+        "VOICE_ID",
+        "CONTEXT_ID"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "env": [
+        "API_URL",
+        "HEYGEN_API_KEY",
+        "AVATAR_ID",
+        "VOICE_ID",
+        "CONTEXT_ID"
+      ]
+    },
+    "lint": {
+      "env": [
+        "API_URL",
+        "HEYGEN_API_KEY",
+        "AVATAR_ID",
+        "VOICE_ID",
+        "CONTEXT_ID"
+      ]
     }
   }
 }
