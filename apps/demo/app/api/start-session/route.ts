@@ -27,7 +27,6 @@ export async function POST() {
       "",
     );
     const HEYGEN_API_KEY = pickEnv("HEYGEN_API_KEY");
-
     const AVATAR_ID = pickEnv("AVATAR_ID", "NEXT_PUBLIC_AVATAR_ID");
     const VOICE_ID = pickEnv("VOICE_ID", "NEXT_PUBLIC_VOICE_ID");
 
@@ -50,17 +49,12 @@ export async function POST() {
 
     const url = `${API_URL}/v1/sessions/token`;
 
-    /**
-     * IMPORTANT:
-     * Upstream error says: body -> FULL -> avatar_id / avatar_persona required
-     * So we must send a nested FULL object with snake_case keys.
-     */
+    // Upstream requires: body -> FULL -> avatar_id + avatar_persona
     const upstreamBody: any = {
       mode: "FULL",
       FULL: {
         avatar_id: AVATAR_ID,
         avatar_persona: {
-          // Keep voice_id if you have one; if VOICE_ID is blank, omit it.
           ...(VOICE_ID ? { voice_id: VOICE_ID } : {}),
           language: "en",
           prompt: "You are a helpful assistant.",
@@ -80,7 +74,6 @@ export async function POST() {
     const raw = await upstreamRes.text();
     const contentType = upstreamRes.headers.get("content-type") || "unknown";
 
-    // Always return JSON so the browser never crashes on res.json()
     if (!upstreamRes.ok) {
       return NextResponse.json(
         {
@@ -90,47 +83,3 @@ export async function POST() {
           upstreamBody: raw || "(empty)",
           sentPayload: upstreamBody,
         },
-        { status: 500 },
-      );
-    }
-
-    if (!raw.trim()) {
-      return NextResponse.json(
-        {
-          error: "Upstream returned empty body",
-          upstreamStatus: upstreamRes.status,
-          upstreamContentType: contentType,
-          sentPayload: upstreamBody,
-        },
-        { status: 500 },
-      );
-    }
-
-    let upstreamJson: any;
-    try {
-      upstreamJson = JSON.parse(raw);
-    } catch {
-      return NextResponse.json(
-        {
-          error: "Upstream returned non-JSON",
-          upstreamStatus: upstreamRes.status,
-          upstreamContentType: contentType,
-          upstreamBody: raw,
-          sentPayload: upstreamBody,
-        },
-        { status: 500 },
-      );
-    }
-
-    const sessionAccessToken =
-      upstreamJson.sessionAccessToken ||
-      upstreamJson.session_access_token ||
-      upstreamJson.access_token;
-
-    const sessionId = upstreamJson.sessionId || upstreamJson.session_id || null;
-
-    if (!sessionAccessToken) {
-      return NextResponse.json(
-        {
-          error: "Missing sessionAccessToken in upstream response",
-          upstreamJson,

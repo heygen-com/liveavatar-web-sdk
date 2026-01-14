@@ -1,24 +1,10 @@
 {
-  "$schema": "https://turborepo.com/schema.json",
-  "ui": "tui",
+  "$schema": "https://turbo.build/schema.json",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"]
-    },
-    "lint": {
-      "dependsOn": ["^lint"]
-    },
-    "typecheck": {
-      "dependsOn": ["^build", "^typecheck"]
-    },
-    "dev": {
-      "cache": false,
-      "persistent": true
-    },
-    "test": {
-      "dependsOn": ["^test"]
+      "outputs": [".next/**", "dist/**"],
+      "env": ["API_URL", "HEYGEN_API_KEY", "AVATAR_ID", "VOICE_ID"]
     }
   }
 }
