@@ -11,7 +11,6 @@ function pickEnv(...keys: string[]) {
   return "";
 }
 
-// Simple probe to confirm the route is alive in production:
 export async function GET() {
   return NextResponse.json({
     ok: true,
@@ -29,7 +28,6 @@ export async function POST() {
     );
     const HEYGEN_API_KEY = pickEnv("HEYGEN_API_KEY");
 
-    // Prefer server env vars, but also allow NEXT_PUBLIC_* as fallback
     const AVATAR_ID = pickEnv("AVATAR_ID", "NEXT_PUBLIC_AVATAR_ID");
     const VOICE_ID = pickEnv("VOICE_ID", "NEXT_PUBLIC_VOICE_ID");
 
@@ -54,16 +52,20 @@ export async function POST() {
 
     /**
      * IMPORTANT:
-     * Your 422 error shows the token endpoint is validating a FULL-mode schema
-     * that does NOT accept avatar_id + avatar_persona.
-     *
-     * This payload matches the other working pattern you used:
-     * camelCase keys: avatarId / voiceId
+     * Upstream error says: body -> FULL -> avatar_id / avatar_persona required
+     * So we must send a nested FULL object with snake_case keys.
      */
     const upstreamBody: any = {
       mode: "FULL",
-      avatarId: AVATAR_ID,
-      ...(VOICE_ID ? { voiceId: VOICE_ID } : {}),
+      FULL: {
+        avatar_id: AVATAR_ID,
+        avatar_persona: {
+          // Keep voice_id if you have one; if VOICE_ID is blank, omit it.
+          ...(VOICE_ID ? { voice_id: VOICE_ID } : {}),
+          language: "en",
+          prompt: "You are a helpful assistant.",
+        },
+      },
     };
 
     const upstreamRes = await fetch(url, {
@@ -104,7 +106,6 @@ export async function POST() {
       );
     }
 
-    // Pass through upstream JSON, but normalize the fields the SDK expects
     let upstreamJson: any;
     try {
       upstreamJson = JSON.parse(raw);
@@ -133,16 +134,3 @@ export async function POST() {
         {
           error: "Missing sessionAccessToken in upstream response",
           upstreamJson,
-        },
-        { status: 500 },
-      );
-    }
-
-    return NextResponse.json({ sessionAccessToken, sessionId });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: "start-session crashed", message: err?.message ?? String(err) },
-      { status: 500 },
-    );
-  }
-}
