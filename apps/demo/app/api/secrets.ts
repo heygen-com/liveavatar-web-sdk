@@ -1,13 +1,15 @@
-export const API_KEY = "YOUR_API_KEY";
-export const API_URL = "https://api.liveavatar.com";
-export const AVATAR_ID = "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a";
+// apps/demo/app/api/secrets.ts
 
-// FULL MODE Customizations
-// Wayne's avatar voice and context
-export const VOICE_ID = "c2527536-6d1f-4412-a643-53a3497dada9";
-export const CONTEXT_ID = "5b9dba8a-aa31-11f0-a6ee-066a7fa2e369";
-export const LANGUAGE = "en";
+export const API_URL = (process.env.API_URL || "https://api.liveavatar.com").replace(/\/$/, "");
 
-// CUSTOM MODE Customizations
-export const ELEVENLABS_API_KEY = "YOUR_ELEVENLABS_API_KEY";
-export const OPENAI_API_KEY = "YOUR_OPENAI_API_KEY";
+// HeyGen / LiveAvatar API key (what you currently store in Vercel as HEYGEN_API_KEY)
+export const API_KEY = (process.env.HEYGEN_API_KEY || process.env.API_KEY || "").trim();
+
+export const AVATAR_ID = (process.env.AVATAR_ID || "").trim();
+export const VOICE_ID = (process.env.VOICE_ID || "").trim();
+export const CONTEXT_ID = (process.env.CONTEXT_ID || "").trim();
+export const LANGUAGE = (process.env.LANGUAGE || "en").trim();
+
+// Optional
+export const ELEVENLABS_API_KEY = (process.env.ELEVENLABS_API_KEY || "").trim();
+export const OPENAI_API_KEY = (process.env.OPENAI_API_KEY || "").trim();
