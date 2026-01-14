@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { LiveAvatarSession } from "./LiveAvatarSession";
 
+type StartSessionResponse =
+  | { sessionAccessToken: string; sessionId: string }
+  | { session_token: string; session_id?: string }; // fallback if any route still uses old keys
+
 export const LiveAvatarDemo = () => {
   const [sessionToken, setSessionToken] = useState("");
   const [mode, setMode] = useState<"FULL" | "CUSTOM">("FULL");
@@ -8,47 +12,59 @@ export const LiveAvatarDemo = () => {
 
   const handleStart = async () => {
     try {
-      const res = await fetch("/api/start-session", {
-        method: "POST",
-      });
+      setError(null);
+
+      const res = await fetch("/api/start-session", { method: "POST" });
 
       if (!res.ok) {
-        const error = await res.json();
-        setError(error.error);
+        const err = await res.json().catch(() => ({}));
+        setError(err?.error || "Failed to start session");
         return;
       }
 
-      // ✅ FIX: backend returns sessionAccessToken, NOT session_token
-      const { sessionAccessToken } = await res.json();
+      const data = (await res.json()) as StartSessionResponse;
 
-      setSessionToken(sessionAccessToken);
+      const token =
+        "sessionAccessToken" in data ? data.sessionAccessToken : data.session_token;
+
+      if (!token) {
+        setError("Missing session token in response");
+        return;
+      }
+
+      setSessionToken(token);
       setMode("FULL");
-      setError(null);
-    } catch (error: unknown) {
-      setError((error as Error).message);
+    } catch (e: any) {
+      setError(e?.message ?? "Unknown error");
     }
   };
 
   const handleStartCustom = async () => {
     try {
-      const res = await fetch("/api/start-custom-session", {
-        method: "POST",
-      });
+      setError(null);
+
+      const res = await fetch("/api/start-custom-session", { method: "POST" });
 
       if (!res.ok) {
-        const error = await res.json();
-        setError(error.error);
+        const err = await res.json().catch(() => ({}));
+        setError(err?.error || "Failed to start custom session");
         return;
       }
 
-      // ✅ Same fix for custom mode
-      const { sessionAccessToken } = await res.json();
+      const data = (await res.json()) as StartSessionResponse;
 
-      setSessionToken(sessionAccessToken);
+      const token =
+        "sessionAccessToken" in data ? data.sessionAccessToken : data.session_token;
+
+      if (!token) {
+        setError("Missing session token in response");
+        return;
+      }
+
+      setSessionToken(token);
       setMode("CUSTOM");
-      setError(null);
-    } catch (error: unknown) {
-      setError((error as Error).message);
+    } catch (e: any) {
+      setError(e?.message ?? "Unknown error");
     }
   };
 
