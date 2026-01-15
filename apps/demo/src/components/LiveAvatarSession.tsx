@@ -71,6 +71,7 @@ const LiveAvatarSessionComponent: React.FC<{
           autoPlay
           playsInline
           className="max-w-full max-h-full object-contain"
+          style={{ maxWidth: '1080px' }}
         />
       </div>
       <div className="flex flex-col items-center justify-center gap-4 p-6 bg-black">
