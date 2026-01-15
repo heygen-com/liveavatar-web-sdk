@@ -65,12 +65,12 @@ const LiveAvatarSessionComponent: React.FC<{
 
   return (
     <div className="w-screen h-screen flex flex-col bg-black">
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden flex items-center justify-center">
         <video
           ref={videoRef}
           autoPlay
           playsInline
-          className="w-full h-full object-cover"
+          className="max-w-full max-h-full object-contain"
         />
       </div>
       <div className="flex flex-col items-center justify-center gap-4 p-6 bg-black">
