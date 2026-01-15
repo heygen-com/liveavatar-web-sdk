@@ -275,13 +275,22 @@ const LiveAvatarSessionComponent: React.FC<{
             className="w-[400px] bg-white text-black px-4 py-2 rounded-md"
           />
           <Button
-            onClick={() => {
-              sendMessage(message);
-              setMessage("");
-            }}
-          >
-            Send
-          </Button>
+  onClick={() => {
+    const cleaned = message.trim();
+    if (!cleaned) return;
+
+    if (mode === "FULL") {
+      sessionRef.current?.message(cleaned);
+    } else {
+      sendMessage(cleaned);
+    }
+
+    setMessage("");
+  }}
+>
+  Send
+</Button>
+
           <Button
             onClick={() => {
               repeat(message);
