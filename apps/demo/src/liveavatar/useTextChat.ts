@@ -6,6 +6,10 @@ export const useTextChat = (mode: "FULL" | "CUSTOM") => {
 
   const sendMessage = useCallback(
     async (message: string) => {
+      // FULL mode (no OpenAI): send user text directly to HeyGen
+      if (mode === "FULL") {
+        return sessionRef.current?.message(message);
+      }
       // Always get the AI response first (for BOTH modes)
       const llmRes = await fetch("/api/openai-chat-complete", {
         method: "POST",
@@ -24,11 +28,6 @@ export const useTextChat = (mode: "FULL" | "CUSTOM") => {
 
       if (!chatResponseText) {
         throw new Error("openai-chat-complete returned empty response");
-      }
-
-      // FULL mode: make avatar speak the AI response using HeyGen TTS
-      if (mode === "FULL") {
-        return sessionRef.current.message(chatResponseText);
       }
 
       // CUSTOM mode: ElevenLabs TTS -> repeatAudio (same behavior you had)

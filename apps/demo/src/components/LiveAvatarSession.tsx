@@ -7,6 +7,7 @@ import {
   useTextChat,
   useVoiceChat,
 } from "../liveavatar";
+import { useLiveAvatarContext } from "../liveavatar/context";
 import { SessionState } from "@heygen/liveavatar-web-sdk";
 import { useAvatarActions } from "../liveavatar/useAvatarActions";
 
@@ -57,7 +58,12 @@ const LiveAvatarSessionComponent: React.FC<{
 
   const { interrupt, repeat, startListening, stopListening } =
     useAvatarActions();
+
+  // Text chat hook (FULL will now bypass OpenAI based on your earlier change)
   const { sendMessage } = useTextChat(mode);
+
+  // ✅ Get the live session ref so we can send transcripts directly in FULL mode
+  const { sessionRef } = useLiveAvatarContext();
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -106,8 +112,14 @@ const LiveAvatarSessionComponent: React.FC<{
 
       const cleaned = finalText.trim();
       if (cleaned) {
-        // This is the key: feed transcript into text chat
-        sendMessage(cleaned);
+        // ✅ KEY FIX:
+        // FULL mode = send transcript straight to HeyGen (no OpenAI)
+        // CUSTOM mode = keep existing pipeline (sendMessage)
+        if (mode === "FULL") {
+          sessionRef.current?.message(cleaned);
+        } else {
+          sendMessage(cleaned);
+        }
       }
     };
 
@@ -230,7 +242,7 @@ const LiveAvatarSessionComponent: React.FC<{
               // Keep existing behavior
               startListening();
 
-              // Add browser STT -> sendMessage(transcript)
+              // Start browser STT only in FULL mode
               if (mode === "FULL") startBrowserSTT();
             }}
           >

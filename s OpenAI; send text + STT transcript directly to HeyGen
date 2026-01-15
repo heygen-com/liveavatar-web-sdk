@@ -1,0 +1,83 @@
+warning: in the working copy of 'apps/demo/src/components/LiveAvatarSession.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/demo/src/liveavatar/useTextChat.ts', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/apps/demo/src/components/LiveAvatarSession.tsx b/apps/demo/src/components/LiveAvatarSession.tsx[m
+[1mindex a5aa966..fcca761 100644[m
+[1m--- a/apps/demo/src/components/LiveAvatarSession.tsx[m
+[1m+++ b/apps/demo/src/components/LiveAvatarSession.tsx[m
+[36m@@ -7,6 +7,7 @@[m [mimport {[m
+   useTextChat,[m
+   useVoiceChat,[m
+ } from "../liveavatar";[m
+[32m+[m[32mimport { useLiveAvatarContext } from "../liveavatar/context";[m
+ import { SessionState } from "@heygen/liveavatar-web-sdk";[m
+ import { useAvatarActions } from "../liveavatar/useAvatarActions";[m
+ [m
+[36m@@ -57,8 +58,13 @@[m [mconst LiveAvatarSessionComponent: React.FC<{[m
+ [m
+   const { interrupt, repeat, startListening, stopListening } =[m
+     useAvatarActions();[m
+[32m+[m
+[32m+[m[32m  // Text chat hook (FULL will now bypass OpenAI based on your earlier change)[m
+   const { sendMessage } = useTextChat(mode);[m
+ [m
+[32m+[m[32m  // ✅ Get the live session ref so we can send transcripts directly in FULL mode[m
+[32m+[m[32m  const { sessionRef } = useLiveAvatarContext();[m
+[32m+[m
+   const videoRef = useRef<HTMLVideoElement>(null);[m
+ [m
+   // ---- Browser STT bridge (Web Speech API) ----[m
+[36m@@ -106,8 +112,14 @@[m [mconst LiveAvatarSessionComponent: React.FC<{[m
+ [m
+       const cleaned = finalText.trim();[m
+       if (cleaned) {[m
+[31m-        // This is the key: feed transcript into text chat[m
+[31m-        sendMessage(cleaned);[m
+[32m+[m[32m        // ✅ KEY FIX:[m
+[32m+[m[32m        // FULL mode = send transcript straight to HeyGen (no OpenAI)[m
+[32m+[m[32m        // CUSTOM mode = keep existing pipeline (sendMessage)[m
+[32m+[m[32m        if (mode === "FULL") {[m
+[32m+[m[32m          sessionRef.current?.message(cleaned);[m
+[32m+[m[32m        } else {[m
+[32m+[m[32m          sendMessage(cleaned);[m
+[32m+[m[32m        }[m
+       }[m
+     };[m
+ [m
+[36m@@ -230,7 +242,7 @@[m [mconst LiveAvatarSessionComponent: React.FC<{[m
+               // Keep existing behavior[m
+               startListening();[m
+ [m
+[31m-              // Add browser STT -> sendMessage(transcript)[m
+[32m+[m[32m              // Start browser STT only in FULL mode[m
+               if (mode === "FULL") startBrowserSTT();[m
+             }}[m
+           >[m
+[1mdiff --git a/apps/demo/src/liveavatar/useTextChat.ts b/apps/demo/src/liveavatar/useTextChat.ts[m
+[1mindex 8bc6ba0..abd2007 100644[m
+[1m--- a/apps/demo/src/liveavatar/useTextChat.ts[m
+[1m+++ b/apps/demo/src/liveavatar/useTextChat.ts[m
+[36m@@ -6,6 +6,10 @@[m [mexport const useTextChat = (mode: "FULL" | "CUSTOM") => {[m
+ [m
+   const sendMessage = useCallback([m
+     async (message: string) => {[m
+[32m+[m[32m          // FULL mode (no OpenAI): send user text directly to HeyGen[m
+[32m+[m[32m    if (mode === "FULL") {[m
+[32m+[m[32m      return sessionRef.current?.message(message);[m
+[32m+[m[32m    }[m
+       // Always get the AI response first (for BOTH modes)[m
+       const llmRes = await fetch("/api/openai-chat-complete", {[m
+         method: "POST",[m
+[36m@@ -25,12 +29,7 @@[m [mexport const useTextChat = (mode: "FULL" | "CUSTOM") => {[m
+       if (!chatResponseText) {[m
+         throw new Error("openai-chat-complete returned empty response");[m
+       }[m
+[31m-[m
+[31m-      // FULL mode: make avatar speak the AI response using HeyGen TTS[m
+[31m-      if (mode === "FULL") {[m
+[31m-        return sessionRef.current.message(chatResponseText);[m
+[31m-      }[m
+[31m-[m
+[32m+[m[41m      [m
+       // CUSTOM mode: ElevenLabs TTS -> repeatAudio (same behavior you had)[m
+       if (mode === "CUSTOM") {[m
+         const ttsRes = await fetch("/api/elevenlabs-text-to-speech", {[m
