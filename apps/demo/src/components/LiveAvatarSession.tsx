@@ -44,18 +44,18 @@ const LiveAvatarSessionComponent: React.FC<{
     attachElement,
   } = useSession();
 
-  // Voice Chat disabled (we use Browser STT + sessionRef.message in FULL)
-  const isAvatarTalking = false;
-  const isUserTalking = false;
-  const isMuted = false;
-  const isActive = false;
-  const isLoading = false;
-  const start = async () => {};
-  const stop = async () => {};
-  const mute = async () => {};
-  const unmute = async () => {};
+  const {
+  isAvatarTalking,
+  isUserTalking,
+  isMuted,
+  isActive,
+  isLoading,
+  start,
+  stop,
+  mute,
+  unmute,
+} = useVoiceChat();
 
-  const { interrupt, repeat } = useAvatarActions();
 
   // Text chat hook (FULL will now bypass OpenAI based on your earlier change)
   const { sendMessage } = useTextChat(mode);
