@@ -234,19 +234,21 @@ const LiveAvatarSessionComponent: React.FC<{
 
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
           <Button
-            onClick={() => {
-              start();
-              if (mode === "CUSTOM") startBrowserSTT();
-            }}
+           onClick={() => {
+  if (mode === "FULL") start();
+  if (mode === "CUSTOM") startBrowserSTT();
+}}
+
           >
             Start Listening
           </Button>
 
           <Button
-            onClick={() => {
-              stopListening();
-              if (mode === "CUSTOM") stopBrowserSTT();
-            }}
+           onClick={() => {
+  if (mode === "FULL") stop();
+  if (mode === "CUSTOM") stopBrowserSTT();
+}}
+
           >
             Stop Listening
           </Button>
