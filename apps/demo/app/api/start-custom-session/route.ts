@@ -14,14 +14,19 @@ export async function POST() {
       { status: 500 },
     );
   }
-
+if (!process.env.AVATAR_ID) {
+  return NextResponse.json(
+    { error: "Missing AVATAR_ID" },
+    { status: 500 }
+  );
+}
   const url = `${API_URL.replace(/\/$/, "")}/v1/sessions/token`;
 
   const upstreamBody = {
-    mode: "CUSTOM",
-    avatar_id: process.env.AVATAR_ID,      // required
-  // voice_id: process.env.VOICE_ID,     // optional if your setup uses it
-  };
+  mode: "CUSTOM",
+  avatar_id: (process.env.AVATAR_ID || "").trim(),
+  is_sandbox: false,
+};
 
   const res = await fetch(url, {
     method: "POST",
