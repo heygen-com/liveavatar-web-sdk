@@ -32,6 +32,12 @@ export async function POST() {
       avatar_persona: {
         language: "en",
         voice_id: VOICE_ID || undefined,
+        avatar_persona: {
+  language: "en",
+  voice_id: VOICE_ID || undefined,
+  prompt: "You are a friendly and helpful AI assistant. Respond conversationally to the user's questions and comments. Keep responses concise and natural.",
+  ...(CONTEXT_ID ? { context_id: CONTEXT_ID } : {}),
+},
         context_id: CONTEXT_ID || undefined,
       },
     };

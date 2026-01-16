@@ -33,7 +33,7 @@ const LiveAvatarSessionComponent: React.FC<{
 }> = ({ mode, onSessionStopped }) => {
   const [message, setMessage] = useState("");
   const [sttSupported, setSttSupported] = useState(true);
-
+  const { sessionRef } = useLiveAvatarContext();
   const {
     sessionState,
     isStreamReady,
@@ -63,8 +63,6 @@ const LiveAvatarSessionComponent: React.FC<{
   const { sendMessage } = useTextChat(mode);
 
   // ✅ Get the live session ref so we can send transcripts directly in FULL mode
-  const { sessionRef } = useLiveAvatarContext();
-
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // ---- Browser STT bridge (Web Speech API) ----
@@ -150,34 +148,38 @@ const LiveAvatarSessionComponent: React.FC<{
   }, [sessionState, onSessionStopped]);
 
   useEffect(() => {
-    if (isStreamReady && videoRef.current) {
-      attachElement(videoRef.current);
-    }
-  }, [attachElement, isStreamReady]);
+  if (isStreamReady && videoRef.current) {
+    attachElement(videoRef.current);
+  }
+}, [attachElement, isStreamReady]);
 
-  useEffect(() => {
-    if (sessionState === SessionState.INACTIVE) {
-      startSession();
-    }
-  }, [startSession, sessionState]);
+useEffect(() => {
+  if (sessionState === SessionState.INACTIVE) {
+    startSession();
+  }
+}, [sessionState, startSession]);
+
 
   const VoiceChatComponents = (
     <>
       <p>Voice Chat Active: {isActive ? "true" : "false"}</p>
       <p>Voice Chat Loading: {isLoading ? "true" : "false"}</p>
       {isActive && <p>Muted: {isMuted ? "true" : "false"}</p>}
-      <Button
-        onClick={() => {
-          if (isActive) {
-            stop();
-          } else {
-            start();
-          }
-        }}
-        disabled={isLoading}
-      >
-        {isActive ? "Stop Voice Chat" : "Start Voice Chat"}
-      </Button>
+     <Button
+  onClick={() => {
+    if (isActive) {
+      stop();   // ONLY stop HeyGen voice chat
+    } else {
+      start();  // ONLY start HeyGen voice chat
+    }
+  }}
+  disabled={isLoading}
+>
+  {isActive ? "Stop Voice Chat" : "Start Voice Chat"}
+</Button>
+
+
+
       {isActive && (
         <Button
           onClick={() => {
@@ -238,25 +240,24 @@ const LiveAvatarSessionComponent: React.FC<{
 
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
           <Button
-            onClick={() => {
-              // Keep existing behavior
-              startListening();
+  onClick={() => {
+   startListening();
+if (mode === "CUSTOM") startBrowserSTT();
+  }}
+>
+  Start Listening
+</Button>
 
-              // Start browser STT only in FULL mode
-              if (mode === "FULL") startBrowserSTT();
-            }}
-          >
-            Start Listening
-          </Button>
+<Button
+  onClick={() => {
+   stopListening();
+if (mode === "CUSTOM") stopBrowserSTT();
+  }}
+>
+  Stop Listening
+</Button>
 
-          <Button
-            onClick={() => {
-              stopListening();
-              stopBrowserSTT();
-            }}
-          >
-            Stop Listening
-          </Button>
+
 
           <Button
             onClick={() => {

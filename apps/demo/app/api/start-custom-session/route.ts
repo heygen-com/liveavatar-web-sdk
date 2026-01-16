@@ -19,6 +19,8 @@ export async function POST() {
 
   const upstreamBody = {
     mode: "CUSTOM",
+    avatar_id: process.env.AVATAR_ID,      // required
+  // voice_id: process.env.VOICE_ID,     // optional if your setup uses it
   };
 
   const res = await fetch(url, {
@@ -51,17 +53,9 @@ export async function POST() {
     );
   }
 
-  try {
-    return NextResponse.json(JSON.parse(raw));
-  } catch {
-    return NextResponse.json(
-      {
-        error: "Upstream returned non-JSON",
-        status: res.status,
-        contentType,
-        raw,
-      },
-      { status: 500 },
-    );
-  }
-}
+ const json = JSON.parse(raw);
+
+return NextResponse.json({
+  sessionAccessToken: json.data.session_token,
+  sessionId: json.data.session_id,
+});
