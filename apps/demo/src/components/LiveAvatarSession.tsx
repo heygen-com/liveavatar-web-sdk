@@ -58,6 +58,7 @@ const LiveAvatarSessionComponent: React.FC<{
 
   // Text chat hook (FULL will now bypass OpenAI based on your earlier change)
   const { sendMessage } = useTextChat(mode);
+  const { interrupt, repeat } = useAvatarActions();
 
   // ✅ Get the live session ref so we can send transcripts directly in FULL mode
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -202,7 +203,8 @@ const LiveAvatarSessionComponent: React.FC<{
         <button
           className="absolute bottom-4 right-4 bg-white text-black px-4 py-2 rounded-md"
           onClick={() => {
-            stopBrowserSTT();
+            if (mode === "CUSTOM") stopBrowserSTT();
+            if (mode === "FULL") stop();
             stopSession();
           }}
         >
@@ -234,21 +236,19 @@ const LiveAvatarSessionComponent: React.FC<{
 
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
           <Button
-           onClick={() => {
-  if (mode === "FULL") start();
-  if (mode === "CUSTOM") startBrowserSTT();
-}}
-
+            onClick={() => {
+              if (mode === "FULL") start();
+              if (mode === "CUSTOM") startBrowserSTT();
+            }}
           >
             Start Listening
           </Button>
 
           <Button
-           onClick={() => {
-  if (mode === "FULL") stop();
-  if (mode === "CUSTOM") stopBrowserSTT();
-}}
-
+            onClick={() => {
+              if (mode === "FULL") stop();
+              if (mode === "CUSTOM") stopBrowserSTT();
+            }}
           >
             Stop Listening
           </Button>

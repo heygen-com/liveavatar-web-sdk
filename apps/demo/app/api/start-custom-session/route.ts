@@ -14,19 +14,16 @@ export async function POST() {
       { status: 500 },
     );
   }
-if (!process.env.AVATAR_ID) {
-  return NextResponse.json(
-    { error: "Missing AVATAR_ID" },
-    { status: 500 }
-  );
-}
+  if (!process.env.AVATAR_ID) {
+    return NextResponse.json({ error: "Missing AVATAR_ID" }, { status: 500 });
+  }
   const url = `${API_URL.replace(/\/$/, "")}/v1/sessions/token`;
 
   const upstreamBody = {
-  mode: "CUSTOM",
-  avatar_id: (process.env.AVATAR_ID || "").trim(),
-  is_sandbox: false,
-};
+    mode: "CUSTOM",
+    avatar_id: (process.env.AVATAR_ID || "").trim(),
+    is_sandbox: false,
+  };
 
   const res = await fetch(url, {
     method: "POST",
@@ -58,10 +55,10 @@ if (!process.env.AVATAR_ID) {
     );
   }
 
- const json = JSON.parse(raw);
+  const json = JSON.parse(raw);
 
-return NextResponse.json({
-  sessionAccessToken: json.data.session_token,
-  sessionId: json.data.session_id,
-});
+  return NextResponse.json({
+    sessionAccessToken: json.data.session_token,
+    sessionId: json.data.session_id,
+  });
 }
