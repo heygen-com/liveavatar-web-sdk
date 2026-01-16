@@ -59,3 +59,4 @@ return NextResponse.json({
   sessionAccessToken: json.data.session_token,
   sessionId: json.data.session_id,
 });
+}

@@ -25,22 +25,17 @@ export async function POST() {
     }
 
     // IMPORTANT: include mode (discriminator) + expected shape
-    const upstreamBody = {
-      mode: "FULL",
-      avatar_id: AVATAR_ID,
-      is_sandbox: false,
-      avatar_persona: {
-        language: "en",
-        voice_id: VOICE_ID || undefined,
-        avatar_persona: {
-  language: "en",
-  voice_id: VOICE_ID || undefined,
-  prompt: "You are a friendly and helpful AI assistant. Respond conversationally to the user's questions and comments. Keep responses concise and natural.",
-  ...(CONTEXT_ID ? { context_id: CONTEXT_ID } : {}),
-},
-        context_id: CONTEXT_ID || undefined,
-      },
-    };
+   const upstreamBody = {
+  mode: "FULL",
+  avatar_id: AVATAR_ID,
+  is_sandbox: false,
+  avatar_persona: {
+    language: "en",
+    voice_id: VOICE_ID || undefined,
+    prompt: "You are a friendly and helpful AI assistant. Respond conversationally to the user's questions and comments. Keep responses concise and natural.",
+    ...(CONTEXT_ID ? { context_id: CONTEXT_ID } : {}),
+  },
+};
 
     const upstreamRes = await fetch(`${API_URL}/v1/sessions/token`, {
       method: "POST",
