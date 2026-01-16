@@ -45,17 +45,16 @@ const LiveAvatarSessionComponent: React.FC<{
   } = useSession();
 
   const {
-  isAvatarTalking,
-  isUserTalking,
-  isMuted,
-  isActive,
-  isLoading,
-  start,
-  stop,
-  mute,
-  unmute,
-} = useVoiceChat();
-
+    isAvatarTalking,
+    isUserTalking,
+    isMuted,
+    isActive,
+    isLoading,
+    start,
+    stop,
+    mute,
+    unmute,
+  } = useVoiceChat();
 
   // Text chat hook (FULL will now bypass OpenAI based on your earlier change)
   const { sendMessage } = useTextChat(mode);
@@ -236,7 +235,7 @@ const LiveAvatarSessionComponent: React.FC<{
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
           <Button
             onClick={() => {
-              startListening();
+              start();
               if (mode === "CUSTOM") startBrowserSTT();
             }}
           >
