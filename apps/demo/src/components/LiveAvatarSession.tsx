@@ -44,20 +44,18 @@ const LiveAvatarSessionComponent: React.FC<{
     attachElement,
   } = useSession();
 
-  const {
-    isAvatarTalking,
-    isUserTalking,
-    isMuted,
-    isActive,
-    isLoading,
-    start,
-    stop,
-    mute,
-    unmute,
-  } = useVoiceChat();
+  // Voice Chat disabled (we use Browser STT + sessionRef.message in FULL)
+  const isAvatarTalking = false;
+  const isUserTalking = false;
+  const isMuted = false;
+  const isActive = false;
+  const isLoading = false;
+  const start = async () => {};
+  const stop = async () => {};
+  const mute = async () => {};
+  const unmute = async () => {};
 
-  const { interrupt, repeat, startListening, stopListening } =
-    useAvatarActions();
+  const { interrupt, repeat } = useAvatarActions();
 
   // Text chat hook (FULL will now bypass OpenAI based on your earlier change)
   const { sendMessage } = useTextChat(mode);
@@ -148,37 +146,34 @@ const LiveAvatarSessionComponent: React.FC<{
   }, [sessionState, onSessionStopped]);
 
   useEffect(() => {
-  if (isStreamReady && videoRef.current) {
-    attachElement(videoRef.current);
-  }
-}, [attachElement, isStreamReady]);
+    if (isStreamReady && videoRef.current) {
+      attachElement(videoRef.current);
+    }
+  }, [attachElement, isStreamReady]);
 
-useEffect(() => {
-  if (sessionState === SessionState.INACTIVE) {
-    startSession();
-  }
-}, [sessionState, startSession]);
-
+  useEffect(() => {
+    if (sessionState === SessionState.INACTIVE) {
+      startSession();
+    }
+  }, [sessionState, startSession]);
 
   const VoiceChatComponents = (
     <>
       <p>Voice Chat Active: {isActive ? "true" : "false"}</p>
       <p>Voice Chat Loading: {isLoading ? "true" : "false"}</p>
       {isActive && <p>Muted: {isMuted ? "true" : "false"}</p>}
-     <Button
-  onClick={() => {
-    if (isActive) {
-      stop();   // ONLY stop HeyGen voice chat
-    } else {
-      start();  // ONLY start HeyGen voice chat
-    }
-  }}
-  disabled={isLoading}
->
-  {isActive ? "Stop Voice Chat" : "Start Voice Chat"}
-</Button>
-
-
+      <Button
+        onClick={() => {
+          if (isActive) {
+            stop(); // ONLY stop HeyGen voice chat
+          } else {
+            start(); // ONLY start HeyGen voice chat
+          }
+        }}
+        disabled={isLoading}
+      >
+        {isActive ? "Stop Voice Chat" : "Start Voice Chat"}
+      </Button>
 
       {isActive && (
         <Button
@@ -240,24 +235,22 @@ useEffect(() => {
 
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
           <Button
-  onClick={() => {
-   startListening();
-if (mode === "CUSTOM") startBrowserSTT();
-  }}
->
-  Start Listening
-</Button>
+            onClick={() => {
+              startListening();
+              if (mode === "CUSTOM") startBrowserSTT();
+            }}
+          >
+            Start Listening
+          </Button>
 
-<Button
-  onClick={() => {
-   stopListening();
-if (mode === "CUSTOM") stopBrowserSTT();
-  }}
->
-  Stop Listening
-</Button>
-
-
+          <Button
+            onClick={() => {
+              stopListening();
+              if (mode === "CUSTOM") stopBrowserSTT();
+            }}
+          >
+            Stop Listening
+          </Button>
 
           <Button
             onClick={() => {
@@ -276,21 +269,21 @@ if (mode === "CUSTOM") stopBrowserSTT();
             className="w-[400px] bg-white text-black px-4 py-2 rounded-md"
           />
           <Button
-  onClick={() => {
-    const cleaned = message.trim();
-    if (!cleaned) return;
+            onClick={() => {
+              const cleaned = message.trim();
+              if (!cleaned) return;
 
-    if (mode === "FULL") {
-      sessionRef.current?.message(cleaned);
-    } else {
-      sendMessage(cleaned);
-    }
+              if (mode === "FULL") {
+                sessionRef.current?.message(cleaned);
+              } else {
+                sendMessage(cleaned);
+              }
 
-    setMessage("");
-  }}
->
-  Send
-</Button>
+              setMessage("");
+            }}
+          >
+            Send
+          </Button>
 
           <Button
             onClick={() => {
