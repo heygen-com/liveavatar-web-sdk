@@ -36,7 +36,6 @@ export const useTextChat = (mode: "FULL" | "CUSTOM") => {
         return;
       }
 
-
       // Should never hit, but keeps TS happy if mode expands later
       throw new Error(`Unsupported mode: ${mode}`);
     },
