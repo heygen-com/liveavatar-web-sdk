@@ -30,29 +30,12 @@ export const useTextChat = (mode: "FULL" | "CUSTOM") => {
         throw new Error("openai-chat-complete returned empty response");
       }
 
-      // CUSTOM mode: ElevenLabs TTS -> repeatAudio (same behavior you had)
+      // CUSTOM mode: send the OpenAI reply to HeyGen using repeat()
       if (mode === "CUSTOM") {
-        const ttsRes = await fetch("/api/elevenlabs-text-to-speech", {
-          method: "POST",
-          body: JSON.stringify({ text: chatResponseText }),
-        });
-
-        if (!ttsRes.ok) {
-          const errText = await ttsRes.text();
-          throw new Error(
-            `elevenlabs-text-to-speech failed (${ttsRes.status}): ${errText}`,
-          );
-        }
-
-        const ttsJson = await ttsRes.json();
-        const audio: string = ttsJson?.audio ?? "";
-
-        if (!audio) {
-          throw new Error("elevenlabs-text-to-speech returned empty audio");
-        }
-
-        return sessionRef.current.repeatAudio(audio);
+        await sessionRef.current.repeat(chatResponseText);
+        return;
       }
+
 
       // Should never hit, but keeps TS happy if mode expands later
       throw new Error(`Unsupported mode: ${mode}`);
