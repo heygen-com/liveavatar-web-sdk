@@ -591,11 +591,18 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
           }),
         );
         return;
-      default:
-        console.warn("Unsupported command event type:", event_type);
-        break;
-    }
-  }
+      
+      case CommandEventsEnum.AVATAR_SPEAK_TEXT: {
+  // Server may send this as a status/info event.
+  // We don't need to handle it for audio playback, but it shouldn't warn.
+  return;
+}
+
+default: {
+  console.warn("Unsupported command event type:", event_type);
+  return;
+}
+
 
   private assertConnected(): boolean {
     if (this.state !== SessionState.CONNECTED) {
