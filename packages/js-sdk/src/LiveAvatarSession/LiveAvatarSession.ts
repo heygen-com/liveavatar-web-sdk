@@ -501,14 +501,19 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     }
 
     const event_type = commandEvent.event_type;
-    const event_id = this.generateEventId();
+    // Block deprecated speak_text command (both enum + raw string)
+if (
+  event_type === CommandEventsEnum.AVATAR_SPEAK_TEXT ||
+  (event_type as unknown as string) === "avatar.speak_text"
 
-    switch (event_type) {
-      case CommandEventsEnum.AVATAR_SPEAK_TEXT: {
-        // Ignore (or handle elsewhere). Prevents noisy console warning.
-        return;
-      }
+) {
+  return;
+}
 
+  const event_id = this.generateEventId();
+
+switch (event_type) {
+  
       case CommandEventsEnum.AVATAR_SPEAK_AUDIO: {
         const audioChunks = splitPcm24kStringToChunks(commandEvent.audio);
         for (const audioChunk of audioChunks) {
