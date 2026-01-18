@@ -504,7 +504,52 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     const event_id = this.generateEventId();
     let audioChunks: string[] = [];
     switch (event_type) {
-      case CommandEventsEnum.AVATAR_SPEAK_AUDIO:
+
+  case CommandEventsEnum.AVATAR_SPEAK_TEXT: {
+    this._sessionEventSocket.send(
+      JSON.stringify({
+        type: "agent.speak",
+        event_id,
+        text: commandEvent.text,
+      })
+    );
+
+    this._sessionEventSocket.send(
+      JSON.stringify({
+        type: "agent.speak_end",
+        event_id,
+      })
+    );
+
+    return;
+  }
+
+  case CommandEventsEnum.AVATAR_SPEAK_AUDIO: {
+    audioChunks = splitPcm24kStringToChunks(commandEvent.audio);
+
+    for (const audioChunk of audioChunks) {
+      this._sessionEventSocket.send(
+        JSON.stringify({
+          type: "agent.speak",
+          event_id,
+          audio: audioChunk,
+        })
+      );
+    }
+
+    this._sessionEventSocket.send(
+      JSON.stringify({
+        type: "agent.speak_end",
+        event_id,
+      })
+    );
+
+    return;
+  }
+
+}
+
+
         audioChunks = splitPcm24kStringToChunks(commandEvent.audio);
         for (const audioChunk of audioChunks) {
           this._sessionEventSocket.send(
