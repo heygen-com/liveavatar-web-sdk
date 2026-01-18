@@ -502,117 +502,70 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
 
     const event_type = commandEvent.event_type;
     const event_id = this.generateEventId();
-    let audioChunks: string[] = [];
+
     switch (event_type) {
-
-  case CommandEventsEnum.AVATAR_SPEAK_TEXT: {
-    this._sessionEventSocket.send(
-      JSON.stringify({
-        type: "agent.speak",
-        event_id,
-        text: commandEvent.text,
-      })
-    );
-
-    this._sessionEventSocket.send(
-      JSON.stringify({
-        type: "agent.speak_end",
-        event_id,
-      })
-    );
-
-    return;
-  }
-
-  case CommandEventsEnum.AVATAR_SPEAK_AUDIO: {
-    audioChunks = splitPcm24kStringToChunks(commandEvent.audio);
-
-    for (const audioChunk of audioChunks) {
-      this._sessionEventSocket.send(
-        JSON.stringify({
-          type: "agent.speak",
-          event_id,
-          audio: audioChunk,
-        })
-      );
-    }
-
-    this._sessionEventSocket.send(
-      JSON.stringify({
-        type: "agent.speak_end",
-        event_id,
-      })
-    );
-
-    return;
-  }
-
-}
-
-     case CommandEventsEnum.AVATAR_SPEAK_AUDIO: {
-  audioChunks = splitPcm24kStringToChunks(commandEvent.audio);
-  for (const audioChunk of audioChunks) {
-    this._sessionEventSocket.send(
-      JSON.stringify({
-        type: "agent.speak",
-        event_id: event_id,
-        audio: audioChunk,
-      }),
-    );
-  }
-
-  this._sessionEventSocket.send(
-    JSON.stringify({
-      type: "agent_speak_end",
-      event_id: event_id,
-    }),
-  );
-
-  return;
-}
-
-case CommandEventsEnum.AVATAR_INTERRUPT: {
-  this._sessionEventSocket.send(
-    JSON.stringify({
-      type: "agent.interrupt",
-      event_id: event_id,
-    }),
-  );
-  return;
-}
-
-case CommandEventsEnum.AVATAR_START_LISTENING: {
-  this._sessionEventSocket.send(
-    JSON.stringify({
-      type: "agent.start_listening",
-      event_id: event_id,
-    }),
-  );
-  return;
-}
-
-case CommandEventsEnum.AVATAR_STOP_LISTENING: {
-  this._sessionEventSocket.send(
-    JSON.stringify({
-      type: "agent.stop_listening",
-      event_id: event_id,
-    }),
-  );
-  return;
-}
-
-      
       case CommandEventsEnum.AVATAR_SPEAK_TEXT: {
-  // Server may send this as a status/info event.
-  // We don't need to handle it for audio playback, but it shouldn't warn.
-  return;
-}
+        // Ignore (or handle elsewhere). Prevents noisy console warning.
+        return;
+      }
 
-default: {
-  console.warn("Unsupported command event type:", event_type);
-  return;
-}
+      case CommandEventsEnum.AVATAR_SPEAK_AUDIO: {
+        const audioChunks = splitPcm24kStringToChunks(commandEvent.audio);
+        for (const audioChunk of audioChunks) {
+          this._sessionEventSocket.send(
+            JSON.stringify({
+              type: "agent.speak",
+              event_id: event_id,
+              audio: audioChunk,
+            }),
+          );
+        }
 
+        this._sessionEventSocket.send(
+          JSON.stringify({
+            type: "agent_speak_end",
+            event_id: event_id,
+          }),
+        );
+        return;
+      }
+
+      case CommandEventsEnum.AVATAR_INTERRUPT: {
+        this._sessionEventSocket.send(
+          JSON.stringify({
+            type: "agent.interrupt",
+            event_id: event_id,
+          }),
+        );
+        return;
+      }
+
+      case CommandEventsEnum.AVATAR_START_LISTENING: {
+        this._sessionEventSocket.send(
+          JSON.stringify({
+            type: "agent.start_listening",
+            event_id: event_id,
+          }),
+        );
+        return;
+      }
+
+      case CommandEventsEnum.AVATAR_STOP_LISTENING: {
+        this._sessionEventSocket.send(
+          JSON.stringify({
+            type: "agent.stop_listening",
+            event_id: event_id,
+          }),
+        );
+        return;
+      }
+
+      default: {
+        console.warn("Unsupported command event type:", event_type);
+        return;
+      }
+    }
+  }
 
   private assertConnected(): boolean {
     if (this.state !== SessionState.CONNECTED) {
