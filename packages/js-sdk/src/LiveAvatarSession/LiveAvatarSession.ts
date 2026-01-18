@@ -549,48 +549,58 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
 
 }
 
+     case CommandEventsEnum.AVATAR_SPEAK_AUDIO: {
+  audioChunks = splitPcm24kStringToChunks(commandEvent.audio);
+  for (const audioChunk of audioChunks) {
+    this._sessionEventSocket.send(
+      JSON.stringify({
+        type: "agent.speak",
+        event_id: event_id,
+        audio: audioChunk,
+      }),
+    );
+  }
 
-        audioChunks = splitPcm24kStringToChunks(commandEvent.audio);
-        for (const audioChunk of audioChunks) {
-          this._sessionEventSocket.send(
-            JSON.stringify({
-              type: "agent.speak",
-              event_id: event_id,
-              audio: audioChunk,
-            }),
-          );
-        }
-        this._sessionEventSocket.send(
-          JSON.stringify({
-            type: "agent.speak_end",
-            event_id: event_id,
-          }),
-        );
-        return;
-      case CommandEventsEnum.AVATAR_INTERRUPT:
-        this._sessionEventSocket.send(
-          JSON.stringify({
-            type: "agent.interrupt",
-            event_id: event_id,
-          }),
-        );
-        return;
-      case CommandEventsEnum.AVATAR_START_LISTENING:
-        this._sessionEventSocket.send(
-          JSON.stringify({
-            type: "agent.start_listening",
-            event_id: event_id,
-          }),
-        );
-        return;
-      case CommandEventsEnum.AVATAR_STOP_LISTENING:
-        this._sessionEventSocket.send(
-          JSON.stringify({
-            type: "agent.stop_listening",
-            event_id: event_id,
-          }),
-        );
-        return;
+  this._sessionEventSocket.send(
+    JSON.stringify({
+      type: "agent_speak_end",
+      event_id: event_id,
+    }),
+  );
+
+  return;
+}
+
+case CommandEventsEnum.AVATAR_INTERRUPT: {
+  this._sessionEventSocket.send(
+    JSON.stringify({
+      type: "agent.interrupt",
+      event_id: event_id,
+    }),
+  );
+  return;
+}
+
+case CommandEventsEnum.AVATAR_START_LISTENING: {
+  this._sessionEventSocket.send(
+    JSON.stringify({
+      type: "agent.start_listening",
+      event_id: event_id,
+    }),
+  );
+  return;
+}
+
+case CommandEventsEnum.AVATAR_STOP_LISTENING: {
+  this._sessionEventSocket.send(
+    JSON.stringify({
+      type: "agent.stop_listening",
+      event_id: event_id,
+    }),
+  );
+  return;
+}
+
       
       case CommandEventsEnum.AVATAR_SPEAK_TEXT: {
   // Server may send this as a status/info event.
