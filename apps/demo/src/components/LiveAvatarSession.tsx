@@ -288,7 +288,7 @@ const LiveAvatarSessionComponent: React.FC<{
 
           <Button
             onClick={() => {
-              sessionRef.current?.repeat(message);
+              sessionRef.current?.message(message);
               setMessage("");
             }}
           >
