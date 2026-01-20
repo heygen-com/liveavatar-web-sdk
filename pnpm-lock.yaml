@@ -52,8 +52,8 @@ importers:
   apps/demo:
     dependencies:
       '@heygen/liveavatar-web-sdk':
-        specifier: ^0.0.10
-        version: 0.0.10(@types/dom-mediacapture-record@1.0.22)
+        specifier: workspace:*
+        version: link:../../packages/js-sdk
       next:
         specifier: ^15.4.4
         version: 15.5.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -432,9 +432,6 @@ packages:
 
   '@gerrit0/mini-shiki@3.12.2':
     resolution: {integrity: sha512-HKZPmO8OSSAAo20H2B3xgJdxZaLTwtlMwxg0967scnrDlPwe6j5+ULGHyIqwgTbFCn9yv/ff8CmfWZLE9YKBzA==}
-
-  '@heygen/liveavatar-web-sdk@0.0.10':
-    resolution: {integrity: sha512-vheA/9vSYW2sybz6hSpiRenSchpNkYBTf2V0y+4hS6BAY+TnWVPoAMRGdPa2afJab4sDm8pWY6tYw+zS0Np37A==}
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -2679,15 +2676,6 @@ snapshots:
       '@shikijs/themes': 3.12.2
       '@shikijs/types': 3.12.2
       '@shikijs/vscode-textmate': 10.0.2
-
-  '@heygen/liveavatar-web-sdk@0.0.10(@types/dom-mediacapture-record@1.0.22)':
-    dependencies:
-      events: 3.3.0
-      livekit-client: 2.15.7(@types/dom-mediacapture-record@1.0.22)
-      typed-emitter: 2.1.0
-      webrtc-issue-detector: 1.16.3
-    transitivePeerDependencies:
-      - '@types/dom-mediacapture-record'
 
   '@humanfs/core@0.19.1': {}
 

@@ -96,7 +96,7 @@ const LiveAvatarSessionComponent: React.FC<{
     rec.interimResults = true;
     rec.maxAlternatives = 1;
 
-    rec.onresult = (event: any) => {
+    rec.onresult = async (event: any) => {
       // send only FINAL transcript chunks (so we don’t spam)
       let finalText = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -108,13 +108,22 @@ const LiveAvatarSessionComponent: React.FC<{
 
       const cleaned = finalText.trim();
       if (cleaned) {
+        try { rec.stop(); } catch {}
         // ✅ KEY FIX:
         // FULL mode = send transcript straight to HeyGen (no OpenAI)
         // CUSTOM mode = keep existing pipeline (sendMessage)
         if (mode === "FULL") {
           sessionRef.current?.message(cleaned);
         } else {
-          sendMessage(cleaned);
+          await sendMessage(cleaned);
+          
+        setTimeout(() => {
+          try {
+            if (!sessionRef.current) return;
+            startBrowserSTT();
+          } catch {}
+        }, 700);
+
         }
       }
     };
@@ -270,17 +279,28 @@ const LiveAvatarSessionComponent: React.FC<{
             className="w-[400px] bg-white text-black px-4 py-2 rounded-md"
           />
           <Button
-            onClick={() => {
+            onClick={async () => {
               const cleaned = message.trim();
               if (!cleaned) return;
 
-              if (mode === "FULL") {
-                sessionRef.current?.message(cleaned);
-              } else {
-                sendMessage(cleaned);
-              }
+              try {
+                console.log("SEND clicked:", { mode, cleaned });
 
-              setMessage("");
+                // Always route through the textChat hook for CUSTOM,
+                // because it does OpenAI -> /api/tts -> repeatAudio
+                if (mode === "CUSTOM") {
+                  await sendMessage(cleaned); // <-- lower-case + await
+                } else {
+                  console.warn(
+                    "FULL mode: text speak is disabled. Use voice input in FULL mode.",
+                  );
+                }
+
+                console.log("SEND finished");
+                setMessage("");
+              } catch (e) {
+                console.error("SEND failed:", e);
+              }
             }}
           >
             Send
@@ -288,7 +308,9 @@ const LiveAvatarSessionComponent: React.FC<{
 
           <Button
             onClick={() => {
-              sessionRef.current?.message(message);
+              console.warn(
+                "Repeat disabled: text speak not supported. Use audio speak.",
+              );
               setMessage("");
             }}
           >

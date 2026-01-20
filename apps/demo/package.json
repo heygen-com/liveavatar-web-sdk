@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@heygen/liveavatar-web-sdk": "^0.0.10",
+    "@heygen/liveavatar-web-sdk": "workspace:*",
     "next": "^15.4.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
