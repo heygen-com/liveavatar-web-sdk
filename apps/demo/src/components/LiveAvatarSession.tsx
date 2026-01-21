@@ -7,7 +7,7 @@ import {
   useTextChat,
   useVoiceChat,
 } from "../liveavatar";
-import { SessionState } from "@heygen/liveavatar-web-sdk";
+import { SessionState, VoiceChatConfig } from "@heygen/liveavatar-web-sdk";
 import { useAvatarActions } from "../liveavatar/useAvatarActions";
 import { SessionMode } from "./LiveAvatarDemo";
 
@@ -113,25 +113,32 @@ const LiveAvatarSessionComponent: React.FC<{
           {isMuted ? "Unmute" : "Mute"}
         </Button>
       )}
-      {isActive && (
-        <Button
-          onClick={() => {
-            startPushToTalk();
-          }}
-        >
-          Start Push to Talk
-        </Button>
-      )}
-      {isActive && (
-        <Button
-          onClick={() => {
-            stopPushToTalk();
-          }}
-        >
-          Stop Push to Talk
-        </Button>
-      )}
+      <div className="flex flex-row items-center justify-center gap-4">
+        <Button onClick={startListening}>Start Listening</Button>
+        <Button onClick={stopListening}>Stop Listening</Button>
+      </div>
     </>
+  );
+
+  const PushToTalkComponents = (
+    <div className="flex flex-row items-center justify-center gap-4">
+      <Button
+        onClick={() => {
+          startListening();
+          startPushToTalk();
+        }}
+      >
+        Start Push to Talk
+      </Button>
+      <Button
+        onClick={() => {
+          stopPushToTalk();
+          stopListening();
+        }}
+      >
+        Stop Push to Talk
+      </Button>
+    </div>
   );
 
   return (
@@ -158,12 +165,7 @@ const LiveAvatarSessionComponent: React.FC<{
         )}
         <p>Avatar talking: {isAvatarTalking ? "true" : "false"}</p>
         {mode === "FULL" && VoiceChatComponents}
-        {mode === "FULL_PTT" && (
-          <div className="flex flex-row items-center justify-center gap-4">
-            <Button onClick={startListening}>Start Listening (PTT)</Button>
-            <Button onClick={stopListening}>Stop Listening (PTT)</Button>
-          </div>
-        )}
+        {mode === "FULL_PTT" && PushToTalkComponents}
         <Button
           onClick={() => {
             keepAlive();
@@ -213,9 +215,18 @@ export const LiveAvatarSession: React.FC<{
   mode: SessionMode;
   sessionAccessToken: string;
   onSessionStopped: () => void;
-}> = ({ mode, sessionAccessToken, onSessionStopped }) => {
+  voiceChatConfig?: boolean | VoiceChatConfig;
+}> = ({
+  mode,
+  sessionAccessToken,
+  onSessionStopped,
+  voiceChatConfig = true,
+}) => {
   return (
-    <LiveAvatarContextProvider sessionAccessToken={sessionAccessToken}>
+    <LiveAvatarContextProvider
+      sessionAccessToken={sessionAccessToken}
+      voiceChatConfig={voiceChatConfig}
+    >
       <LiveAvatarSessionComponent
         mode={mode}
         onSessionStopped={onSessionStopped}

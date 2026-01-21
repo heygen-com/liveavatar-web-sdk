@@ -158,6 +158,7 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
     ) {
       return;
     }
+    console.error("Session interactivity mode", this.mode);
 
     if (this.mode !== SessionInteractivityMode.PUSH_TO_TALK) {
       console.warn("Push to talk can only be started in push to talk mode");

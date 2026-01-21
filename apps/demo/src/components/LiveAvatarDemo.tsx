@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { LiveAvatarSession } from "./LiveAvatarSession";
+import { SessionInteractivityMode } from "@heygen/liveavatar-web-sdk";
 
 export type SessionMode = "FULL" | "FULL_PTT" | "CUSTOM";
 
@@ -14,9 +15,14 @@ export const LiveAvatarDemo = () => {
     try {
       const res = await fetch("/api/start-session", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ pushToTalk }),
       });
       if (!res.ok) {
         const error = await res.json();
+        console.error("Failed to start full session", error);
         setError(error.error);
         return;
       }
@@ -46,6 +52,15 @@ export const LiveAvatarDemo = () => {
     // Reset the FE state
     setSessionToken("");
   };
+
+  const voiceChatConfig = useMemo(() => {
+    if (mode === "FULL_PTT") {
+      return {
+        mode: SessionInteractivityMode.PUSH_TO_TALK,
+      };
+    }
+    return true;
+  }, [mode]);
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center gap-4">
@@ -81,6 +96,7 @@ export const LiveAvatarDemo = () => {
         <LiveAvatarSession
           mode={mode}
           sessionAccessToken={sessionToken}
+          voiceChatConfig={voiceChatConfig}
           onSessionStopped={onSessionStopped}
         />
       )}

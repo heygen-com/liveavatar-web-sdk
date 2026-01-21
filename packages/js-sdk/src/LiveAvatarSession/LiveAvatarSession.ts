@@ -84,6 +84,13 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       },
     });
     this._voiceChat = new VoiceChat(this.room);
+    if (
+      this.config.voiceChat &&
+      typeof this.config.voiceChat === "object" &&
+      this.config.voiceChat.mode
+    ) {
+      this._voiceChat.setMode(this.config.voiceChat.mode);
+    }
   }
 
   public get state(): SessionState {
@@ -311,6 +318,10 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
 
     this.room.on(RoomEvent.Disconnected, () => {
       this.handleRoomDisconnect();
+    });
+
+    this.room.on(RoomEvent.TrackPublished, (track) => {
+      console.warn("trackPublished", track);
     });
   }
 

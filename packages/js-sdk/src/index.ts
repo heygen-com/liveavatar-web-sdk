@@ -20,4 +20,8 @@ export {
   AgentEvent,
   CommandEventsEnum,
 } from "./LiveAvatarSession";
-export { VoiceChatState, VoiceChatEvent } from "./VoiceChat";
+export {
+  VoiceChatState,
+  VoiceChatEvent,
+  SessionInteractivityMode,
+} from "./VoiceChat";
