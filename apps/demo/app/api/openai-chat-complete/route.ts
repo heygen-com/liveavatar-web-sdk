@@ -1,7 +1,23 @@
 import { OPENAI_API_KEY } from "../secrets";
 
-const SYSTEM_PROMPT =
-  "You are a helpful assistant. You are being used in a demo. Please act courteously and helpfully.";
+const SYSTEM_PROMPT = `
+You are the SAFFI assistant.
+
+CRITICAL RULES:
+- You may ONLY answer questions using information contained in the SAFFI project materials.
+- You are NOT allowed to use general knowledge.
+- If the answer is not explicitly supported by the SAFFI materials, respond exactly with:
+  "I don’t have that information yet."
+
+Behavior rules:
+- Speak naturally to an end user.
+- Never mention files, uploads, documents, vector stores, embeddings, tools, or retrieval.
+- Do not explain how you know something.
+- Be confident, warm, and concise.
+
+Role:
+- Answer questions as the product itself, not as a demo assistant.
+`.trim();
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -13,31 +29,56 @@ function json(data: unknown, status = 200) {
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const {
-      message,
-      model = "gpt-4o-mini",
-      system_prompt = SYSTEM_PROMPT,
-      // allow passing in body, but default to env for Vercel
-      vector_store_id = process.env.OPENAI_VECTOR_STORE_ID,
-      debug = false,
-    } = body ?? {};
+
+    const message = body?.message;
+    const model = body?.model ?? "gpt-4o-mini";
+
+    // ✅ Recommended: lock the SAFFI prompt so the client cannot override it
+    const system_prompt = SYSTEM_PROMPT;
+
+    // IMPORTANT: read vector store id from request OR env
+    const vector_store_id =
+      body?.vector_store_id || process.env.OPENAI_VECTOR_STORE_ID;
+
+    const debug = Boolean(body?.debug);
 
     if (!message) return json({ error: "message is required" }, 400);
-    if (!OPENAI_API_KEY) return json({ error: "OpenAI API key not configured" }, 500);
+    if (!OPENAI_API_KEY)
+      return json({ error: "OpenAI API key not configured" }, 500);
 
-    // IMPORTANT: must exist for file_search
+    // Log what the server actually sees (helps catch env var typos)
+    console.log(
+      "[openai-chat-complete] OPENAI_VECTOR_STORE_ID =",
+      vector_store_id,
+    );
+
     if (!vector_store_id) {
       return json(
         {
           error:
-            "Missing vector_store_id. Set OPENAI_VECTOR_STORE_ID or pass vector_store_id in request body.",
+            "Missing vector_store_id. Set OPENAI_VECTOR_STORE_ID or pass vector_store_id in the request body.",
         },
         500,
       );
     }
 
-    // Helpful log to confirm env is being read
-    console.log("[openai-chat-complete] OPENAI_VECTOR_STORE_ID =", vector_store_id);
+    // ✅ Responses API + file_search tool
+    const payload: any = {
+      model,
+      input: [
+        { role: "system", content: system_prompt },
+        { role: "user", content: String(message) },
+      ],
+      tools: [
+        {
+          type: "file_search",
+          vector_store_ids: [String(vector_store_id)],
+        },
+      ],
+    };
+
+    // Optional: include the file_search_call results so you can *prove* it searched
+    if (debug) payload.include = ["file_search_call.results"];
 
     const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -45,41 +86,47 @@ export async function POST(request: Request) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
-      body: JSON.stringify({
-        model,
-        input: [
-          { role: "system", content: system_prompt },
-          { role: "user", content: String(message) },
-        ],
-        tools: [{ type: "file_search" }],
-        tool_resources: {
-          file_search: {
-            vector_store_ids: [String(vector_store_id)],
-          },
-        },
-        ...(debug ? { include: ["file_search_call.results"] } : {}),
-      }),
+      body: JSON.stringify(payload),
     });
 
-    const raw = await res.text();
-
     if (!res.ok) {
-      console.error("OpenAI Responses API error:", raw);
-      return json({ error: "Failed to generate response", details: raw }, res.status);
+      const errText = await res.text();
+      console.error("OpenAI Responses API error:", errText);
+      return json(
+        { error: "Failed to generate response", details: errText },
+        res.status,
+      );
     }
 
-    // Responses API returns JSON; parse it
-    const data = JSON.parse(raw);
+    const data = await res.json();
 
-    // Best-effort extract text
-    const responseText =
-      data.output_text ??
-      data?.output?.find((o: any) => o?.type === "message")?.content?.[0]?.text ??
-      "";
+    // Extract output text in a tolerant way
+    let responseText = "";
 
-    return json({ response: responseText, debug: debug ? data : undefined }, 200);
-  } catch (error: any) {
+    // Common: "output" array contains message items
+    if (Array.isArray(data?.output)) {
+      for (const item of data.output) {
+        if (item?.type === "message" && Array.isArray(item?.content)) {
+          for (const part of item.content) {
+            if (part?.type === "output_text" && typeof part.text === "string") {
+              responseText += part.text;
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback: some SDK helpers put text in output_text
+    if (!responseText && typeof data?.output_text === "string") {
+      responseText = data.output_text;
+    }
+
+    return json({
+      response: responseText || "(No text returned)",
+      ...(debug ? { raw: data } : {}),
+    });
+  } catch (error) {
     console.error("Error generating response:", error);
-    return json({ error: "Failed to generate response", details: String(error?.message ?? error) }, 500);
+    return json({ error: "Failed to generate response" }, 500);
   }
 }
