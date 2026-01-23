@@ -13,7 +13,7 @@ export const useTextChat = (mode: "FULL" | "CUSTOM") => {
       // Always get the AI response first (for BOTH modes)
       const llmRes = await fetch("/api/openai-chat-complete", {
         method: "POST",
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, debug: true }),
       });
 
       if (!llmRes.ok) {
@@ -35,7 +35,7 @@ export const useTextChat = (mode: "FULL" | "CUSTOM") => {
         const ttsRes = await fetch("/api/tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: chatResponseText }),
+          body: JSON.stringify({ message, debug: true }),
         });
 
         if (!ttsRes.ok) {
