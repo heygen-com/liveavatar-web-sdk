@@ -5,6 +5,8 @@
       "outputs": [".next/**", "dist/**"],
       "env": [
         "API_URL",
+        "OPENAI_API_KEY",
+        "OPENAI_VECTOR_STORE_ID",
         "HEYGEN_API_KEY",
         "AVATAR_ID",
         "VOICE_ID",
@@ -15,6 +17,8 @@
       "cache": false,
       "env": [
         "API_URL",
+        "OPENAI_API_KEY",
+        "OPENAI_VECTOR_STORE_ID",
         "HEYGEN_API_KEY",
         "AVATAR_ID",
         "VOICE_ID",
@@ -24,6 +28,8 @@
     "lint": {
       "env": [
         "API_URL",
+        "OPENAI_API_KEY",
+        "OPENAI_VECTOR_STORE_ID",
         "HEYGEN_API_KEY",
         "AVATAR_ID",
         "VOICE_ID",
