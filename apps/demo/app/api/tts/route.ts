@@ -4,9 +4,13 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    const { text } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const text =
+      (typeof body?.text === "string" ? body.text : "") ||
+      (typeof body?.message === "string" ? body.message : "") ||
+      (typeof body?.input === "string" ? body.input : "");
 
-    if (!text || typeof text !== "string" || !text.trim()) {
+    if (!text.trim()) {
       return NextResponse.json({ error: "Missing text" }, { status: 400 });
     }
 
