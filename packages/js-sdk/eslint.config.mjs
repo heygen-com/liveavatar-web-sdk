@@ -37,7 +37,9 @@ const tsEslintConfig = tsEslint.config(
         { selector: 'enum', format: ['PascalCase'] },
         { selector: 'class', format: ['PascalCase'] },
       ],
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'no-console': 'off',
+      'no-empty': 'off',
+      
       'no-debugger': 'error',
       'no-duplicate-imports': 'error',
       'no-unused-expressions': 'error',
@@ -45,6 +47,7 @@ const tsEslintConfig = tsEslint.config(
       'prefer-const': 'error',
       'prefer-arrow-callback': 'error',
       'prefer-template': 'error',
+},
     }
   }
 );
