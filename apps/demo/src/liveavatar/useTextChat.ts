@@ -9,12 +9,12 @@ export const useTextChat = (mode: "FULL" | "CUSTOM") => {
       const cleaned = (message ?? "").trim();
       if (!cleaned) return;
 
-      // FULL mode (no OpenAI): send user text directly to HeyGen
+      // FULL mode: send user text directly to HeyGen
       if (mode === "FULL") {
         return sessionRef.current?.message(cleaned);
       }
 
-      // 1) Get AI response from OpenAI
+      // CUSTOM mode: ask OpenAI first
       const llmRes = await fetch("/api/openai-chat-complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -35,10 +35,30 @@ export const useTextChat = (mode: "FULL" | "CUSTOM") => {
         throw new Error("openai-chat-complete returned empty response");
       }
 
-      // 2) CUSTOM mode: generate TTS from the *assistant reply*
+      // Generate TTS for the ASSISTANT reply (this is the parrot fix)
       const ttsRes = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: chatResponseText }),
       });
 
+      if (!ttsRes.ok) {
+        const err = await ttsRes.text();
+        throw new Error(`tts failed (${ttsRes.status}): ${err}`);
+      }
+
+      const ttsJson = await ttsRes.json();
+      const audio: string = ttsJson?.audio ?? "";
+
+      if (!audio) {
+        throw new Error("tts returned empty audio");
+      }
+
+      console.log("[DEBUG repeatAudio]", typeof audio, audio.length);
+      sessionRef.current?.repeatAudio(audio);
+    },
+    [sessionRef, mode],
+  );
+
+  return { sendMessage };
+};
