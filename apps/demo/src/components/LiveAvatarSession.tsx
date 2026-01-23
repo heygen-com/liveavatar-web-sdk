@@ -108,7 +108,9 @@ const LiveAvatarSessionComponent: React.FC<{
 
       const cleaned = finalText.trim();
       if (cleaned) {
-        try { rec.stop(); } catch {}
+        try {
+          rec.stop();
+        } catch {}
         // ✅ KEY FIX:
         // FULL mode = send transcript straight to HeyGen (no OpenAI)
         // CUSTOM mode = keep existing pipeline (sendMessage)
@@ -116,14 +118,13 @@ const LiveAvatarSessionComponent: React.FC<{
           sessionRef.current?.message(cleaned);
         } else {
           await sendMessage(cleaned);
-          
-        setTimeout(() => {
-          try {
-            if (!sessionRef.current) return;
-            startBrowserSTT();
-          } catch {}
-        }, 700);
 
+          setTimeout(() => {
+            try {
+              if (!sessionRef.current) return;
+              startBrowserSTT();
+            } catch {}
+          }, 700);
         }
       }
     };

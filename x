@@ -1,0 +1,41 @@
+[35mapps/demo/app/api/elevenlabs-text-to-speech/route.ts[m[36m:[m[32m1[m[36m:[mimport { ELEVENLABS_API_KEY } from "../secr[1;31mets"[m;
+[35mapps/demo/app/api/keep-session-alive/route.ts[m[36m:[m[32m1[m[36m:[mimport { API_URL } from "../secr[1;31mets"[m;
+[35mapps/demo/app/api/openai-chat-complete/route.ts[m[36m:[m[32m1[m[36m:[mimport { OPENAI_API_KEY } from "../secr[1;31mets"[m;
+[35mapps/demo/app/api/openai-chat-complete/route.ts[m[36m:[m[32m81[m[36m:[m      payload.include = ["file_search_call.resu[1;31mlts"[m];
+[35mapps/demo/app/api/stop-session/route.ts[m[36m:[m[32m1[m[36m:[mimport { API_URL } from "../secr[1;31mets"[m;
+[35mapps/demo/app/api/tts/route.ts[m[36m:[m[32m32[m[36m:[m        model: "gpt-4o-mini-[1;31mtts"[m,
+[35mapps/demo/package.json[m[36m:[m[32m6[m[36m:[m  "scri[1;31mpts"[m: {
+[35mapps/demo/src/liveavatar/context.tsx[m[36m:[m[32m12[m[36m:[mimport { API_URL } from "../../app/api/secr[1;31mets"[m;
+[35mapps/demo/src/liveavatar/useTextChat.ts[m[36m:[m[32m35[m[36m:[m        const ttsRes = await fetch("/api/[1;31mtts"[m, {
+[35mapps/demo/tsconfig.json[m[36m:[m[32m11[m[36m:[m    "**/*[1;31m.ts"[m,
+[35mapps/demo/tsconfig.json[m[36m:[m[32m13[m[36m:[m    "next-env.d[1;31m.ts"[m,
+[35mapps/demo/tsconfig.json[m[36m:[m[32m15[m[36m:[m    ".next/types/**/*[1;31m.ts"[m
+[35mpackage.json[m[36m:[m[32m20[m[36m:[m  "scri[1;31mpts"[m: {
+[35mpackages/eslint-config/package.json[m[36m:[m[32m6[m[36m:[m  "expo[1;31mrts"[m: {
+[35mpackages/js-sdk/package.json[m[36m:[m[32m11[m[36m:[m  "expo[1;31mrts"[m: {
+[35mpackages/js-sdk/package.json[m[36m:[m[32m13[m[36m:[m      "types": "./lib/index.d[1;31m.ts"[m,
+[35mpackages/js-sdk/package.json[m[36m:[m[32m33[m[36m:[m  "types": "./lib/index.d[1;31m.ts"[m,
+[35mpackages/js-sdk/package.json[m[36m:[m[32m37[m[36m:[m  "scri[1;31mpts"[m: {
+[35mpackages/js-sdk/package.json[m[36m:[m[32m67[m[36m:[m    "eve[1;31mnts"[m: "3.3.0",
+[35mpackages/js-sdk/rollup.config.js[m[36m:[m[32m9[m[36m:[m    input: "src/index[1;31m.ts"[m,
+[35mpackages/js-sdk/rollup.config.js[m[36m:[m[32m33[m[36m:[m      "eve[1;31mnts"[m,
+[35mpackages/js-sdk/rollup.config.js[m[36m:[m[32m39[m[36m:[m    input: "src/index[1;31m.ts"[m,
+[35mpackages/js-sdk/src/LiveAvatarSession/LiveAvatarSession.test.ts[m[36m:[m[32m11[m[36m:[mimport { AgentEventsEnum, CommandEventsEnum, SessionEvent } from "./eve[1;31mnts"[m;
+[35mpackages/js-sdk/src/LiveAvatarSession/LiveAvatarSession.test.ts[m[36m:[m[32m59[m[36m:[m  it("starts the session and emits state changed eve[1;31mnts"[m, async () => {
+[35mpackages/js-sdk/src/LiveAvatarSession/LiveAvatarSession.test.ts[m[36m:[m[32m243[m[36m:[mdescribe("LiveAvatarSession command eve[1;31mnts"[m, () => {
+[35mpackages/js-sdk/src/LiveAvatarSession/LiveAvatarSession.test.ts[m[36m:[m[32m349[m[36m:[mdescribe("LiveAvatarSession server eve[1;31mnts"[m, () => {
+[35mpackages/js-sdk/src/LiveAvatarSession/LiveAvatarSession.ts[m[36m:[m[32m10[m[36m:[mimport { EventEmitter } from "eve[1;31mnts"[m;
+[35mpackages/js-sdk/src/LiveAvatarSession/LiveAvatarSession.ts[m[36m:[m[32m21[m[36m:[m} from "./eve[1;31mnts"[m;
+[35mpackages/js-sdk/src/LiveAvatarSession/index.ts[m[36m:[m[32m3[m[36m:[mexport * from "./eve[1;31mnts"[m;
+[35mpackages/js-sdk/src/VoiceChat/VoiceChat.test.ts[m[36m:[m[32m5[m[36m:[mimport { VoiceChatEvent } from "./eve[1;31mnts"[m;
+[35mpackages/js-sdk/src/VoiceChat/VoiceChat.test.ts[m[36m:[m[32m41[m[36m:[m  it("starts the voice chat and emits state changed eve[1;31mnts"[m, async () => {
+[35mpackages/js-sdk/src/VoiceChat/VoiceChat.test.ts[m[36m:[m[32m123[m[36m:[m  it("stops the voice chat and emits state changed eve[1;31mnts"[m, async () => {
+[35mpackages/js-sdk/src/VoiceChat/VoiceChat.ts[m[36m:[m[32m1[m[36m:[mimport { EventEmitter } from "eve[1;31mnts"[m;
+[35mpackages/js-sdk/src/VoiceChat/VoiceChat.ts[m[36m:[m[32m11[m[36m:[mimport { VoiceChatEvent, VoiceChatEventCallbacks } from "./eve[1;31mnts"[m;
+[35mpackages/js-sdk/src/VoiceChat/index.ts[m[36m:[m[32m3[m[36m:[mexport * from "./eve[1;31mnts"[m;
+[35mpackages/js-sdk/src/test/mocks/Livekit.ts[m[36m:[m[32m1[m[36m:[mimport { EventEmitter } from "eve[1;31mnts"[m;
+[35mpackages/js-sdk/tsconfig.json[m[36m:[m[32m19[m[36m:[m  "include": ["src/**/*[1;31m.ts"[m],
+[35mpackages/js-sdk/tsconfig.json[m[36m:[m[32m22[m[36m:[m    "entryPoi[1;31mnts"[m: ["src/index[1;31m.ts"[m],
+[35mpackages/js-sdk/vitest.config.js[m[36m:[m[32m6[m[36m:[m    setupFiles: ["./src/test/setup[1;31m.ts"[m],
+[35mpackages/js-sdk/vitest.config.js[m[36m:[m[32m12[m[36m:[m      include: ["src/**/*[1;31m.ts"[m],
+[35mturbo.json[m[36m:[m[32m5[m[36m:[m      "outp[1;31muts"[m: [".next/**", "dist/**"],

@@ -76,9 +76,10 @@ export async function POST(request: Request) {
         },
       ],
     };
-
-    // Optional: include the file_search_call results so you can *prove* it searched
-    if (debug) payload.include = ["file_search_call.results"];
+    // 🔍 DEBUG: include file_search results so we can verify retrieval
+    if (debug) {
+      payload.include = ["file_search_call.results"];
+    }
 
     const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
