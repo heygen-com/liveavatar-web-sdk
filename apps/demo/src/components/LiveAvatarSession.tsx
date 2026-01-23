@@ -8,7 +8,7 @@ import {
   useVoiceChat,
 } from "../liveavatar";
 import { useLiveAvatarContext } from "../liveavatar/context";
-import { SessionState } from "@heygen/liveavatar-web-sdk";
+import { SessionState } from "../../../packages/js-sdk/src";
 import { useAvatarActions } from "../liveavatar/useAvatarActions";
 
 const Button: React.FC<{
