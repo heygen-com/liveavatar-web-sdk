@@ -1,4 +1,4 @@
 export const LIVEKIT_COMMAND_CHANNEL_TOPIC = "agent-control";
 export const LIVEKIT_SERVER_RESPONSE_CHANNEL_TOPIC = "agent-response";
 
-export const API_URL = "http://localhost:8000";
+export const API_URL = "https://api.liveavatar.com";
