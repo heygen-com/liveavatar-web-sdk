@@ -6,8 +6,6 @@ You are the SAFFI assistant.
 CRITICAL RULES:
 - You may ONLY answer questions using information contained in the SAFFI project materials.
 - You are NOT allowed to use general knowledge.
-- If the answer is not explicitly supported by the SAFFI materials, respond exactly with:
-  "I don’t have that information yet."
 
 Behavior rules:
 - Speak naturally to an end user.
@@ -18,6 +16,12 @@ Behavior rules:
 Role:
 - Answer questions as the product itself, not as a demo assistant.
 `.trim();
+
+// ✅ Master prompt is editable via Vercel env var (Carolina controls this)
+// ✅ Client cannot override because we never accept a system prompt from request body
+const MASTER_SYSTEM_PROMPT =
+  (process.env.SAFFI_SYSTEM_PROMPT && process.env.SAFFI_SYSTEM_PROMPT.trim()) ||
+  SYSTEM_PROMPT;
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -33,10 +37,7 @@ export async function POST(request: Request) {
     const message = body?.message;
     const model = body?.model ?? "gpt-4o-mini";
 
-    // ✅ Recommended: lock the SAFFI prompt so the client cannot override it
-    const system_prompt = SYSTEM_PROMPT;
-
-    // IMPORTANT: read vector store id from request OR env
+    // ✅ IMPORTANT: vector store id from request OR env
     const vector_store_id =
       body?.vector_store_id || process.env.OPENAI_VECTOR_STORE_ID;
 
@@ -46,10 +47,18 @@ export async function POST(request: Request) {
     if (!OPENAI_API_KEY)
       return json({ error: "OpenAI API key not configured" }, 500);
 
-    // Log what the server actually sees (helps catch env var typos)
     console.log(
       "[openai-chat-complete] OPENAI_VECTOR_STORE_ID =",
       vector_store_id,
+    );
+
+    // Optional but very helpful: confirm which prompt is being used (avoid logging the whole thing)
+    console.log(
+      "[openai-chat-complete] SAFFI_SYSTEM_PROMPT env set =",
+      Boolean(
+        process.env.SAFFI_SYSTEM_PROMPT &&
+          process.env.SAFFI_SYSTEM_PROMPT.trim(),
+      ),
     );
 
     if (!vector_store_id) {
@@ -66,7 +75,7 @@ export async function POST(request: Request) {
     const payload: any = {
       model,
       input: [
-        { role: "system", content: system_prompt },
+        { role: "system", content: MASTER_SYSTEM_PROMPT },
         { role: "user", content: String(message) },
       ],
       tools: [
@@ -76,6 +85,7 @@ export async function POST(request: Request) {
         },
       ],
     };
+
     // 🔍 DEBUG: include file_search results so we can verify retrieval
     if (debug) {
       payload.include = ["file_search_call.results"];
@@ -104,7 +114,6 @@ export async function POST(request: Request) {
     // Extract output text in a tolerant way
     let responseText = "";
 
-    // Common: "output" array contains message items
     if (Array.isArray(data?.output)) {
       for (const item of data.output) {
         if (item?.type === "message" && Array.isArray(item?.content)) {
@@ -117,7 +126,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // Fallback: some SDK helpers put text in output_text
     if (!responseText && typeof data?.output_text === "string") {
       responseText = data.output_text;
     }
