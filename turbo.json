@@ -2,7 +2,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "dist/**"],
+      "outputs": [".next/**", "dist/**", "lib/**"],
       "env": [
         "API_URL",
         "OPENAI_API_KEY",
