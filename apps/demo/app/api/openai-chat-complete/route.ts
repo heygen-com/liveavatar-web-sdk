@@ -34,8 +34,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
 
-    const message = body?.message;
-    const model = body?.model ?? "gpt-4o-mini";
+    const model = "gpt-5.2";
 
     // ✅ IMPORTANT: vector store id from request OR env
     const vector_store_id =
