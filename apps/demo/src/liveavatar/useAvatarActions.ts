@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useLiveAvatarContext } from "./context";
 
-export const useAvatarActions = (mode: "FULL" | "CUSTOM") => {
+export const useAvatarActions = (mode: "FULL" | "LITE") => {
   const { sessionRef } = useLiveAvatarContext();
 
   const interrupt = useCallback(() => {
@@ -12,7 +12,7 @@ export const useAvatarActions = (mode: "FULL" | "CUSTOM") => {
     async (message: string) => {
       if (mode === "FULL") {
         return sessionRef.current.repeat(message);
-      } else if (mode === "CUSTOM") {
+      } else if (mode === "LITE") {
         const res = await fetch("/api/elevenlabs-text-to-speech", {
           method: "POST",
           body: JSON.stringify({ text: message }),
