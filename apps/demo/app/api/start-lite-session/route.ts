@@ -11,7 +11,7 @@ export async function POST() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        mode: "CUSTOM",
+        mode: "LITE",
         avatar_id: AVATAR_ID,
         is_sandbox: IS_SANDBOX,
       }),

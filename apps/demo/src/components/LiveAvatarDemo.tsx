@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { LiveAvatarSession } from "./LiveAvatarSession";
 import { SessionInteractivityMode } from "@heygen/liveavatar-web-sdk";
 
-export type SessionMode = "FULL" | "FULL_PTT" | "CUSTOM";
+export type SessionMode = "FULL" | "FULL_PTT" | "LITE";
 
 export const LiveAvatarDemo = () => {
   const [sessionToken, setSessionToken] = useState("");
@@ -34,8 +34,8 @@ export const LiveAvatarDemo = () => {
     }
   };
 
-  const handleStartCustom = async () => {
-    const res = await fetch("/api/start-custom-session", {
+  const handleStartLiteSession = async () => {
+    const res = await fetch("/api/start-lite-session", {
       method: "POST",
     });
     if (!res.ok) {
@@ -45,7 +45,7 @@ export const LiveAvatarDemo = () => {
     }
     const { session_token } = await res.json();
     setSessionToken(session_token);
-    setMode("CUSTOM");
+    setMode("LITE");
   };
 
   const onSessionStopped = () => {
@@ -75,21 +75,21 @@ export const LiveAvatarDemo = () => {
             onClick={() => handleStartFullSession(false)}
             className="w-fit bg-white text-black px-4 py-2 rounded-md"
           >
-            Start Full Avatar Session
+            Start Full Mode Avatar Session
           </button>
 
           <button
             onClick={() => handleStartFullSession(true)}
             className="w-fit bg-white text-black px-4 py-2 rounded-md"
           >
-            Start Full Avatar Session (Push To Talk)
+            Start Full Mode Avatar Session (Push To Talk)
           </button>
 
           <button
-            onClick={handleStartCustom}
+            onClick={handleStartLiteSession}
             className="w-fit bg-white text-black px-4 py-2 rounded-md"
           >
-            Start Custom Avatar Session
+            Start Lite Mode Avatar Session
           </button>
         </>
       ) : (
