@@ -76,12 +76,17 @@ export class VoiceChat extends (EventEmitter as new () => TypedEmitter<VoiceChat
       this.setMode(mode);
     }
 
-    this.track = await createLocalAudioTrack({
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-      deviceId,
-    });
+    try {
+      this.track = await createLocalAudioTrack({
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        deviceId,
+      });
+    } catch (error) {
+      this.state = VoiceChatState.INACTIVE;
+      throw error;
+    }
 
     if (defaultMuted) {
       await this.track.mute();

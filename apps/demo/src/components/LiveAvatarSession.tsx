@@ -53,6 +53,7 @@ const LiveAvatarSessionComponent: React.FC<{
     unmute,
     startPushToTalk,
     stopPushToTalk,
+    error: voiceChatError,
   } = useVoiceChat();
 
   // For useAvatarActions, treat FULL_PTT as FULL since they share the same API
@@ -87,6 +88,11 @@ const LiveAvatarSessionComponent: React.FC<{
     <>
       <p>Voice Chat Active: {isActive ? "true" : "false"}</p>
       <p>Voice Chat Loading: {isLoading ? "true" : "false"}</p>
+      {voiceChatError && (
+        <p className="text-red-500">
+          Voice Chat Error: {voiceChatError}
+        </p>
+      )}
       {isActive && <p>Muted: {isMuted ? "true" : "false"}</p>}
       <Button
         onClick={() => {
