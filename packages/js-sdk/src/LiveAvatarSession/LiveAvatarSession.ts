@@ -409,9 +409,18 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
 
   private async configureSession(): Promise<void> {
     if (this.config.voiceChat) {
-      await this.voiceChat.start(
-        typeof this.config.voiceChat === "boolean" ? {} : this.config.voiceChat,
-      );
+      try {
+        await this.voiceChat.start(
+          typeof this.config.voiceChat === "boolean"
+            ? {}
+            : this.config.voiceChat,
+        );
+      } catch (error) {
+        console.warn(
+          "Failed to start voice chat (microphone may be unavailable):",
+          error,
+        );
+      }
     }
   }
 
