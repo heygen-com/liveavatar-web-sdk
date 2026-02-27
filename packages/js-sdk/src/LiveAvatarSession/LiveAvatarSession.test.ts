@@ -270,11 +270,19 @@ describe("LiveAvatarSession command events", () => {
         (session[key as keyof LiveAvatarSession] as () => void)();
       }
       const participant = testContext.roomInstance.localParticipant;
-      const data = new TextEncoder().encode(JSON.stringify(event));
-      expect(participant.publishData).toHaveBeenCalledWith(data, {
-        reliable: true,
-        topic: LIVEKIT_COMMAND_CHANNEL_TOPIC,
-      });
+      expect(participant.publishData).toHaveBeenCalledWith(
+        expect.any(Uint8Array),
+        {
+          reliable: true,
+          topic: LIVEKIT_COMMAND_CHANNEL_TOPIC,
+        },
+      );
+      const publishedData = participant.publishData.mock.calls[0][0];
+      const parsed = JSON.parse(new TextDecoder().decode(publishedData));
+      expect(parsed).toMatchObject(event);
+      if (key !== "interrupt") {
+        expect(parsed.event_id).toEqual(expect.any(String));
+      }
     });
   });
 
@@ -334,11 +342,11 @@ describe("LiveAvatarSession command events", () => {
 
   it("does not send command event when the session is not started", async () => {
     const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
-    session.message("test");
-    session.repeat("test");
-    session.startListening();
-    session.stopListening();
-    session.interrupt();
+    expect(() => session.message("test")).toThrow();
+    expect(() => session.repeat("test")).toThrow();
+    expect(() => session.startListening()).toThrow();
+    expect(() => session.stopListening()).toThrow();
+    expect(() => session.interrupt()).toThrow();
     expect(
       testContext.roomInstance.localParticipant.publishData,
     ).not.toHaveBeenCalled();
