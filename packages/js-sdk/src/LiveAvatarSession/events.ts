@@ -154,6 +154,7 @@ type CommandEventData<
   T extends CommandEventsEnum,
   U extends object = object,
 > = {
+  event_id?: string; // UUID v4
   event_type: T;
 } & U;
 

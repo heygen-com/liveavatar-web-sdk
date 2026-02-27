@@ -4,9 +4,9 @@ import {
   API_URL,
   AVATAR_ID,
   VOICE_ID,
-  CONTEXT_ID,
   LANGUAGE,
   IS_SANDBOX,
+  CONTEXT_ID,
 } from "../secrets";
 
 interface StartFullModeSessionRequestBody {

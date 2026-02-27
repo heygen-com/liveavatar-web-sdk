@@ -180,73 +180,95 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     this._remoteAudioTrack.attach(element);
   }
 
-  public message(message: string): void {
+  public message(message: string): string {
     if (!this.assertConnected()) {
-      return;
+      throw new Error("Session needs to be connected to send command event");
     }
+    const event_id = this.generateEventId();
+    console.warn("sending message command event", event_id);
 
     const data = {
+      event_id: event_id,
       event_type: CommandEventsEnum.AVATAR_SPEAK_RESPONSE,
       text: message,
     };
     this.sendCommandEvent(data as CommandEvent);
+
+    return event_id;
   }
 
-  public repeat(message: string): void {
+  public repeat(message: string): string {
     if (!this.assertConnected()) {
-      return;
+      throw new Error("Session needs to be connected to send command event");
     }
 
+    const event_id = this.generateEventId();
     const data = {
+      event_id: event_id,
       event_type: CommandEventsEnum.AVATAR_SPEAK_TEXT,
       text: message,
     };
+
+    console.warn("sending repeat command event", data);
     this.sendCommandEvent(data as CommandEvent);
+
+    return event_id;
   }
 
-  public repeatAudio(audio: string): void {
+  public repeatAudio(audio: string): string {
     if (!this.assertConnected()) {
-      return;
+      throw new Error("Session needs to be connected to send command event");
     }
     if (!this._sessionEventSocket) {
       console.warn(
         "Cannot repeat audio. Please check you're using a supported mode.",
       );
-      return;
+      throw new Error("Session needs to be connected to send command event");
     }
 
+    const event_id = this.generateEventId();
     const data = {
+      event_id: event_id,
       event_type: CommandEventsEnum.AVATAR_SPEAK_AUDIO,
       audio: audio,
     };
     this.sendCommandEvent(data as CommandEvent);
+
+    return event_id;
   }
 
-  public startListening(): void {
+  public startListening(): string {
     if (!this.assertConnected()) {
-      return;
+      throw new Error("Session needs to be connected to send command event");
     }
 
+    const event_id = this.generateEventId();
     const data = {
+      event_id: event_id,
       event_type: CommandEventsEnum.AVATAR_START_LISTENING,
     };
     this.sendCommandEvent(data as CommandEvent);
+    return event_id;
   }
 
-  public stopListening(): void {
+  public stopListening(): string {
     if (!this.assertConnected()) {
-      return;
+      throw new Error("Session needs to be connected to send command event");
     }
 
+    const event_id = this.generateEventId();
     const data = {
       event_type: CommandEventsEnum.AVATAR_STOP_LISTENING,
+      event_id: event_id,
     };
     this.sendCommandEvent(data as CommandEvent);
+
+    return event_id;
   }
 
   public interrupt(): void {
     if (!this.assertConnected()) {
-      return;
+      throw new Error("Session needs to be connected to send command event");
     }
 
     const data = {
