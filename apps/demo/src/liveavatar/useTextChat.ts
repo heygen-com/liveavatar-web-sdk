@@ -1,14 +1,14 @@
 import { useCallback } from "react";
 import { useLiveAvatarContext } from "./context";
 
-export const useTextChat = (mode: "FULL" | "CUSTOM") => {
+export const useTextChat = (mode: "FULL" | "LITE") => {
   const { sessionRef } = useLiveAvatarContext();
 
   const sendMessage = useCallback(
     async (message: string) => {
       if (mode === "FULL") {
         return sessionRef.current.message(message);
-      } else if (mode === "CUSTOM") {
+      } else if (mode === "LITE") {
         const response = await fetch("/api/openai-chat-complete", {
           method: "POST",
           body: JSON.stringify({ message }),

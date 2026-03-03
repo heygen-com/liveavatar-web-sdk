@@ -11,8 +11,7 @@ import { testContext } from "../test/utils/testContext";
 import { AgentEventsEnum, CommandEventsEnum, SessionEvent } from "./events";
 import { VoiceChatEvent, VoiceChatState } from "../VoiceChat";
 import { mockWebSocket } from "../test/utils/mockWebSocket";
-import { API_URL } from "../const";
-import { LIVEKIT_COMMAND_CHANNEL_TOPIC } from "./const";
+import { API_URL, LIVEKIT_COMMAND_CHANNEL_TOPIC } from "../const";
 import { ConnectionQuality as LiveKitConnectionQuality } from "livekit-client";
 import { ConnectionQuality } from "../QualityIndicator";
 

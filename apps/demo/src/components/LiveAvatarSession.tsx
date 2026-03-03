@@ -7,10 +7,12 @@ import {
   useTextChat,
   useVoiceChat,
 } from "../liveavatar";
-import { SessionState } from "@heygen/liveavatar-web-sdk";
+import { SessionState, VoiceChatConfig } from "@heygen/liveavatar-web-sdk";
 import { useAvatarActions } from "../liveavatar/useAvatarActions";
 import { Header } from "./Header";
 import { Loading } from "./Loading";
+import type { SessionMode } from "./LiveAvatarDemo";
+
 
 const Button: React.FC<{
   onClick: () => void;
@@ -29,7 +31,7 @@ const Button: React.FC<{
 };
 
 const LiveAvatarSessionComponent: React.FC<{
-  mode: "FULL" | "CUSTOM";
+  mode: SessionMode;
   onSessionStopped: () => void;
 }> = ({ mode, onSessionStopped }) => {
   const [message, setMessage] = useState("");
@@ -52,12 +54,19 @@ const LiveAvatarSessionComponent: React.FC<{
     stop,
     mute,
     unmute,
+    startPushToTalk,
+    stopPushToTalk,
+    error: voiceChatError,
   } = useVoiceChat();
 
+  // For useAvatarActions, treat FULL_PTT as FULL since they share the same API
+  const avatarActionsMode = mode === "FULL_PTT" ? "FULL" : mode;
   const { interrupt, repeat, startListening, stopListening } =
-    useAvatarActions(mode);
+    useAvatarActions(avatarActionsMode);
 
-  const { sendMessage } = useTextChat(mode);
+  // For useTextChat, treat FULL_PTT as FULL since they share the same API
+  const textChatMode = mode === "FULL_PTT" ? "FULL" : mode;
+  const { sendMessage } = useTextChat(textChatMode);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -82,6 +91,11 @@ const LiveAvatarSessionComponent: React.FC<{
     <>
       <p>Voice Chat Active: {isActive ? "true" : "false"}</p>
       <p>Voice Chat Loading: {isLoading ? "true" : "false"}</p>
+      {voiceChatError && (
+        <p className="text-red-500">
+          Voice Chat Error: {voiceChatError}
+        </p>
+      )}
       {isActive && <p>Muted: {isMuted ? "true" : "false"}</p>}
       <Button
         onClick={() => {
@@ -108,7 +122,32 @@ const LiveAvatarSessionComponent: React.FC<{
           {isMuted ? "Unmute" : "Mute"}
         </Button>
       )}
+      <div className="flex flex-row items-center justify-center gap-4">
+        <Button onClick={startListening}>Start Listening</Button>
+        <Button onClick={stopListening}>Stop Listening</Button>
+      </div>
     </>
+  );
+
+  const PushToTalkComponents = (
+    <div className="flex flex-row items-center justify-center gap-4">
+      <Button
+        onClick={() => {
+          startListening();
+          startPushToTalk();
+        }}
+      >
+        Start Push to Talk
+      </Button>
+      <Button
+        onClick={() => {
+          stopPushToTalk();
+          stopListening();
+        }}
+      >
+        Stop Push to Talk
+      </Button>
+    </div>
   );
 
   return (
@@ -141,11 +180,12 @@ const LiveAvatarSessionComponent: React.FC<{
       <div className="hidden-controls" style={{ display: "none" }}>
         <p>Session state: {sessionState}</p>
         <p>Connection quality: {connectionQuality}</p>
-        {mode === "FULL" && (
+        {(mode === "FULL" || mode === "FULL_PTT") && (
           <p>User talking: {isUserTalking ? "true" : "false"}</p>
         )}
         <p>Avatar talking: {isAvatarTalking ? "true" : "false"}</p>
         {mode === "FULL" && VoiceChatComponents}
+        {mode === "FULL_PTT" && PushToTalkComponents}
         <Button
           onClick={() => {
             keepAlive();
@@ -154,20 +194,6 @@ const LiveAvatarSessionComponent: React.FC<{
           Keep Alive
         </Button>
         <div className="w-full h-full flex flex-row items-center justify-center gap-4">
-          <Button
-            onClick={() => {
-              startListening();
-            }}
-          >
-            Start Listening
-          </Button>
-          <Button
-            onClick={() => {
-              stopListening();
-            }}
-          >
-            Stop Listening
-          </Button>
           <Button
             onClick={() => {
               interrupt();
@@ -206,12 +232,21 @@ const LiveAvatarSessionComponent: React.FC<{
 };
 
 export const LiveAvatarSession: React.FC<{
-  mode: "FULL" | "CUSTOM";
+  mode: SessionMode;
   sessionAccessToken: string;
   onSessionStopped: () => void;
-}> = ({ mode, sessionAccessToken, onSessionStopped }) => {
+  voiceChatConfig?: boolean | VoiceChatConfig;
+}> = ({
+  mode,
+  sessionAccessToken,
+  onSessionStopped,
+  voiceChatConfig = true,
+}) => {
   return (
-    <LiveAvatarContextProvider sessionAccessToken={sessionAccessToken}>
+    <LiveAvatarContextProvider
+      sessionAccessToken={sessionAccessToken}
+      voiceChatConfig={voiceChatConfig}
+    >
       <LiveAvatarSessionComponent
         mode={mode}
         onSessionStopped={onSessionStopped}

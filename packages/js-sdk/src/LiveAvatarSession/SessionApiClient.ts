@@ -4,7 +4,7 @@ import { SessionInfo } from "./types";
 const DEFAULT_ERROR_CODE = 500;
 const SUCCESS_CODE = 1000;
 
-class SessionApiError extends Error {
+export class SessionApiError extends Error {
   errorCode: number;
   status: number | null = null;
 
@@ -42,8 +42,7 @@ export class SessionAPIClient {
       if (!response.ok) {
         const data = await response.json();
         throw new SessionApiError(
-          data.data?.message ||
-            `API request failed with status ${response.status}`,
+          data.message || `API request failed with status ${response.status}`,
           data.code,
           response.status,
         );
@@ -52,7 +51,7 @@ export class SessionAPIClient {
       const data = await response.json();
 
       if (data.code !== SUCCESS_CODE) {
-        throw new SessionApiError(data.data?.message || "API request failed");
+        throw new SessionApiError(data.message || "API request failed");
       }
 
       return data.data as T;
