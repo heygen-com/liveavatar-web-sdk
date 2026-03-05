@@ -10,6 +10,8 @@ export const LiveAvatarDemo = () => {
   const [sessionToken, setSessionToken] = useState("");
   const [mode, setMode] = useState<SessionMode>("FULL");
   const [error, setError] = useState<string | null>(null);
+  const [manualToken, setManualToken] = useState("");
+  const [manualMode, setManualMode] = useState<SessionMode>("FULL");
 
   const handleStartFullSession = async (pushToTalk: boolean = false) => {
     try {
@@ -48,9 +50,19 @@ export const LiveAvatarDemo = () => {
     setMode("LITE");
   };
 
+  const handleStartWithToken = () => {
+    const trimmed = manualToken.trim();
+    if (!trimmed) {
+      setError("Please enter a session token.");
+      return;
+    }
+    setSessionToken(trimmed);
+    setMode(manualMode);
+  };
+
   const onSessionStopped = () => {
-    // Reset the FE state
     setSessionToken("");
+    setManualToken("");
   };
 
   const voiceChatConfig = useMemo(() => {
@@ -91,6 +103,34 @@ export const LiveAvatarDemo = () => {
           >
             Start Lite Mode Avatar Session
           </button>
+
+          <div className="w-full max-w-md flex flex-col items-center gap-2 mt-6 pt-6 border-t border-gray-600">
+            <span className="text-sm text-gray-400">
+              Or start with an existing session token
+            </span>
+            <input
+              type="text"
+              value={manualToken}
+              onChange={(e) => setManualToken(e.target.value)}
+              placeholder="Paste session token"
+              className="w-full px-3 py-2 rounded-md bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-white"
+            />
+            <select
+              value={manualMode}
+              onChange={(e) => setManualMode(e.target.value as SessionMode)}
+              className="w-full px-3 py-2 rounded-md bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-white"
+            >
+              <option value="FULL">Full Mode</option>
+              <option value="FULL_PTT">Full Mode (Push To Talk)</option>
+              <option value="LITE">Lite Mode</option>
+            </select>
+            <button
+              onClick={handleStartWithToken}
+              className="w-fit bg-white text-black px-4 py-2 rounded-md"
+            >
+              Start Session with Token
+            </button>
+          </div>
         </>
       ) : (
         <LiveAvatarSession
