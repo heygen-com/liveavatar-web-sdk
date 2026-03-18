@@ -9,7 +9,7 @@ import {
   AgentEventsEnum,
   VoiceChatConfig,
 } from "@heygen/liveavatar-web-sdk";
-import { LiveAvatarSessionMessage } from "./types";
+import { LiveAvatarSessionMessage, MessageSender } from "./types";
 import { API_URL } from "../../app/api/secrets";
 
 type LiveAvatarContextProps = {
@@ -128,53 +128,109 @@ const useTalkingState = (sessionRef: React.RefObject<LiveAvatarSession>) => {
   return { isUserTalking, isAvatarTalking };
 };
 
-// const useChatHistoryState = (
-//   sessionRef: React.RefObject<LiveAvatarSession>
-// ) => {
-//   const [messages, setMessages] = useState<LiveAvatarSessionMessage[]>([]);
-//   const currentSenderRef = useRef<MessageSender | null>(null);
+const useChatHistoryState = (
+  sessionRef: React.RefObject<LiveAvatarSession>,
+) => {
+  const [messages, setMessages] = useState<LiveAvatarSessionMessage[]>([]);
+  const currentSenderRef = useRef<MessageSender | null>(null);
 
-//   // useEffect(() => {
-//   //   if (sessionRef.current) {
-//   //     const handleMessage = (
-//   //       sender: MessageSender,
-//   //       { task_id, message }: { task_id: string; message: string }
-//   //     ) => {
-//   //       if (currentSenderRef.current === sender) {
-//   //         setMessages((prev) => [
-//   //           ...prev.slice(0, -1),
-//   //           {
-//   //             ...prev[prev.length - 1]!,
-//   //             message: [prev[prev.length - 1]!.message, message].join(""),
-//   //           },
-//   //         ]);
-//   //       } else {
-//   //         currentSenderRef.current = sender;
-//   //         setMessages((prev) => [
-//   //           ...prev,
-//   //           {
-//   //             id: task_id,
-//   //             sender: sender,
-//   //             message,
-//   //             timestamp: Date.now(),
-//   //           },
-//   //         ]);
-//   //       }
-//   //     };
+  useEffect(() => {
+    const session = sessionRef.current;
+    if (!session) return;
 
-//   //     sessionRef.current.on(
-//   //       AgentEventsEnum.USER_SPEAK_STARTED,
-//   //       (data) => console.log("USER_SPEAK_STARTED", data)
-//   //       handleMessage(MessageSender.USER, {
-//   //   task_id: data.,
-//   //   message: data.text || "",
-//   // })
-//   //     );
-//   //   }
-//   // }, [sessionRef]);
+    // User chunks are cumulative (full phrase so far) — replace
+    const handleUserChunk = (event: { text: string }) => {
+      const sender = MessageSender.USER;
+      if (currentSenderRef.current === sender) {
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (!last) return prev;
+          return [...prev.slice(0, -1), { ...last, message: event.text }];
+        });
+      } else {
+        currentSenderRef.current = sender;
+        setMessages((prev) => [
+          ...prev,
+          { sender, message: event.text, timestamp: Date.now() },
+        ]);
+      }
+    };
 
-//   return { messages };
-// };
+    // Avatar chunks are individual words — append
+    const handleAvatarChunk = (event: { text: string }) => {
+      const sender = MessageSender.AVATAR;
+      if (currentSenderRef.current === sender) {
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (!last) return prev;
+          return [
+            ...prev.slice(0, -1),
+            { ...last, message: last.message + event.text },
+          ];
+        });
+      } else {
+        currentSenderRef.current = sender;
+        setMessages((prev) => [
+          ...prev,
+          { sender, message: event.text, timestamp: Date.now() },
+        ]);
+      }
+    };
+
+    const handleUserFinal = (event: { text: string }) => {
+      currentSenderRef.current = null;
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last && last.sender === MessageSender.USER) {
+          return [...prev.slice(0, -1), { ...last, message: event.text }];
+        }
+        return [
+          ...prev,
+          {
+            sender: MessageSender.USER,
+            message: event.text,
+            timestamp: Date.now(),
+          },
+        ];
+      });
+    };
+
+    const handleAvatarFinal = (event: { text: string }) => {
+      currentSenderRef.current = null;
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last && last.sender === MessageSender.AVATAR) {
+          return [...prev.slice(0, -1), { ...last, message: event.text }];
+        }
+        return [
+          ...prev,
+          {
+            sender: MessageSender.AVATAR,
+            message: event.text,
+            timestamp: Date.now(),
+          },
+        ];
+      });
+    };
+
+    session.on(AgentEventsEnum.USER_TRANSCRIPTION_CHUNK, handleUserChunk);
+    session.on(AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK, handleAvatarChunk);
+    session.on(AgentEventsEnum.USER_TRANSCRIPTION, handleUserFinal);
+    session.on(AgentEventsEnum.AVATAR_TRANSCRIPTION, handleAvatarFinal);
+
+    return () => {
+      session.off(AgentEventsEnum.USER_TRANSCRIPTION_CHUNK, handleUserChunk);
+      session.off(
+        AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK,
+        handleAvatarChunk,
+      );
+      session.off(AgentEventsEnum.USER_TRANSCRIPTION, handleUserFinal);
+      session.off(AgentEventsEnum.AVATAR_TRANSCRIPTION, handleAvatarFinal);
+    };
+  }, [sessionRef]);
+
+  return { messages };
+};
 
 export const LiveAvatarContextProvider = ({
   children,
@@ -195,7 +251,7 @@ export const LiveAvatarContextProvider = ({
 
   const { isMuted, voiceChatState } = useVoiceChatState(sessionRef);
   const { isUserTalking, isAvatarTalking } = useTalkingState(sessionRef);
-  // const { messages } = useChatHistoryState(sessionRef);
+  const { messages } = useChatHistoryState(sessionRef);
 
   return (
     <LiveAvatarContext.Provider
@@ -208,7 +264,7 @@ export const LiveAvatarContextProvider = ({
         voiceChatState,
         isUserTalking,
         isAvatarTalking,
-        messages: [], // TODO - properly implement chat history
+        messages,
       }}
     >
       {children}

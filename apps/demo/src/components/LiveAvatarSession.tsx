@@ -6,6 +6,7 @@ import {
   useSession,
   useTextChat,
   useVoiceChat,
+  useChatHistory,
 } from "../liveavatar";
 import { SessionState, VoiceChatConfig } from "@heygen/liveavatar-web-sdk";
 import { useAvatarActions } from "../liveavatar/useAvatarActions";
@@ -64,13 +65,32 @@ const LiveAvatarSessionComponent: React.FC<{
   // For useTextChat, treat FULL_PTT as FULL since they share the same API
   const textChatMode = mode === "FULL_PTT" ? "FULL" : mode;
   const { sendMessage } = useTextChat(textChatMode);
+  const chatMessages = useChatHistory();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [videoHeight, setVideoHeight] = useState<number>(0);
 
   useEffect(() => {
     if (sessionState === SessionState.DISCONNECTED) {
       onSessionStopped();
     }
   }, [sessionState, onSessionStopped]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setVideoHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isStreamReady]);
 
   useEffect(() => {
     if (isStreamReady && videoRef.current) {
@@ -146,20 +166,62 @@ const LiveAvatarSessionComponent: React.FC<{
   );
 
   return (
-    <div className="w-[1080px] max-w-full h-full flex flex-col items-center justify-center gap-4 py-4">
-      <div className="relative w-full aspect-video overflow-hidden flex flex-col items-center justify-center">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          className="w-full h-full object-contain"
-        />
-        <button
-          className="absolute bottom-4 right-4 bg-white text-black px-4 py-2 rounded-md"
-          onClick={() => stopSession()}
-        >
-          Stop
-        </button>
+    <div className="w-full max-w-[1400px] h-full flex flex-col items-center justify-center gap-4 py-4">
+      <div className="w-full flex flex-row items-start justify-center gap-4">
+        <div className="relative overflow-hidden flex flex-col items-center justify-center">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            className="w-full h-full object-contain"
+          />
+          <button
+            className="absolute bottom-4 right-4 bg-white text-black px-4 py-2 rounded-md"
+            onClick={() => stopSession()}
+          >
+            Stop
+          </button>
+        </div>
+        {(mode === "FULL" || mode === "FULL_PTT") && (
+          <div
+            className="w-[350px] shrink-0 overflow-hidden border border-gray-600 rounded-md p-4 flex flex-col"
+            style={{ height: videoHeight > 0 ? videoHeight : 400 }}
+          >
+            <p className="font-bold text-sm border-b border-gray-600 pb-2 mb-2 shrink-0">
+              Chat History
+            </p>
+            <div
+              className="flex-1 overflow-y-auto flex flex-col gap-2"
+              style={{ scrollbarWidth: "none" }}
+            >
+              {chatMessages.length === 0 && (
+                <p className="text-gray-500 text-sm text-center mt-4">
+                  No messages yet
+                </p>
+              )}
+              {chatMessages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[85%] px-3 py-2 rounded-md text-sm ${
+                      msg.sender === "user"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-700 text-white"
+                    }`}
+                  >
+                    <span className="font-bold text-xs opacity-70">
+                      {msg.sender === "user" ? "You" : "Avatar"}
+                    </span>
+                    <p>{msg.message}</p>
+                  </div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+          </div>
+        )}
       </div>
       <div className="w-full h-full flex flex-col items-center justify-center gap-4">
         <p>Session state: {sessionState}</p>
