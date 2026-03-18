@@ -26,7 +26,9 @@ export enum AgentEventsEnum {
   USER_SPEAK_STARTED = "user.speak_started",
   USER_SPEAK_ENDED = "user.speak_ended",
   USER_TRANSCRIPTION = "user.transcription",
+  USER_TRANSCRIPTION_CHUNK = "user.transcription.chunk",
   AVATAR_TRANSCRIPTION = "avatar.transcription",
+  AVATAR_TRANSCRIPTION_CHUNK = "avatar.transcription.chunk",
 
   AVATAR_SPEAK_STARTED = "avatar.speak_started",
   AVATAR_SPEAK_ENDED = "avatar.speak_ended",
@@ -44,7 +46,9 @@ export type AgentEvent =
   | AgentEventData<AgentEventsEnum.USER_SPEAK_STARTED>
   | AgentEventData<AgentEventsEnum.USER_SPEAK_ENDED>
   | AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION, { text: string }>
+  | AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION_CHUNK, { text: string }>
   | AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION, { text: string }>
+  | AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK, { text: string }>
   | AgentEventData<AgentEventsEnum.AVATAR_SPEAK_STARTED>
   | AgentEventData<AgentEventsEnum.AVATAR_SPEAK_ENDED>;
 
@@ -64,9 +68,21 @@ export type AgentEventCallbacks = {
   [AgentEventsEnum.USER_TRANSCRIPTION]: (
     event: AgentEventData<AgentEventsEnum.USER_TRANSCRIPTION, { text: string }>,
   ) => void;
+  [AgentEventsEnum.USER_TRANSCRIPTION_CHUNK]: (
+    event: AgentEventData<
+      AgentEventsEnum.USER_TRANSCRIPTION_CHUNK,
+      { text: string }
+    >,
+  ) => void;
   [AgentEventsEnum.AVATAR_TRANSCRIPTION]: (
     event: AgentEventData<
       AgentEventsEnum.AVATAR_TRANSCRIPTION,
+      { text: string }
+    >,
+  ) => void;
+  [AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK]: (
+    event: AgentEventData<
+      AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK,
       { text: string }
     >,
   ) => void;
@@ -102,6 +118,17 @@ export const getAgentEventEmitArgs = (
         };
         return [AgentEventsEnum.USER_TRANSCRIPTION, payload];
       }
+      case AgentEventsEnum.USER_TRANSCRIPTION_CHUNK: {
+        const payload: AgentEventData<
+          AgentEventsEnum.USER_TRANSCRIPTION_CHUNK,
+          { text: string }
+        > = {
+          event_id: event.event_id,
+          event_type: event.event_type,
+          text: event.text,
+        };
+        return [AgentEventsEnum.USER_TRANSCRIPTION_CHUNK, payload];
+      }
       case AgentEventsEnum.AVATAR_SPEAK_STARTED: {
         const payload: AgentEventData<AgentEventsEnum.AVATAR_SPEAK_STARTED> = {
           event_id: event.event_id,
@@ -127,7 +154,19 @@ export const getAgentEventEmitArgs = (
         };
         return [AgentEventsEnum.AVATAR_TRANSCRIPTION, payload];
       }
+      case AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK: {
+        const payload: AgentEventData<
+          AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK,
+          { text: string }
+        > = {
+          event_id: event.event_id,
+          event_type: event.event_type,
+          text: event.text,
+        };
+        return [AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK, payload];
+      }
       default:
+        console.warn("Received event type:", (event as AgentEvent)?.event_type);
         console.warn("New unsupported event type");
         return null;
     }
