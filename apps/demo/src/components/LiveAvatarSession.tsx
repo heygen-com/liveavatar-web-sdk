@@ -12,16 +12,44 @@ import { SessionState, VoiceChatConfig } from "@heygen/liveavatar-web-sdk";
 import { useAvatarActions } from "../liveavatar/useAvatarActions";
 import { SessionMode } from "./LiveAvatarDemo";
 
-const Button: React.FC<{
+const StatusDot: React.FC<{ active: boolean; label: string }> = ({
+  active,
+  label,
+}) => (
+  <div className="flex items-center gap-1.5 text-xs text-gray-400">
+    <div
+      className={`w-2 h-2 rounded-full ${active ? "bg-green-400" : "bg-gray-600"}`}
+    />
+    {label}
+  </div>
+);
+
+const ActionButton: React.FC<{
   onClick: () => void;
   disabled?: boolean;
+  variant?: "primary" | "secondary" | "danger";
+  size?: "sm" | "md";
   children: React.ReactNode;
-}> = ({ onClick, disabled, children }) => {
+}> = ({ onClick, disabled, variant = "secondary", size = "md", children }) => {
+  const base =
+    "font-medium rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed";
+  const sizes = {
+    sm: "px-4 py-2 text-sm",
+    md: "px-5 py-2.5 text-sm",
+  };
+  const variants = {
+    primary: "bg-white text-black hover:bg-gray-100 active:bg-gray-200",
+    secondary:
+      "bg-white/10 text-white border border-white/10 hover:bg-white/15 active:bg-white/20",
+    danger:
+      "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 active:bg-red-500/30",
+  };
+
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className="bg-white text-black px-4 py-2 rounded-md"
+      className={`${base} ${sizes[size]} ${variants[variant]}`}
     >
       {children}
     </button>
@@ -57,12 +85,10 @@ const LiveAvatarSessionComponent: React.FC<{
     error: voiceChatError,
   } = useVoiceChat();
 
-  // For useAvatarActions, treat FULL_PTT as FULL since they share the same API
   const avatarActionsMode = mode === "FULL_PTT" ? "FULL" : mode;
   const { interrupt, repeat, startListening, stopListening } =
     useAvatarActions(avatarActionsMode);
 
-  // For useTextChat, treat FULL_PTT as FULL since they share the same API
   const textChatMode = mode === "FULL_PTT" ? "FULL" : mode;
   const { sendMessage } = useTextChat(textChatMode);
   const chatMessages = useChatHistory();
@@ -104,99 +130,100 @@ const LiveAvatarSessionComponent: React.FC<{
     }
   }, [startSession, sessionState]);
 
-  const VoiceChatComponents = (
-    <>
-      <p>Voice Chat Active: {isActive ? "true" : "false"}</p>
-      <p>Voice Chat Loading: {isLoading ? "true" : "false"}</p>
-      {voiceChatError && (
-        <p className="text-red-500">Voice Chat Error: {voiceChatError}</p>
-      )}
-      {isActive && <p>Muted: {isMuted ? "true" : "false"}</p>}
-      <Button
-        onClick={() => {
-          if (isActive) {
-            stop();
-          } else {
-            start();
-          }
-        }}
-        disabled={isLoading}
-      >
-        {isActive ? "Stop Voice Chat" : "Start Voice Chat"}
-      </Button>
-      {isActive && (
-        <Button
-          onClick={() => {
-            if (isMuted) {
-              unmute();
-            } else {
-              mute();
-            }
-          }}
-        >
-          {isMuted ? "Unmute" : "Mute"}
-        </Button>
-      )}
-      <div className="flex flex-row items-center justify-center gap-4">
-        <Button onClick={startListening}>Start Listening</Button>
-        <Button onClick={stopListening}>Stop Listening</Button>
-      </div>
-    </>
-  );
-
-  const PushToTalkComponents = (
-    <div className="flex flex-row items-center justify-center gap-4">
-      <Button
-        onClick={() => {
-          startListening();
-          startPushToTalk();
-        }}
-      >
-        Start Push to Talk
-      </Button>
-      <Button
-        onClick={() => {
-          stopPushToTalk();
-          stopListening();
-        }}
-      >
-        Stop Push to Talk
-      </Button>
-    </div>
-  );
+  const qualityColor =
+    connectionQuality === "GOOD"
+      ? "text-green-400"
+      : connectionQuality === "BAD"
+        ? "text-red-400"
+        : "text-gray-500";
 
   return (
-    <div className="w-full max-w-[1400px] h-full flex flex-col items-center justify-center gap-4 py-4">
+    <div className="w-full max-w-[1400px] h-full flex flex-col gap-4 py-4">
+      {/* Video + Chat row */}
       <div className="w-full flex flex-row items-start justify-center gap-4">
-        <div className="relative overflow-hidden flex flex-col items-center justify-center">
+        <div className="relative overflow-hidden rounded-lg flex flex-col items-center justify-center bg-black">
           <video
             ref={videoRef}
             autoPlay
             playsInline
             className="w-full h-full object-contain"
           />
+          {/* Overlay status badges */}
+          <div className="absolute top-3 left-3 flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  sessionState === SessionState.CONNECTED
+                    ? "bg-green-400"
+                    : sessionState === SessionState.CONNECTING
+                      ? "bg-yellow-400 animate-pulse"
+                      : "bg-gray-500"
+                }`}
+              />
+              <span className="text-xs text-white/70 font-medium uppercase tracking-wider">
+                {sessionState}
+              </span>
+            </div>
+            <span
+              className={`text-xs font-medium uppercase tracking-wider px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm ${qualityColor}`}
+            >
+              {connectionQuality}
+            </span>
+          </div>
+          {/* Talking indicators */}
+          <div className="absolute bottom-3 left-3 flex items-center gap-2">
+            {(mode === "FULL" || mode === "FULL_PTT") && (
+              <div
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-sm transition-colors ${
+                  isUserTalking
+                    ? "bg-blue-500/30 border border-blue-400/30"
+                    : "bg-black/40"
+                }`}
+              >
+                <div
+                  className={`w-2 h-2 rounded-full transition-colors ${isUserTalking ? "bg-blue-400 animate-pulse" : "bg-gray-500"}`}
+                />
+                <span className="text-xs text-white/70 font-medium">You</span>
+              </div>
+            )}
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-sm transition-colors ${
+                isAvatarTalking
+                  ? "bg-purple-500/30 border border-purple-400/30"
+                  : "bg-black/40"
+              }`}
+            >
+              <div
+                className={`w-2 h-2 rounded-full transition-colors ${isAvatarTalking ? "bg-purple-400 animate-pulse" : "bg-gray-500"}`}
+              />
+              <span className="text-xs text-white/70 font-medium">Avatar</span>
+            </div>
+          </div>
+          {/* Stop button */}
           <button
-            className="absolute bottom-4 right-4 bg-white text-black px-4 py-2 rounded-md"
+            className="absolute bottom-3 right-3 px-4 py-2 text-sm font-medium rounded-lg bg-red-500/80 text-white hover:bg-red-500 backdrop-blur-sm transition-colors"
             onClick={() => stopSession()}
           >
-            Stop
+            End Session
           </button>
         </div>
+
+        {/* Chat History */}
         {(mode === "FULL" || mode === "FULL_PTT") && (
           <div
-            className="w-[350px] shrink-0 overflow-hidden border border-gray-600 rounded-md p-4 flex flex-col"
+            className="w-[350px] shrink-0 overflow-hidden border border-white/10 rounded-lg bg-white/5 flex flex-col"
             style={{ height: videoHeight > 0 ? videoHeight : 400 }}
           >
-            <p className="font-bold text-sm border-b border-gray-600 pb-2 mb-2 shrink-0">
-              Chat History
-            </p>
+            <div className="px-4 py-3 border-b border-white/10 shrink-0">
+              <p className="font-medium text-sm text-white">Chat</p>
+            </div>
             <div
-              className="flex-1 overflow-y-auto flex flex-col gap-2"
+              className="flex-1 overflow-y-auto p-3 flex flex-col gap-2"
               style={{ scrollbarWidth: "none" }}
             >
               {chatMessages.length === 0 && (
-                <p className="text-gray-500 text-sm text-center mt-4">
-                  No messages yet
+                <p className="text-gray-500 text-xs text-center mt-8">
+                  Transcriptions will appear here
                 </p>
               )}
               {chatMessages.map((msg, i) => (
@@ -205,73 +232,174 @@ const LiveAvatarSessionComponent: React.FC<{
                   className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[85%] px-3 py-2 rounded-md text-sm ${
+                    className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${
                       msg.sender === "user"
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-700 text-white"
+                        ? "bg-blue-500/20 text-blue-100 border border-blue-500/10"
+                        : "bg-white/10 text-gray-200 border border-white/5"
                     }`}
                   >
-                    <span className="font-bold text-xs opacity-70">
+                    <span className="font-medium text-xs uppercase tracking-wider opacity-50 block mb-0.5">
                       {msg.sender === "user" ? "You" : "Avatar"}
                     </span>
-                    <p>{msg.message}</p>
+                    <p className="leading-relaxed">{msg.message}</p>
                   </div>
                 </div>
               ))}
               <div ref={chatEndRef} />
             </div>
+            <div className="shrink-0 px-3 py-3 border-t border-white/10 flex flex-col gap-2">
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && message.trim()) {
+                    sendMessage(message);
+                    setMessage("");
+                  }
+                }}
+                placeholder="Type a message..."
+                className="w-full px-4 py-2 rounded-lg bg-white/5 text-white text-sm border border-white/10 focus:outline-none focus:border-white/30 placeholder-gray-500 transition-colors"
+              />
+              <div className="flex items-center gap-2">
+                <ActionButton
+                  onClick={() => {
+                    sendMessage(message);
+                    setMessage("");
+                  }}
+                  variant="primary"
+                  size="sm"
+                >
+                  Send
+                </ActionButton>
+                <ActionButton
+                  onClick={() => {
+                    repeat(message);
+                    setMessage("");
+                  }}
+                  size="sm"
+                >
+                  Repeat
+                </ActionButton>
+              </div>
+            </div>
           </div>
         )}
       </div>
-      <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-        <p>Session state: {sessionState}</p>
-        <p>Connection quality: {connectionQuality}</p>
-        {(mode === "FULL" || mode === "FULL_PTT") && (
-          <p>User talking: {isUserTalking ? "true" : "false"}</p>
+
+      {/* Controls */}
+      <div className="w-full flex flex-col items-center gap-3">
+        {voiceChatError && (
+          <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg">
+            {voiceChatError}
+          </p>
         )}
-        <p>Avatar talking: {isAvatarTalking ? "true" : "false"}</p>
-        {mode === "FULL" && VoiceChatComponents}
-        {mode === "FULL_PTT" && PushToTalkComponents}
-        <Button
-          onClick={() => {
-            keepAlive();
-          }}
-        >
-          Keep Alive
-        </Button>
-        <div className="w-full h-full flex flex-row items-center justify-center gap-4">
-          <Button
-            onClick={() => {
-              interrupt();
-            }}
-          >
+
+        {/* Voice Chat */}
+        {mode === "FULL" && (
+          <div className="flex items-center gap-2">
+            <StatusDot active={isActive} label="Voice Chat" />
+            <ActionButton
+              onClick={() => (isActive ? stop() : start())}
+              disabled={isLoading}
+              variant={isActive ? "danger" : "primary"}
+              size="sm"
+            >
+              {isLoading
+                ? "Loading..."
+                : isActive
+                  ? "Stop Voice Chat"
+                  : "Start Voice Chat"}
+            </ActionButton>
+            {isActive && (
+              <ActionButton
+                onClick={() => (isMuted ? unmute() : mute())}
+                size="sm"
+                variant={isMuted ? "primary" : "secondary"}
+              >
+                {isMuted ? "Unmute" : "Mute"}
+              </ActionButton>
+            )}
+          </div>
+        )}
+
+        {mode === "FULL_PTT" && (
+          <div className="flex items-center gap-2">
+            <ActionButton
+              onClick={() => {
+                startListening();
+                startPushToTalk();
+              }}
+              variant="primary"
+              size="sm"
+            >
+              Push to Talk
+            </ActionButton>
+            <ActionButton
+              onClick={() => {
+                stopPushToTalk();
+                stopListening();
+              }}
+              size="sm"
+            >
+              Release
+            </ActionButton>
+          </div>
+        )}
+
+        {/* Avatar Controls */}
+        <div className="flex items-center gap-2">
+          <ActionButton onClick={startListening} size="sm">
+            Start Listening Pose
+          </ActionButton>
+          <ActionButton onClick={stopListening} size="sm">
+            Stop Listening Pose
+          </ActionButton>
+          <ActionButton onClick={interrupt} size="sm">
             Interrupt
-          </Button>
+          </ActionButton>
+          <ActionButton onClick={keepAlive} size="sm">
+            Keep Alive
+          </ActionButton>
         </div>
-        <div className="w-full h-full flex flex-row items-center justify-center gap-4">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            className="w-[400px] bg-white text-black px-4 py-2 rounded-md"
-          />
-          <Button
-            onClick={() => {
-              sendMessage(message);
-              setMessage("");
-            }}
-          >
-            Send
-          </Button>
-          <Button
-            onClick={() => {
-              repeat(message);
-              setMessage("");
-            }}
-          >
-            Repeat
-          </Button>
-        </div>
+
+        {/* Text input for LITE mode (no chat panel) */}
+        {mode === "LITE" && (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && message.trim()) {
+                  sendMessage(message);
+                  setMessage("");
+                }
+              }}
+              placeholder="Type a message..."
+              className="w-[350px] px-4 py-2 rounded-lg bg-white/5 text-white text-sm border border-white/10 focus:outline-none focus:border-white/30 placeholder-gray-500 transition-colors"
+            />
+            <ActionButton
+              onClick={() => {
+                sendMessage(message);
+                setMessage("");
+              }}
+              variant="primary"
+              size="sm"
+            >
+              Send
+            </ActionButton>
+            <ActionButton
+              onClick={() => {
+                repeat(message);
+                setMessage("");
+              }}
+              size="sm"
+            >
+              Repeat
+            </ActionButton>
+          </div>
+        )}
       </div>
     </div>
   );
