@@ -338,7 +338,8 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       }
     });
 
-    this.room.on(RoomEvent.Disconnected, () => {
+    this.room.on(RoomEvent.Disconnected, (reason) => {
+      console.warn("Room disconnected, reason:", reason);
       this.handleRoomDisconnect();
     });
 
@@ -564,6 +565,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
           }),
         );
         return;
+      case CommandEventsEnum.AVATAR_SPEAK_TEXT:
+      case CommandEventsEnum.AVATAR_SPEAK_RESPONSE:
+        throw new Error("Not permitted in LITE mode");
       case CommandEventsEnum.AVATAR_INTERRUPT:
         this._sessionEventSocket.send(
           JSON.stringify({

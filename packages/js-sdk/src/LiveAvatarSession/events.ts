@@ -40,6 +40,8 @@ export type AgentEventData<
 > = {
   event_id: string;
   event_type: T;
+  source_event_id?: string;
+  session_id?: string;
 } & U;
 
 export type AgentEvent =
@@ -97,6 +99,8 @@ export const getAgentEventEmitArgs = (
         const payload: AgentEventData<AgentEventsEnum.USER_SPEAK_STARTED> = {
           event_id: event.event_id,
           event_type: event.event_type,
+          source_event_id: event.source_event_id,
+          session_id: event.session_id,
         };
         return [AgentEventsEnum.USER_SPEAK_STARTED, payload];
       }
@@ -104,6 +108,8 @@ export const getAgentEventEmitArgs = (
         const payload: AgentEventData<AgentEventsEnum.USER_SPEAK_ENDED> = {
           event_id: event.event_id,
           event_type: event.event_type,
+          source_event_id: event.source_event_id,
+          session_id: event.session_id,
         };
         return [AgentEventsEnum.USER_SPEAK_ENDED, payload];
       }
@@ -114,6 +120,8 @@ export const getAgentEventEmitArgs = (
         > = {
           event_id: event.event_id,
           event_type: event.event_type,
+          source_event_id: event.source_event_id,
+          session_id: event.session_id,
           text: event.text,
         };
         return [AgentEventsEnum.USER_TRANSCRIPTION, payload];
@@ -125,6 +133,8 @@ export const getAgentEventEmitArgs = (
         > = {
           event_id: event.event_id,
           event_type: event.event_type,
+          source_event_id: event.source_event_id,
+          session_id: event.session_id,
           text: event.text,
         };
         return [AgentEventsEnum.USER_TRANSCRIPTION_CHUNK, payload];
@@ -133,6 +143,8 @@ export const getAgentEventEmitArgs = (
         const payload: AgentEventData<AgentEventsEnum.AVATAR_SPEAK_STARTED> = {
           event_id: event.event_id,
           event_type: event.event_type,
+          source_event_id: event.source_event_id,
+          session_id: event.session_id,
         };
         return [AgentEventsEnum.AVATAR_SPEAK_STARTED, payload];
       }
@@ -140,6 +152,8 @@ export const getAgentEventEmitArgs = (
         const payload: AgentEventData<AgentEventsEnum.AVATAR_SPEAK_ENDED> = {
           event_id: event.event_id,
           event_type: event.event_type,
+          source_event_id: event.source_event_id,
+          session_id: event.session_id,
         };
         return [AgentEventsEnum.AVATAR_SPEAK_ENDED, payload];
       }
@@ -150,6 +164,8 @@ export const getAgentEventEmitArgs = (
         > = {
           event_id: event.event_id,
           event_type: event.event_type,
+          source_event_id: event.source_event_id,
+          session_id: event.session_id,
           text: event.text,
         };
         return [AgentEventsEnum.AVATAR_TRANSCRIPTION, payload];
@@ -161,6 +177,8 @@ export const getAgentEventEmitArgs = (
         > = {
           event_id: event.event_id,
           event_type: event.event_type,
+          source_event_id: event.source_event_id,
+          session_id: event.session_id,
           text: event.text,
         };
         return [AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK, payload];
