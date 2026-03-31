@@ -330,13 +330,13 @@ describe("LiveAvatarSession command events", () => {
     expect(parsedLastEvent.type).toEqual("agent.speak_end");
   });
 
-  it("does not send unsopported command event via web socket", async () => {
+  it("does not send unsupported command event via web socket", async () => {
     mockWebSocket();
     const session = setupLiveAvatarSession({
       sessionInfo: { ...sessionInfoMock, ws_url: "mock-websocket-url" },
     });
     await session.start();
-    session.message("test");
+    expect(() => session.message("test")).toThrow("Not permitted in LITE mode");
     expect(testContext.wsInstance.send).not.toHaveBeenCalled();
   });
 
@@ -418,8 +418,16 @@ describe("LiveAvatarSession server events", () => {
       event_type: AgentEventsEnum.USER_TRANSCRIPTION,
       text: "test",
     },
+    [AgentEventsEnum.USER_TRANSCRIPTION_CHUNK]: {
+      event_type: AgentEventsEnum.USER_TRANSCRIPTION_CHUNK,
+      text: "test",
+    },
     [AgentEventsEnum.AVATAR_TRANSCRIPTION]: {
       event_type: AgentEventsEnum.AVATAR_TRANSCRIPTION,
+      text: "test",
+    },
+    [AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK]: {
+      event_type: AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK,
       text: "test",
     },
     [AgentEventsEnum.AVATAR_SPEAK_STARTED]: {
