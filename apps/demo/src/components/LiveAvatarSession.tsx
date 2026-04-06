@@ -7,6 +7,7 @@ import {
   useTextChat,
   useVoiceChat,
   useChatHistory,
+  useMicrophoneDevices,
 } from "../liveavatar";
 import { SessionState, VoiceChatConfig } from "@heygen/liveavatar-web-sdk";
 import { useAvatarActions } from "../liveavatar/useAvatarActions";
@@ -59,7 +60,8 @@ const ActionButton: React.FC<{
 const LiveAvatarSessionComponent: React.FC<{
   mode: SessionMode;
   onSessionStopped: () => void;
-}> = ({ mode, onSessionStopped }) => {
+  hasVoiceChat: boolean;
+}> = ({ mode, onSessionStopped, hasVoiceChat }) => {
   const [message, setMessage] = useState("");
   const {
     sessionState,
@@ -84,6 +86,8 @@ const LiveAvatarSessionComponent: React.FC<{
     stopPushToTalk,
     error: voiceChatError,
   } = useVoiceChat();
+
+  const { devices, selectedDeviceId, selectDevice } = useMicrophoneDevices();
 
   const avatarActionsMode = mode === "FULL_PTT" ? "FULL" : mode;
   const { interrupt, repeat, startListening, stopListening } =
@@ -295,6 +299,24 @@ const LiveAvatarSessionComponent: React.FC<{
           </p>
         )}
 
+        {/* Microphone Selection */}
+        {hasVoiceChat && devices.length > 1 && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-400">Microphone:</label>
+            <select
+              value={selectedDeviceId ?? ""}
+              onChange={(e) => selectDevice(e.target.value)}
+              className="px-3 py-1.5 rounded-lg bg-white/5 text-white text-sm border border-white/10 focus:outline-none focus:border-white/30 transition-colors"
+            >
+              {devices.map((device) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Voice Chat */}
         {mode === "FULL" && (
           <div className="flex items-center gap-2">
@@ -424,6 +446,7 @@ export const LiveAvatarSession: React.FC<{
       <LiveAvatarSessionComponent
         mode={mode}
         onSessionStopped={onSessionStopped}
+        hasVoiceChat={!!voiceChatConfig}
       />
     </LiveAvatarContextProvider>
   );
