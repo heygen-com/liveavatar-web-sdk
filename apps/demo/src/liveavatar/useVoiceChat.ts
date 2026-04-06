@@ -46,6 +46,13 @@ export const useVoiceChat = () => {
     return voiceChatState === VoiceChatState.ACTIVE;
   }, [voiceChatState]);
 
+  const setDevice = useCallback(
+    async (constraints: ConstrainDOMString) => {
+      return sessionRef.current.voiceChat.setDevice(constraints);
+    },
+    [sessionRef],
+  );
+
   const startPushToTalk = useCallback(async () => {
     return await sessionRef.current.voiceChat.startPushToTalk();
   }, [sessionRef]);
@@ -59,6 +66,7 @@ export const useVoiceChat = () => {
     unmute,
     start,
     stop,
+    setDevice,
     isLoading,
     isActive,
     isMuted,
