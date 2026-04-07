@@ -32,6 +32,10 @@ export enum AgentEventsEnum {
 
   AVATAR_SPEAK_STARTED = "avatar.speak_started",
   AVATAR_SPEAK_ENDED = "avatar.speak_ended",
+
+  ELEVENLABS_AGENT_EVENT = "elevenlabs_agent_event",
+
+  SESSION_STOPPED = "session.stopped",
 }
 
 export type AgentEventData<
@@ -44,6 +48,11 @@ export type AgentEventData<
   session_id?: string;
 } & U;
 
+export type ElevenLabsAgentEventPayload = {
+  elevenlabs_event_type: string;
+  data: Record<string, any>;
+};
+
 export type AgentEvent =
   | AgentEventData<AgentEventsEnum.USER_SPEAK_STARTED>
   | AgentEventData<AgentEventsEnum.USER_SPEAK_ENDED>
@@ -52,7 +61,12 @@ export type AgentEvent =
   | AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION, { text: string }>
   | AgentEventData<AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK, { text: string }>
   | AgentEventData<AgentEventsEnum.AVATAR_SPEAK_STARTED>
-  | AgentEventData<AgentEventsEnum.AVATAR_SPEAK_ENDED>;
+  | AgentEventData<AgentEventsEnum.AVATAR_SPEAK_ENDED>
+  | AgentEventData<
+      AgentEventsEnum.ELEVENLABS_AGENT_EVENT,
+      ElevenLabsAgentEventPayload
+    >
+  | AgentEventData<AgentEventsEnum.SESSION_STOPPED, { stop_reason: string }>;
 
 export type AgentEventCallbacks = {
   [AgentEventsEnum.USER_SPEAK_STARTED]: (
@@ -86,6 +100,18 @@ export type AgentEventCallbacks = {
     event: AgentEventData<
       AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK,
       { text: string }
+    >,
+  ) => void;
+  [AgentEventsEnum.ELEVENLABS_AGENT_EVENT]: (
+    event: AgentEventData<
+      AgentEventsEnum.ELEVENLABS_AGENT_EVENT,
+      ElevenLabsAgentEventPayload
+    >,
+  ) => void;
+  [AgentEventsEnum.SESSION_STOPPED]: (
+    event: AgentEventData<
+      AgentEventsEnum.SESSION_STOPPED,
+      { stop_reason: string }
     >,
   ) => void;
 };
@@ -182,6 +208,33 @@ export const getAgentEventEmitArgs = (
           text: event.text,
         };
         return [AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK, payload];
+      }
+      case AgentEventsEnum.ELEVENLABS_AGENT_EVENT: {
+        const payload: AgentEventData<
+          AgentEventsEnum.ELEVENLABS_AGENT_EVENT,
+          ElevenLabsAgentEventPayload
+        > = {
+          event_id: event.event_id,
+          event_type: event.event_type,
+          source_event_id: event.source_event_id,
+          session_id: event.session_id,
+          elevenlabs_event_type: event.elevenlabs_event_type,
+          data: event.data,
+        };
+        return [AgentEventsEnum.ELEVENLABS_AGENT_EVENT, payload];
+      }
+      case AgentEventsEnum.SESSION_STOPPED: {
+        const payload: AgentEventData<
+          AgentEventsEnum.SESSION_STOPPED,
+          { stop_reason: string }
+        > = {
+          event_id: event.event_id,
+          event_type: event.event_type,
+          source_event_id: event.source_event_id,
+          session_id: event.session_id,
+          stop_reason: event.stop_reason,
+        };
+        return [AgentEventsEnum.SESSION_STOPPED, payload];
       }
       default:
         console.warn("Received event type:", (event as AgentEvent)?.event_type);

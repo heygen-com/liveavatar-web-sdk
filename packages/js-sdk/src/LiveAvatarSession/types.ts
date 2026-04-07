@@ -12,7 +12,7 @@ export enum SessionDisconnectReason {
   UNKNOWN_REASON = "UNKNOWN_REASON",
   CLIENT_INITIATED = "CLIENT_INITIATED",
   SESSION_START_FAILED = "SESSION_START_FAILED",
-  // Consider adding other reasons: INACTIVITY_TIMEOUT, SESSION_DURATION_EXCEEDED, OUT_OF_CREDITS, etc.
+  SERVER_INITIATED = "SERVER_INITIATED",
 }
 
 export interface SessionConfig {
