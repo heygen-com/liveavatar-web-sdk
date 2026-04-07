@@ -326,6 +326,15 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       }
     });
 
+    this.on(AgentEventsEnum.SESSION_STOPPED, (event) => {
+      console.warn(
+        "[SDK:SESSION_STOPPED] Server stopped session, reason:",
+        event.stop_reason,
+      );
+      this.cleanup();
+      this.postStop(SessionDisconnectReason.SERVER_INITIATED);
+    });
+
     this.room.on(RoomEvent.ParticipantConnected, (participant) => {
       console.warn("participantConnected", participant);
     });

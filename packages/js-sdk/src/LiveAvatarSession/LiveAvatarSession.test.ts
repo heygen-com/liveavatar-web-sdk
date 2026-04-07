@@ -12,7 +12,10 @@ import { AgentEventsEnum, CommandEventsEnum, SessionEvent } from "./events";
 import { VoiceChatEvent, VoiceChatState } from "../VoiceChat";
 import { mockWebSocket } from "../test/utils/mockWebSocket";
 import { API_URL, LIVEKIT_COMMAND_CHANNEL_TOPIC } from "../const";
-import { ConnectionQuality as LiveKitConnectionQuality } from "livekit-client";
+import {
+  ConnectionQuality as LiveKitConnectionQuality,
+  RoomEvent,
+} from "livekit-client";
 import { ConnectionQuality } from "../QualityIndicator";
 
 beforeEach(() => {
@@ -519,6 +522,199 @@ describe("LiveAvatarSession connection quality", () => {
     expect(onConnectionQualityChanged).toHaveBeenCalledWith(
       ConnectionQuality.GOOD,
     );
+  });
+});
+
+describe("LiveAvatarSession server-initiated stop", () => {
+  it("disconnects when session.stopped event is received via data channel", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    const onStateChanged = vi.fn();
+    session.on(SessionEvent.SESSION_STATE_CHANGED, onStateChanged);
+    const onDisconnected = vi.fn();
+    session.on(SessionEvent.SESSION_DISCONNECTED, onDisconnected);
+    const onSessionStopped = vi.fn();
+    session.on(AgentEventsEnum.SESSION_STOPPED, onSessionStopped);
+    await session.start();
+
+    testContext.roomInstance._triggerDataReceived({
+      event_type: AgentEventsEnum.SESSION_STOPPED,
+      event_id: "stop-event-id",
+      stop_reason: "session_duration_exceeded",
+    });
+
+    expect(onSessionStopped).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: AgentEventsEnum.SESSION_STOPPED,
+        stop_reason: "session_duration_exceeded",
+      }),
+    );
+    expect(onDisconnected).toHaveBeenCalledWith(
+      SessionDisconnectReason.SERVER_INITIATED,
+    );
+  });
+});
+
+describe("LiveAvatarSession new event types", () => {
+  it("emits elevenlabs_agent_event via data channel", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    const onEvent = vi.fn();
+    session.on(AgentEventsEnum.ELEVENLABS_AGENT_EVENT, onEvent);
+    await session.start();
+
+    testContext.roomInstance._triggerDataReceived({
+      event_type: AgentEventsEnum.ELEVENLABS_AGENT_EVENT,
+      event_id: "el-event-id",
+      elevenlabs_event_type: "conversation.started",
+      data: { agent_id: "abc123" },
+    });
+
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: AgentEventsEnum.ELEVENLABS_AGENT_EVENT,
+        elevenlabs_event_type: "conversation.started",
+        data: { agent_id: "abc123" },
+      }),
+    );
+  });
+
+  it("emits user_speak_started via data channel", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    const onEvent = vi.fn();
+    session.on(AgentEventsEnum.USER_SPEAK_STARTED, onEvent);
+    await session.start();
+
+    testContext.roomInstance._triggerDataReceived({
+      event_type: AgentEventsEnum.USER_SPEAK_STARTED,
+      event_id: "speak-start-id",
+      source_event_id: "source-id",
+    });
+
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: AgentEventsEnum.USER_SPEAK_STARTED,
+        event_id: "speak-start-id",
+        source_event_id: "source-id",
+      }),
+    );
+  });
+});
+
+describe("LiveAvatarSession LITE-only session", () => {
+  it("starts a LITE session with only websocket (no livekit)", async () => {
+    mockWebSocket();
+    const session = setupLiveAvatarSession({
+      sessionInfo: {
+        session_id: "lite-session-id",
+        max_session_duration: null,
+        ws_url: "mock-websocket-url",
+      },
+    });
+    const onStateChanged = vi.fn();
+    session.on(SessionEvent.SESSION_STATE_CHANGED, onStateChanged);
+    await session.start();
+    expect(onStateChanged).toHaveBeenCalledWith(SessionState.CONNECTED);
+  });
+
+  it("throws when repeat is called via websocket", async () => {
+    mockWebSocket();
+    const session = setupLiveAvatarSession({
+      sessionInfo: { ...sessionInfoMock, ws_url: "mock-websocket-url" },
+    });
+    await session.start();
+    expect(() => session.repeat("test")).toThrow("Not permitted in LITE mode");
+  });
+
+  it("throws when repeatAudio is called without websocket", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    await session.start();
+    expect(() => session.repeatAudio("audio-data")).toThrow();
+  });
+});
+
+describe("LiveAvatarSession edge cases", () => {
+  it("ignores track subscriptions from non-heygen participants", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    const onStreamReady = vi.fn();
+    session.on(SessionEvent.SESSION_STREAM_READY, onStreamReady);
+    await session.start();
+
+    // Trigger track from a non-heygen participant
+    testContext.roomInstance.emit(
+      RoomEvent.TrackSubscribed,
+      { kind: "video", mediaStreamTrack: { kind: "video" } },
+      null,
+      { identity: "other-participant" },
+    );
+    testContext.roomInstance.emit(
+      RoomEvent.TrackSubscribed,
+      { kind: "audio", mediaStreamTrack: { kind: "audio" } },
+      null,
+      { identity: "other-participant" },
+    );
+    expect(onStreamReady).not.toHaveBeenCalled();
+  });
+
+  it("does not stop the session when already disconnected", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    const onStateChanged = vi.fn();
+    session.on(SessionEvent.SESSION_STATE_CHANGED, onStateChanged);
+    // session is INACTIVE, stop should be a no-op
+    await session.stop();
+    expect(onStateChanged).not.toHaveBeenCalled();
+  });
+
+  it("returns max session duration from session info", async () => {
+    const session = setupLiveAvatarSession({
+      sessionInfo: { ...sessionInfoMock, max_session_duration: 300 },
+    });
+    await session.start();
+    expect(session.maxSessionDuration).toBe(300);
+  });
+
+  it("returns null max session duration when not set", () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    expect(session.maxSessionDuration).toBeNull();
+  });
+});
+
+describe("SessionAPIClient error handling", () => {
+  it("handles HTTP error responses", async () => {
+    mockFetch(
+      {
+        url: "/v1/sessions/start",
+        method: "POST",
+        response: {
+          code: 4001,
+          message: "Unauthorized",
+        },
+        status: 401,
+      },
+      {
+        url: "/v1/sessions/stop",
+        method: "POST",
+        response: { code: 1000 },
+      },
+    );
+    const session = new LiveAvatarSession("mock-session-token");
+    await expect(session.start()).rejects.toThrow();
+  });
+
+  it("handles network errors", async () => {
+    let callCount = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        // First call is startSession - reject with network error
+        throw new Error("Network error");
+      }
+      // Subsequent calls (stopSession during cleanup) - return success
+      return new Response(JSON.stringify({ code: 1000 }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    const session = new LiveAvatarSession("mock-session-token");
+    await expect(session.start()).rejects.toThrow();
   });
 });
 

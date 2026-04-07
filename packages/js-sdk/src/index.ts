@@ -20,6 +20,7 @@ export {
   AgentEvent,
   CommandEventsEnum,
 } from "./LiveAvatarSession";
+export type { ElevenLabsAgentEventPayload } from "./LiveAvatarSession";
 export {
   VoiceChatState,
   VoiceChatEvent,
