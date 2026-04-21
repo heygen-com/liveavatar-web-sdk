@@ -150,8 +150,17 @@ const LiveAvatarSessionComponent: React.FC<{
             ref={videoRef}
             autoPlay
             playsInline
-            className="w-full h-full object-contain"
+            className={`w-full h-full object-contain transition-opacity ${
+              sessionState === SessionState.CONNECTED
+                ? "opacity-100"
+                : "opacity-0"
+            }`}
           />
+          {sessionState !== SessionState.CONNECTED && (
+            <div className="absolute inset-0 flex items-center justify-center text-white/70 text-sm">
+              Waiting for avatar and agent to join…
+            </div>
+          )}
           {/* Overlay status badges */}
           <div className="absolute top-3 left-3 flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm">
