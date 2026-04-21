@@ -36,6 +36,7 @@ const setupLiveAvatarSession = ({
   sessionInfo: SessionInfo;
   sessionConfig?: SessionConfig;
 }) => {
+  testContext.sessionId = sessionInfo.session_id;
   mockFetch(
     {
       url: "/v1/sessions/start",

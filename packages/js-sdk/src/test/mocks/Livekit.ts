@@ -70,15 +70,26 @@ export class RoomMock extends EventEmitter {
   localParticipant = new LocalParticipantMock();
   participants = new Map();
   state = "disconnected";
-  connect = vi.fn(async () => {
+  connect = vi.fn(async (_url?: string, token?: string) => {
     this.state = "connecting";
     await new Promise((resolve) => setTimeout(resolve, 10));
     this.state = "connected";
     this.emit(RoomEvent.Connected);
     this.emit(RoomEvent.ActiveSpeakersChanged, [this.localParticipant]);
     this.emit(RoomEvent.ConnectionStateChanged, ConnectionState.Connected);
+    this._emitRequiredParticipants(token);
     return this;
   });
+
+  _emitRequiredParticipants(_token?: string) {
+    const sessionId = testContext.sessionId ?? "mock-session-id";
+    const identities = ["heygen", `liveavatar-agent-${sessionId}`];
+    for (const identity of identities) {
+      const participant = { identity };
+      this.remoteParticipants.set(identity, participant);
+      this.emit(RoomEvent.ParticipantConnected, participant);
+    }
+  }
   prepareConnection = vi.fn(async () => {
     return Promise.resolve();
   });

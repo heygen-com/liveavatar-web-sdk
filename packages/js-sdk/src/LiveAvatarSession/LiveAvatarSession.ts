@@ -39,6 +39,8 @@ import { SessionAPIClient } from "./SessionApiClient";
 import { splitPcm24kStringToChunks } from "../audio_utils";
 
 const HEYGEN_PARTICIPANT_ID = "heygen";
+const LIVEAVATAR_AGENT_PARTICIPANT_ID_PREFIX = "liveavatar-agent-";
+const REQUIRED_PARTICIPANTS_TIMEOUT_MS = 30_000;
 
 export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   SessionEventCallbacks & AgentEventCallbacks
@@ -128,6 +130,10 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
         // Track the different events from the room, server, and websocket
         this.trackEvents();
         await this.room.connect(livekitRoomUrl, livekitClientToken);
+        for (const p of this.room.remoteParticipants.values()) {
+          console.warn("existing participant on connect:", p.identity);
+        }
+        await this.waitForRequiredParticipants();
         this.connectionQualityIndicator.start(this.room);
       }
 
@@ -336,7 +342,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     });
 
     this.room.on(RoomEvent.ParticipantConnected, (participant) => {
-      console.warn("participantConnected", participant);
+      console.warn("participantConnected", participant.identity);
     });
 
     this.room.on(RoomEvent.TrackUnsubscribed, (track) => {
@@ -354,6 +360,44 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
 
     this.room.on(RoomEvent.TrackPublished, (track) => {
       console.warn("trackPublished", track);
+    });
+  }
+
+  private waitForRequiredParticipants(): Promise<void> {
+    const sessionId = this._sessionInfo?.session_id;
+    if (!sessionId) {
+      return Promise.resolve();
+    }
+    const agentId = `${LIVEAVATAR_AGENT_PARTICIPANT_ID_PREFIX}${sessionId}`;
+    const required = new Set<string>([HEYGEN_PARTICIPANT_ID, agentId]);
+    for (const p of this.room.remoteParticipants.values()) {
+      required.delete(p.identity);
+    }
+    if (required.size === 0) {
+      return Promise.resolve();
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const onConnected = (participant: { identity: string }): void => {
+        required.delete(participant.identity);
+        if (required.size === 0) {
+          cleanup();
+          resolve();
+        }
+      };
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(
+          new Error(
+            `Timed out waiting for required participants: ${Array.from(required).join(", ")}`,
+          ),
+        );
+      }, REQUIRED_PARTICIPANTS_TIMEOUT_MS);
+      const cleanup = (): void => {
+        clearTimeout(timeout);
+        this.room.off(RoomEvent.ParticipantConnected, onConnected);
+      };
+      this.room.on(RoomEvent.ParticipantConnected, onConnected);
     });
   }
 
