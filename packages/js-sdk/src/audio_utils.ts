@@ -1,18 +1,23 @@
 /**
- * Splits a PCM 24KHz audio string (raw 16-bit signed PCM) into 20ms chunks.
- * @param pcmString - The raw PCM data as a string
- * @returns string[] - Array of 20ms PCM chunks as strings
+ * Splits a PCM 24KHz audio string (raw 16-bit signed PCM) into chunks.
  *
- * Each 20ms chunk at 24,000Hz, 16-bit mono = 24,000 * 0.02 = 480 samples.
- * Each sample = 2 bytes (16-bit), so 480 * 2 = 960 bytes per chunk.
- * Each JS string char is a single byte if encoded as binary string.
+ * The first chunk is 400ms to minimize time-to-first-audio; subsequent chunks
+ * are 1s to reduce message overhead once playback is underway.
+ *
+ * At 24,000Hz, 16-bit mono: 1 sample = 2 bytes.
+ *   400ms => 24000 * 0.4 * 2 = 19200 bytes
+ *   1000ms => 24000 * 1.0 * 2 = 48000 bytes
  */
 export function splitPcm24kStringToChunks(pcmString: string): string[] {
-  const bytesPerChunk = 480 * 2; // 960 bytes == 20ms at 24kHz mono, 16-bit
+  const firstChunkBytes = 24000 * 0.4 * 2; // 19200 bytes == 400ms
+  const subsequentChunkBytes = 24000 * 1.0 * 2; // 48000 bytes == 1s
   const totalLength = pcmString.length;
   const result: string[] = [];
-  for (let i = 0; i < totalLength; i += bytesPerChunk) {
-    result.push(pcmString.slice(i, i + bytesPerChunk));
+  if (totalLength === 0) return result;
+
+  result.push(pcmString.slice(0, firstChunkBytes));
+  for (let i = firstChunkBytes; i < totalLength; i += subsequentChunkBytes) {
+    result.push(pcmString.slice(i, i + subsequentChunkBytes));
   }
   return result;
 }
