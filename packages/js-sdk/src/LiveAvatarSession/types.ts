@@ -1,5 +1,10 @@
 import { VoiceChatConfig } from "../VoiceChat";
 
+export enum SessionMode {
+  FULL = "FULL",
+  LITE = "LITE",
+}
+
 export enum SessionState {
   INACTIVE = "INACTIVE",
   CONNECTING = "CONNECTING",

@@ -14,6 +14,7 @@ export { ConnectionQuality } from "./QualityIndicator";
 export {
   SessionEvent,
   SessionState,
+  SessionMode,
   Language,
   SessionDisconnectReason,
   AgentEventsEnum,
