@@ -24,6 +24,7 @@ import {
   SessionDisconnectReason,
   SessionConfig,
   SessionInfo,
+  SessionMode,
 } from "./types";
 import {
   ConnectionQualityIndicator,
@@ -41,6 +42,21 @@ import { splitPcm24kStringToChunks } from "../audio_utils";
 const HEYGEN_PARTICIPANT_ID = "heygen";
 const LIVEAVATAR_AGENT_PARTICIPANT_ID_PREFIX = "liveavatar-agent-";
 const REQUIRED_PARTICIPANTS_TIMEOUT_MS = 30_000;
+
+function parseSessionModeFromToken(token: string): SessionMode {
+  try {
+    const [, payload] = token.split(".");
+    const decoded = JSON.parse(
+      atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    const mode = decoded?.start_session_data?.mode;
+    if (mode === SessionMode.LITE) return SessionMode.LITE;
+    if (mode === SessionMode.FULL) return SessionMode.FULL;
+  } catch (e) {
+    console.warn("Failed to parse session mode from token", e);
+  }
+  return SessionMode.FULL;
+}
 
 export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   SessionEventCallbacks & AgentEventCallbacks
@@ -63,9 +79,12 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   private _state: SessionState = SessionState.INACTIVE;
   private _remoteAudioTrack: RemoteAudioTrack | null = null;
   private _remoteVideoTrack: RemoteVideoTrack | null = null;
+  private readonly _mode: SessionMode;
 
   constructor(sessionAccessToken: string, config?: SessionConfig) {
     super();
+
+    this._mode = parseSessionModeFromToken(sessionAccessToken);
 
     // Required to construct the room
     this.config = config ?? {};
@@ -99,6 +118,10 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     return this._state;
   }
 
+  public get mode(): SessionMode {
+    return this._mode;
+  }
+
   public get connectionQuality(): ConnectionQuality {
     return this.connectionQualityIndicator.connectionQuality;
   }
@@ -130,9 +153,6 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
         // Track the different events from the room, server, and websocket
         this.trackEvents();
         await this.room.connect(livekitRoomUrl, livekitClientToken);
-        for (const p of this.room.remoteParticipants.values()) {
-          console.warn("existing participant on connect:", p.identity);
-        }
         await this.waitForRequiredParticipants();
         this.connectionQualityIndicator.start(this.room);
       }
@@ -364,6 +384,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   }
 
   private waitForRequiredParticipants(): Promise<void> {
+    if (this._mode !== SessionMode.FULL) {
+      return Promise.resolve();
+    }
     const sessionId = this._sessionInfo?.session_id;
     if (!sessionId) {
       return Promise.resolve();
