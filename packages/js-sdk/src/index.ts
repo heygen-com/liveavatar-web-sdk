@@ -1,5 +1,10 @@
 // classes
 export { LiveAvatarSession } from "./LiveAvatarSession";
+export {
+  ElevenLabsAgentSession,
+  ElevenLabsAgentSessionError,
+} from "./LiveAvatarSession";
+export { parseAgentTypeFromToken } from "./LiveAvatarSession";
 
 // types
 export type {
@@ -15,13 +20,19 @@ export {
   SessionEvent,
   SessionState,
   SessionMode,
+  AgentType,
   Language,
   SessionDisconnectReason,
   AgentEventsEnum,
   AgentEvent,
   CommandEventsEnum,
+  ElevenLabsAgentCommandType,
 } from "./LiveAvatarSession";
-export type { ElevenLabsAgentEventPayload } from "./LiveAvatarSession";
+export type {
+  ElevenLabsAgentEventPayload,
+  ElevenLabsAgentCommandPayload,
+  ElevenLabsAgentCommandEvent,
+} from "./LiveAvatarSession";
 export {
   VoiceChatState,
   VoiceChatEvent,
