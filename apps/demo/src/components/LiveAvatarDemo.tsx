@@ -1,20 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { LiveAvatarSession } from "./LiveAvatarSession";
-import { ElevenLabsAgentSetup } from "./ElevenLabsAgentSetup";
 import { SessionInteractivityMode } from "@heygen/liveavatar-web-sdk";
 
 export type SessionMode = "FULL" | "FULL_PTT" | "LITE";
 
 export const LiveAvatarDemo = () => {
+  const router = useRouter();
   const [sessionToken, setSessionToken] = useState("");
   const [mode, setMode] = useState<SessionMode>("FULL");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [manualToken, setManualToken] = useState("");
   const [manualMode, setManualMode] = useState<SessionMode>("FULL");
-  const [view, setView] = useState<"home" | "elevenlabs">("home");
 
   const handleStartFullSession = async (pushToTalk: boolean = false) => {
     setLoading(true);
@@ -78,12 +78,6 @@ export const LiveAvatarDemo = () => {
   const onSessionStopped = () => {
     setSessionToken("");
     setManualToken("");
-    setView("home");
-  };
-
-  const handleElevenLabsSessionStarted = (token: string) => {
-    setSessionToken(token);
-    setMode("LITE");
   };
 
   const voiceChatConfig = useMemo(() => {
@@ -94,17 +88,6 @@ export const LiveAvatarDemo = () => {
     }
     return true;
   }, [mode]);
-
-  if (!sessionToken && view === "elevenlabs") {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center">
-        <ElevenLabsAgentSetup
-          onSessionStarted={handleElevenLabsSessionStarted}
-          onBack={() => setView("home")}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center">
@@ -150,12 +133,12 @@ export const LiveAvatarDemo = () => {
             <button
               onClick={() => {
                 setError(null);
-                setView("elevenlabs");
+                router.push("/elevenlabs-agent");
               }}
               disabled={loading}
               className="w-full px-6 py-2.5 rounded-lg bg-white/10 text-white font-medium text-base border border-white/20 hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              ElevenLabs Agent Connector
+              ElevenLabs Agent Connector →
             </button>
           </div>
 

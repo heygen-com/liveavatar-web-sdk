@@ -258,7 +258,45 @@ export enum CommandEventsEnum {
 
   AVATAR_START_LISTENING = "avatar.start_listening",
   AVATAR_STOP_LISTENING = "avatar.stop_listening",
+
+  ELEVENLABS_AGENT_COMMAND = "elevenlabs_agent_command",
 }
+
+export enum ElevenLabsAgentCommandType {
+  USER_MESSAGE = "user_message",
+  CONTEXTUAL_UPDATE = "contextual_update",
+  USER_ACTIVITY = "user_activity",
+  CLIENT_TOOL_RESULT = "client_tool_result",
+}
+
+export type ElevenLabsAgentCommandPayload =
+  | {
+      elevenlabs_event_type: ElevenLabsAgentCommandType.USER_MESSAGE;
+      data: { text: string };
+    }
+  | {
+      elevenlabs_event_type: ElevenLabsAgentCommandType.CONTEXTUAL_UPDATE;
+      data: { text: string };
+    }
+  | {
+      elevenlabs_event_type: ElevenLabsAgentCommandType.USER_ACTIVITY;
+      data?: Record<string, never>;
+    }
+  | {
+      elevenlabs_event_type: ElevenLabsAgentCommandType.CLIENT_TOOL_RESULT;
+      data: {
+        tool_call_id: string;
+        result: string;
+        is_error: boolean;
+      };
+    };
+
+export type ElevenLabsAgentCommandEvent = {
+  event_type: CommandEventsEnum.ELEVENLABS_AGENT_COMMAND;
+  event_id: string;
+  session_id: string;
+  source_event_id?: string | null;
+} & ElevenLabsAgentCommandPayload;
 
 type CommandEventData<
   T extends CommandEventsEnum,

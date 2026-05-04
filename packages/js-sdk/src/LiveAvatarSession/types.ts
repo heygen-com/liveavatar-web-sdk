@@ -5,6 +5,14 @@ export enum SessionMode {
   LITE = "LITE",
 }
 
+export enum AgentType {
+  FULL = "FULL",
+  OPENAI_REALTIME = "OPENAI_REALTIME",
+  ELEVENLABS_AGENT = "ELEVENLABS_AGENT",
+  GEMINI_REALTIME = "GEMINI_REALTIME",
+  UNKNOWN = "UNKNOWN",
+}
+
 export enum SessionState {
   INACTIVE = "INACTIVE",
   CONNECTING = "CONNECTING",

@@ -16,13 +16,46 @@ interface Props {
 
 const IMPORT_KEY_URL = "https://app.liveavatar.com/voices/third-party/import";
 
-export const ElevenLabsAgentSetup = ({ onSessionStarted, onBack }: Props) => {
+const STORAGE_KEY = "liveavatar-demo:elevenlabs-agent-setup";
+
+type StoredSetup = {
+  agentId?: string;
+  secretId?: string;
+};
+
+const loadStoredSetup = (): StoredSetup => {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as StoredSetup) : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveStoredSetup = (setup: StoredSetup): void => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(setup));
+  } catch {
+    // ignore quota / privacy-mode failures
+  }
+};
+
+export const Setup = ({ onSessionStarted, onBack }: Props) => {
   const [secrets, setSecrets] = useState<Secret[]>([]);
   const [secretsLoading, setSecretsLoading] = useState(true);
   const [selectedSecretId, setSelectedSecretId] = useState("");
   const [agentId, setAgentId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+
+  // Hydrate from localStorage AFTER mount to avoid SSR/CSR mismatch
+  useEffect(() => {
+    const stored = loadStoredSetup();
+    if (stored.agentId) setAgentId(stored.agentId);
+    if (stored.secretId) setSelectedSecretId(stored.secretId);
+  }, []);
 
   const loadSecrets = async () => {
     setSecretsLoading(true);
@@ -39,9 +72,11 @@ export const ElevenLabsAgentSetup = ({ onSessionStarted, onBack }: Props) => {
         (s: Secret) => s.secret_type === "ELEVENLABS_API_KEY",
       );
       setSecrets(filtered);
-      if (filtered[0]) {
-        setSelectedSecretId(filtered[0].id);
-      }
+      // Prefer the last-used secret if it still exists, otherwise pick the first
+      setSelectedSecretId((prev) => {
+        if (prev && filtered.some((s) => s.id === prev)) return prev;
+        return filtered[0]?.id ?? "";
+      });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -79,6 +114,10 @@ export const ElevenLabsAgentSetup = ({ onSessionStarted, onBack }: Props) => {
         return;
       }
       const { session_token } = await res.json();
+      saveStoredSetup({
+        agentId: agentId.trim(),
+        secretId: selectedSecretId,
+      });
       onSessionStarted(session_token);
     } catch (e) {
       setError((e as Error).message);

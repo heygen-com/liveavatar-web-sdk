@@ -25,6 +25,7 @@ import {
   SessionConfig,
   SessionInfo,
   SessionMode,
+  AgentType,
 } from "./types";
 import {
   ConnectionQualityIndicator,
@@ -43,19 +44,59 @@ const HEYGEN_PARTICIPANT_ID = "heygen";
 const LIVEAVATAR_AGENT_PARTICIPANT_ID_PREFIX = "liveavatar-agent-";
 const REQUIRED_PARTICIPANTS_TIMEOUT_MS = 30_000;
 
-function parseSessionModeFromToken(token: string): SessionMode {
+function decodeSessionTokenPayload(token: string): any | null {
   try {
-    const [, payload] = token.split(".");
+    const parts = token.split(".");
+    if (parts.length < 2) {
+      console.warn(
+        "[decodeSessionTokenPayload] Token does not look like a JWT (parts.length =",
+        parts.length,
+        "). Raw token (first 40 chars):",
+        token.slice(0, 40),
+      );
+      return null;
+    }
+    const payload = parts[1];
     const decoded = JSON.parse(
       atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
     );
-    const mode = decoded?.start_session_data?.mode;
-    if (mode === SessionMode.LITE) return SessionMode.LITE;
-    if (mode === SessionMode.FULL) return SessionMode.FULL;
+    return decoded;
   } catch (e) {
-    console.warn("Failed to parse session mode from token", e);
+    console.warn(
+      "[decodeSessionTokenPayload] Failed to decode session token payload. Raw token (first 40 chars):",
+      token.slice(0, 40),
+      "Error:",
+      e,
+    );
+    return null;
   }
+}
+
+function parseSessionModeFromToken(token: string): SessionMode {
+  const decoded = decodeSessionTokenPayload(token);
+  const mode = decoded?.start_session_data?.mode;
+  if (mode === SessionMode.LITE) return SessionMode.LITE;
+  if (mode === SessionMode.FULL) return SessionMode.FULL;
   return SessionMode.FULL;
+}
+
+// TODO(LA-1410): replace heuristic once backend exposes explicit agent_type
+// claim. Today we infer ELEVENLABS_AGENT from presence of
+// elevenlabs_agent_config (and similar for other realtime providers).
+export function parseAgentTypeFromToken(token: string): AgentType {
+  const decoded = decodeSessionTokenPayload(token);
+  if (!decoded) return AgentType.UNKNOWN;
+  const data = decoded.start_session_data;
+  if (!data) return AgentType.UNKNOWN;
+  // Prefer explicit agent_type claim if backend exposes one.
+  if (typeof data.agent_type === "string") {
+    const explicit = data.agent_type.toUpperCase();
+    if (explicit in AgentType) return explicit as AgentType;
+  }
+  if (data.elevenlabs_agent_config) return AgentType.ELEVENLABS_AGENT;
+  if (data.openai_realtime_config) return AgentType.OPENAI_REALTIME;
+  if (data.gemini_realtime_config) return AgentType.GEMINI_REALTIME;
+  return AgentType.FULL;
 }
 
 export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
@@ -73,18 +114,20 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       this.emit(SessionEvent.SESSION_CONNECTION_QUALITY_CHANGED, quality),
     );
 
-  private _sessionInfo: SessionInfo | null = null;
-  private _sessionEventSocket: WebSocket | null = null;
+  protected _sessionInfo: SessionInfo | null = null;
+  protected _sessionEventSocket: WebSocket | null = null;
 
   private _state: SessionState = SessionState.INACTIVE;
   private _remoteAudioTrack: RemoteAudioTrack | null = null;
   private _remoteVideoTrack: RemoteVideoTrack | null = null;
   private readonly _mode: SessionMode;
+  private readonly _agentType: AgentType;
 
   constructor(sessionAccessToken: string, config?: SessionConfig) {
     super();
 
     this._mode = parseSessionModeFromToken(sessionAccessToken);
+    this._agentType = parseAgentTypeFromToken(sessionAccessToken);
 
     // Required to construct the room
     this.config = config ?? {};
@@ -120,6 +163,14 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
 
   public get mode(): SessionMode {
     return this._mode;
+  }
+
+  public get agentType(): AgentType {
+    return this._agentType;
+  }
+
+  public get sessionId(): string | null {
+    return this._sessionInfo?.session_id ?? null;
   }
 
   public get connectionQuality(): ConnectionQuality {
@@ -211,8 +262,6 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       throw new Error("Session needs to be connected to send command event");
     }
     const event_id = this.generateEventId();
-    console.warn("sending message command event", event_id);
-
     const data = {
       event_id: event_id,
       event_type: CommandEventsEnum.AVATAR_SPEAK_RESPONSE,
@@ -587,17 +636,26 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     ) {
       this.sendCommandEventToWebSocket(commandEvent);
     } else if (this.room.state === "connected") {
-      const data = new TextEncoder().encode(JSON.stringify(commandEvent));
-      this.room.localParticipant.publishData(data, {
-        reliable: true,
-        topic: LIVEKIT_COMMAND_CHANNEL_TOPIC,
-      });
+      this.publishAgentControl(commandEvent);
     } else {
       console.warn("No active connection to send command event");
     }
   }
 
-  private generateEventId(): string {
+  protected publishAgentControl(payload: object): void {
+    if (this.room.state !== "connected") {
+      throw new Error(
+        "LiveKit room not connected — cannot publish agent-control payload",
+      );
+    }
+    const data = new TextEncoder().encode(JSON.stringify(payload));
+    this.room.localParticipant.publishData(data, {
+      reliable: true,
+      topic: LIVEKIT_COMMAND_CHANNEL_TOPIC,
+    });
+  }
+
+  protected generateEventId(): string {
     // Use native browser crypto API
     if (typeof crypto !== "undefined" && crypto.randomUUID) {
       return crypto.randomUUID();
@@ -674,7 +732,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     }
   }
 
-  private assertConnected(): boolean {
+  protected assertConnected(): boolean {
     if (this.state !== SessionState.CONNECTED) {
       console.warn("Session is not connected");
       return false;
