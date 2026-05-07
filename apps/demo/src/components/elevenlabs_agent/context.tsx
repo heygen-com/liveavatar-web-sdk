@@ -16,7 +16,7 @@ import { API_URL } from "../../../app/api/secrets";
 export type ElevenLabsInboundEvent = {
   event_id: string;
   elevenlabs_event_type: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   receivedAt: number;
 };
 
@@ -104,7 +104,7 @@ export const ElevenLabsAgentProvider = ({
     const onElevenLabsEvent = (event: {
       event_id: string;
       elevenlabs_event_type: string;
-      data: Record<string, any>;
+      data: Record<string, unknown>;
     }) => {
       setInboundEvents((prev) => [
         ...prev,
