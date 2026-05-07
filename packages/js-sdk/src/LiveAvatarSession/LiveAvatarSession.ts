@@ -688,7 +688,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
             JSON.stringify({
               type: "agent.speak",
               event_id: event_id,
-              audio: audioChunk,
+              audio: btoa(audioChunk),
             }),
           );
         }
