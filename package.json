@@ -19,7 +19,8 @@
   "main": "index.js",
   "scripts": {
     "build": "turbo run build",
-    "demo": "turbo run dev",
+    "demo": "pnpm --filter demo dev",
+    "demo:bg-removal": "pnpm --filter bg-removal-demo dev",
     "dev": "turbo run dev --parallel",
     "lint": "turbo run lint",
     "prettier": "prettier --write \"**/*.{ts,tsx,md}\"",

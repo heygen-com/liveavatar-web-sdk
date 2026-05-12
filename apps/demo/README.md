@@ -1,25 +1,29 @@
-# Liveavatar NextJS Demo
+# LiveAvatar Basic Demo
 
-This is a quick demo to demonstrate the various capabilities of the LiveAvatar Web SDK.
+Minimal reference app for the LiveAvatar Web SDK. Spins up a session, renders the avatar
+video stream, and wires up voice chat. Use this as the starting point for your own
+integration — no extra effects or transforms on top.
 
-## Installation
+For background swapping / chroma key, see [`apps/bg-removal-demo`](../bg-removal-demo).
 
-This demo was built with NextJS, TailwindCSS and pnpm.
+## Stack
 
-To start up the demo, run the following commands on your terminal within the base directory:
+Next.js, TailwindCSS, pnpm.
 
-```bash
-pnpm install
-pnpm build
-pnpm run demo
-```
+## Run
 
-You can also run navigate to the `apps/demo` directory and run the following commands:
+From the monorepo root:
 
 ```bash
 pnpm install
-pnpm build
-pnpm run dev
+pnpm demo
 ```
 
-Navigate to the local demo page on [http://localhost:3000](http://localhost:3000).
+Or from this directory:
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Open <http://localhost:3001>.
