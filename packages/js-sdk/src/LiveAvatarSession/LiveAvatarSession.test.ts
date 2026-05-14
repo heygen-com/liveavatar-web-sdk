@@ -326,6 +326,7 @@ describe("LiveAvatarSession command events", () => {
     const sendData = testContext.wsInstance.send.mock.calls[0][0];
     const parsedSendData = JSON.parse(sendData);
     expect(parsedSendData.type).toEqual("agent.speak");
+    expect(parsedSendData.audio).toEqual(btoa("test"));
     const lastEvent =
       testContext.wsInstance.send.mock.calls[
         testContext.wsInstance.send.mock.calls.length - 1
