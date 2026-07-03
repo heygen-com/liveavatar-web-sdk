@@ -13,7 +13,10 @@
         "DEFAULT_AVATAR_ID",
         "DEFAULT_VOICE_ID",
         "DEFAULT_CONTEXT_ID",
-        "DEFAULT_LANGUAGE"
+        "DEFAULT_LANGUAGE",
+        "IS_SANDBOX",
+        "ELEVENLABS_API_KEY",
+        "OPENAI_API_KEY"
       ]
     },
     "lint": {

@@ -11,7 +11,9 @@ import {
   VoiceChatState,
   VoiceChatConfig,
 } from "@heygen/liveavatar-web-sdk";
-import { API_URL } from "../../../app/api/secrets";
+
+// Client component: only NEXT_PUBLIC_* env vars reach the browser bundle.
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.liveavatar.com";
 
 export type ElevenLabsInboundEvent = {
   event_id: string;
