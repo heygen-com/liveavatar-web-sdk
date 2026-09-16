@@ -45,7 +45,7 @@ export const LiveAvatarContext = createContext<LiveAvatarContextProps>({
 type LiveAvatarContextProviderProps = {
   children: React.ReactNode;
   sessionAccessToken: string;
-  voiceChatConfig?: boolean | VoiceChatConfig;
+  voiceChatConfig?: VoiceChatConfig;
 };
 
 const useSessionState = (sessionRef: React.RefObject<LiveAvatarSession>) => {
@@ -235,7 +235,7 @@ const useChatHistoryState = (
 export const LiveAvatarContextProvider = ({
   children,
   sessionAccessToken,
-  voiceChatConfig = true,
+  voiceChatConfig = {},
 }: LiveAvatarContextProviderProps) => {
   // Default voice chat on
   const config = {

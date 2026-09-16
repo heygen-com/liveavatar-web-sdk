@@ -29,13 +29,19 @@ export enum SessionDisconnectReason {
 }
 
 export interface SessionConfig {
-  voiceChat?: VoiceChatConfig | boolean;
+  /** Override the LiveAvatar API base URL. */
   apiUrl?: string;
   /**
    * When true, the SDK automatically sends a keep-alive request to the server
    * every minute for as long as the session is connected. Defaults to false.
    */
   autoKeepAlive?: boolean;
+  /**
+   * Voice chat settings applied when the session connects. Defaults to `{}`,
+   * which turns the microphone on unmuted. For a text-only experience pass
+   * `{ defaultMuted: true }`.
+   */
+  voiceChat?: VoiceChatConfig;
 }
 
 export interface SessionInfo {

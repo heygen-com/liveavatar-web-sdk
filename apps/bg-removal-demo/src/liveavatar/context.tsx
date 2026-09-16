@@ -86,7 +86,6 @@ export const LiveAvatarContextProvider = ({
 }: LiveAvatarContextProviderProps) => {
   const sessionRef = useRef<LiveAvatarSession>(
     new LiveAvatarSession(sessionAccessToken, {
-      voiceChat: true,
       apiUrl: process.env.NEXT_PUBLIC_API_URL,
     }),
   );

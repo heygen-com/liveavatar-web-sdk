@@ -49,13 +49,13 @@ const ElevenLabsAgentContext = createContext<ContextValue>({
 type ProviderProps = {
   children: React.ReactNode;
   sessionAccessToken: string;
-  voiceChatConfig?: boolean | VoiceChatConfig;
+  voiceChatConfig?: VoiceChatConfig;
 };
 
 export const ElevenLabsAgentProvider = ({
   children,
   sessionAccessToken,
-  voiceChatConfig = true,
+  voiceChatConfig = {},
 }: ProviderProps) => {
   const sessionRef = useRef<ElevenLabsAgentSession>(
     new ElevenLabsAgentSession(sessionAccessToken, {

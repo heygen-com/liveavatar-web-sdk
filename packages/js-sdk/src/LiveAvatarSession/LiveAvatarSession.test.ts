@@ -82,7 +82,7 @@ describe("LiveAvatarSession start", () => {
   it("starts voice chat when voiceChat config is provided", async () => {
     const session = setupLiveAvatarSession({
       sessionInfo: sessionInfoMock,
-      sessionConfig: { voiceChat: true },
+      sessionConfig: { voiceChat: {} },
     });
     await session.start();
     expect(session.voiceChat.state).toBe(VoiceChatState.ACTIVE);
@@ -560,12 +560,58 @@ describe("LiveAvatarSession server events", () => {
   });
 });
 
+describe("LiveAvatarSession voiceChat config", () => {
+  it("starts voice chat with the microphone on when voiceChat is omitted", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    await session.start();
+    expect(session.voiceChat.state).toBe(VoiceChatState.ACTIVE);
+    expect(session.voiceChat.isMuted).toBe(false);
+  });
+
+  it("starts voice chat muted when defaultMuted is set", async () => {
+    const session = setupLiveAvatarSession({
+      sessionInfo: sessionInfoMock,
+      sessionConfig: { voiceChat: { defaultMuted: true } },
+    });
+    await session.start();
+    expect(session.voiceChat.state).toBe(VoiceChatState.ACTIVE);
+    expect(session.voiceChat.isMuted).toBe(true);
+  });
+
+  it("migrates deprecated `voiceChat: true` to an empty config with a warning", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const session = setupLiveAvatarSession({
+      sessionInfo: sessionInfoMock,
+      sessionConfig: { voiceChat: true } as unknown as SessionConfig,
+    });
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("`voiceChat: true` is deprecated"),
+    );
+    await session.start();
+    expect(session.voiceChat.state).toBe(VoiceChatState.ACTIVE);
+  });
+
+  it("migrates deprecated `voiceChat: false` to a muted microphone with a warning", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const session = setupLiveAvatarSession({
+      sessionInfo: sessionInfoMock,
+      sessionConfig: { voiceChat: false } as unknown as SessionConfig,
+    });
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("`voiceChat: false` is deprecated"),
+    );
+    await session.start();
+    expect(session.voiceChat.state).toBe(VoiceChatState.ACTIVE);
+    expect(session.voiceChat.isMuted).toBe(true);
+  });
+});
+
 describe("LiveAvatarSession stop", () => {
   it("stops and cleans up the session", async () => {
     mockWebSocket();
     const session = setupLiveAvatarSession({
       sessionInfo: { ...sessionInfoMock, ws_url: "mock-websocket-url" },
-      sessionConfig: { voiceChat: true },
+      sessionConfig: { voiceChat: {} },
     });
     const onConnectionQualityChanged = vi.fn();
     session.on(

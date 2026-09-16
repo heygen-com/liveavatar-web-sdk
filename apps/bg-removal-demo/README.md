@@ -66,7 +66,7 @@ src/
     chromaKey.ts                 # canvas chroma key (applyChromaKey, setupChromaKey)
     types.ts                     # BackgroundConfig, ChromaKeyOptions, defaults
   liveavatar/
-    context.tsx, useSession.ts   # SDK wrapper with voiceChat: true
+    context.tsx, useSession.ts   # SDK wrapper (voice chat on by default)
 ```
 
 The `@heygen/liveavatar-web-sdk` dependency is wired to the workspace package at
