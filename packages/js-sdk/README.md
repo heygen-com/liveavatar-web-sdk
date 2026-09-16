@@ -33,10 +33,11 @@ import { LiveAvatarSession } from "@heygen/liveavatar-web-sdk";
 // Make a backend call to grab the sessionToken
 const { sessionToken } = await myBackendCallForSessionToken();
 const userConfig = {
-  voiceChat: true,
   // Opt in to automatic keep-alive. Defaults to false. When true, the SDK sends
   // a keep-alive request every minute while the session is connected.
   autoKeepAlive: true,
+  // Microphone is on by default. For a text-only session use:
+  // voiceChat: { defaultMuted: true },
 };
 
 const session = new LiveAvatarSession(sessionToken, userConfig);
@@ -52,10 +53,10 @@ await session.stop();
 
 ### Session config options
 
-| Option          | Type                         | Default | Description                                                                                                                                       |
-| --------------- | ---------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `voiceChat`     | `boolean \| VoiceChatConfig` | `false` | Enable voice chat, optionally with custom config.                                                                                                 |
-| `autoKeepAlive` | `boolean`                    | `false` | Opt in to automatic keep-alive. When `true`, the SDK calls `keepAlive()` every 60 seconds while connected. Otherwise call `keepAlive()` yourself. |
+| Option          | Type              | Default | Description                                                                                                                                       |
+| --------------- | ----------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `voiceChat`     | `VoiceChatConfig` | `{}`    | Voice chat settings applied on connect. Default turns the microphone on unmuted. Pass `{ defaultMuted: true }` for a text-only session. Also accepts `deviceId` and `mode`. |
+| `autoKeepAlive` | `boolean`         | `false` | Opt in to automatic keep-alive. When `true`, the SDK calls `keepAlive()` every 60 seconds while connected. Otherwise call `keepAlive()` yourself. |
 
 ## License
 

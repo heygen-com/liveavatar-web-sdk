@@ -1,6 +1,11 @@
 #!/bin/sh
 
-branch_name=$(git symbolic-ref --short HEAD)
+# Skip during rebase / detached HEAD (Graphite restack, gt modify, gt sync, etc.)
+if [ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ]; then
+  exit 0
+fi
+
+branch_name=$(git branch --show-current)
 
 if [ "$branch_name" = "master" ]; then
   echo "🚫 Direct commits to $branch_name are not allowed!"

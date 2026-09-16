@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LiveAvatarSession } from "./LiveAvatarSession";
-import { SessionInteractivityMode } from "@heygen/liveavatar-web-sdk";
+import {
+  SessionInteractivityMode,
+  VoiceChatConfig,
+} from "@heygen/liveavatar-web-sdk";
 
 export type SessionMode = "FULL" | "FULL_PTT" | "LITE";
 
@@ -80,13 +83,13 @@ export const LiveAvatarDemo = () => {
     setManualToken("");
   };
 
-  const voiceChatConfig = useMemo(() => {
+  const voiceChatConfig = useMemo<VoiceChatConfig>(() => {
     if (mode === "FULL_PTT") {
       return {
         mode: SessionInteractivityMode.PUSH_TO_TALK,
       };
     }
-    return true;
+    return {};
   }, [mode]);
 
   return (

@@ -100,6 +100,27 @@ export function parseAgentTypeFromToken(token: string): AgentType {
   return AgentType.FULL;
 }
 
+/**
+ * Applies defaults and migrates deprecated config values.
+ * `voiceChat: true | false` was accepted before 0.0.19; callers still passing a
+ * boolean at runtime (untyped JS) get a warning and the closest object form.
+ * TODO: remove the boolean shim in 0.0.20.
+ */
+function normalizeSessionConfig(config?: SessionConfig): SessionConfig {
+  const normalized: SessionConfig = { ...(config ?? {}) };
+  const voiceChat: unknown = normalized.voiceChat;
+  if (typeof voiceChat === "boolean") {
+    console.warn(
+      `[LiveAvatarSession] \`voiceChat: ${voiceChat}\` is deprecated. ` +
+        "Voice chat is always configured with a VoiceChatConfig object. " +
+        "Omit the field for microphone on, or pass `{ defaultMuted: true }` for a text-only session.",
+    );
+    normalized.voiceChat = voiceChat ? {} : { defaultMuted: true };
+  }
+  normalized.voiceChat ??= {};
+  return normalized;
+}
+
 export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   SessionEventCallbacks & AgentEventCallbacks
 >) {
@@ -132,7 +153,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     this._agentType = parseAgentTypeFromToken(sessionAccessToken);
 
     // Required to construct the room
-    this.config = config ?? {};
+    this.config = normalizeSessionConfig(config);
     this.sessionClient = new SessionAPIClient(
       sessionAccessToken,
       this.config.apiUrl,
@@ -150,11 +171,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       },
     });
     this._voiceChat = new VoiceChat(this.room);
-    if (
-      this.config.voiceChat &&
-      typeof this.config.voiceChat === "object" &&
-      this.config.voiceChat.mode
-    ) {
+    if (this.config.voiceChat?.mode) {
       this._voiceChat.setMode(this.config.voiceChat.mode);
     }
   }
@@ -559,19 +576,13 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   }
 
   private async configureSession(): Promise<void> {
-    if (this.config.voiceChat) {
-      try {
-        await this.voiceChat.start(
-          typeof this.config.voiceChat === "boolean"
-            ? {}
-            : this.config.voiceChat,
-        );
-      } catch (error) {
-        console.warn(
-          "Failed to start voice chat (microphone may be unavailable):",
-          error,
-        );
-      }
+    try {
+      await this.voiceChat.start(this.config.voiceChat);
+    } catch (error) {
+      console.warn(
+        "Failed to start voice chat (microphone may be unavailable):",
+        error,
+      );
     }
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "@heygen/liveavatar-web-sdk",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "files": [
     "lib",
     "dist",
