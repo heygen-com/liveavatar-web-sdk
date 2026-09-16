@@ -43,6 +43,7 @@ import { splitPcm24kStringToChunks } from "../audio_utils";
 const HEYGEN_PARTICIPANT_ID = "heygen";
 const LIVEAVATAR_AGENT_PARTICIPANT_ID_PREFIX = "liveavatar-agent-";
 const REQUIRED_PARTICIPANTS_TIMEOUT_MS = 30_000;
+const AUTO_KEEP_ALIVE_INTERVAL_MS = 60_000;
 
 function decodeSessionTokenPayload(token: string): any | null {
   try {
@@ -120,6 +121,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   private _state: SessionState = SessionState.INACTIVE;
   private _remoteAudioTrack: RemoteAudioTrack | null = null;
   private _remoteVideoTrack: RemoteVideoTrack | null = null;
+  private _keepAliveTimer: ReturnType<typeof setInterval> | null = null;
   private readonly _mode: SessionMode;
   private readonly _agentType: AgentType;
 
@@ -217,6 +219,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       // Run configurations as needed
       await this.configureSession();
       this.state = SessionState.CONNECTED;
+      this.startAutoKeepAlive();
     } catch (error) {
       console.error("Session start failed:", error);
       this.cleanup();
@@ -241,7 +244,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     }
 
     try {
-      this.sessionClient.keepAlive();
+      await this.sessionClient.keepAlive();
     } catch (error) {
       console.error("Session keep alive error on server:", error);
       throw error;
@@ -572,6 +575,24 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     }
   }
 
+  private startAutoKeepAlive(): void {
+    if (this.config.autoKeepAlive !== true || this._keepAliveTimer) {
+      return;
+    }
+    this._keepAliveTimer = setInterval(() => {
+      this.keepAlive().catch(() => {
+        // Error already logged in keepAlive; swallow to avoid unhandled rejection
+      });
+    }, AUTO_KEEP_ALIVE_INTERVAL_MS);
+  }
+
+  private stopAutoKeepAlive(): void {
+    if (this._keepAliveTimer) {
+      clearInterval(this._keepAliveTimer);
+      this._keepAliveTimer = null;
+    }
+  }
+
   private set state(state: SessionState) {
     if (this._state === state) {
       return;
@@ -581,6 +602,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   }
 
   private async cleanup(): Promise<void> {
+    this.stopAutoKeepAlive();
     this.connectionQualityIndicator.stop();
     this.voiceChat.stop();
     if (this._remoteAudioTrack) {

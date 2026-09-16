@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { LiveAvatarSession } from "./LiveAvatarSession";
 import {
   SessionConfig,
@@ -240,6 +240,97 @@ describe("LiveAvatarSession keepAlive", () => {
       },
       credentials: "include",
     });
+  });
+});
+
+describe("LiveAvatarSession autoKeepAlive", () => {
+  const keepAliveMock = {
+    url: "/v1/sessions/keep-alive",
+    method: "POST",
+    response: { code: 1000 },
+  };
+  const keepAliveCalls = () =>
+    vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) =>
+        String(url).endsWith("/v1/sessions/keep-alive"),
+      ).length;
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("does not send keep-alive requests by default", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    await session.start();
+    await vi.advanceTimersByTimeAsync(60_000 * 3);
+    expect(keepAliveCalls()).toBe(0);
+  });
+
+  it("sends a keep-alive request every minute when enabled", async () => {
+    mockFetch(
+      {
+        url: "/v1/sessions/start",
+        method: "POST",
+        response: { code: 1000, data: sessionInfoMock },
+      },
+      keepAliveMock,
+    );
+    const session = new LiveAvatarSession("mock-session-token", {
+      autoKeepAlive: true,
+    });
+    await session.start();
+    expect(keepAliveCalls()).toBe(0);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(keepAliveCalls()).toBe(1);
+    await vi.advanceTimersByTimeAsync(60_000 * 2);
+    expect(keepAliveCalls()).toBe(3);
+  });
+
+  it("stops sending keep-alive requests after the session is stopped", async () => {
+    mockFetch(
+      {
+        url: "/v1/sessions/start",
+        method: "POST",
+        response: { code: 1000, data: sessionInfoMock },
+      },
+      { url: "/v1/sessions/stop", method: "POST", response: { code: 1000 } },
+      keepAliveMock,
+    );
+    const session = new LiveAvatarSession("mock-session-token", {
+      autoKeepAlive: true,
+    });
+    await session.start();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(keepAliveCalls()).toBe(1);
+    await session.stop();
+    await vi.advanceTimersByTimeAsync(60_000 * 3);
+    expect(keepAliveCalls()).toBe(1);
+  });
+
+  it("stops sending keep-alive requests after a server-initiated disconnect", async () => {
+    mockFetch(
+      {
+        url: "/v1/sessions/start",
+        method: "POST",
+        response: { code: 1000, data: sessionInfoMock },
+      },
+      { url: "/v1/sessions/stop", method: "POST", response: { code: 1000 } },
+      keepAliveMock,
+    );
+    const session = new LiveAvatarSession("mock-session-token", {
+      autoKeepAlive: true,
+    });
+    await session.start();
+    session.emit(AgentEventsEnum.SESSION_STOPPED, {
+      event_type: AgentEventsEnum.SESSION_STOPPED,
+      stop_reason: "mock",
+    } as any);
+    await vi.advanceTimersByTimeAsync(60_000 * 3);
+    expect(keepAliveCalls()).toBe(0);
   });
 });
 
