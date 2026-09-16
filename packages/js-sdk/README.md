@@ -34,6 +34,9 @@ import { LiveAvatarSession } from "@heygen/liveavatar-web-sdk";
 const { sessionToken } = await myBackendCallForSessionToken();
 const userConfig = {
   voiceChat: true,
+  // Opt in to automatic keep-alive. Defaults to false. When true, the SDK sends
+  // a keep-alive request every minute while the session is connected.
+  autoKeepAlive: true,
 };
 
 const session = new LiveAvatarSession(sessionToken, userConfig);
@@ -46,6 +49,13 @@ await session.start();
 // Close the session
 await session.stop();
 ```
+
+### Session config options
+
+| Option          | Type                         | Default | Description                                                                                                                                       |
+| --------------- | ---------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `voiceChat`     | `boolean \| VoiceChatConfig` | `false` | Enable voice chat, optionally with custom config.                                                                                                 |
+| `autoKeepAlive` | `boolean`                    | `false` | Opt in to automatic keep-alive. When `true`, the SDK calls `keepAlive()` every 60 seconds while connected. Otherwise call `keepAlive()` yourself. |
 
 ## License
 

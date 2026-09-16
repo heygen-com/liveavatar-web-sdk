@@ -31,6 +31,11 @@ export enum SessionDisconnectReason {
 export interface SessionConfig {
   voiceChat?: VoiceChatConfig | boolean;
   apiUrl?: string;
+  /**
+   * When true, the SDK automatically sends a keep-alive request to the server
+   * every minute for as long as the session is connected. Defaults to false.
+   */
+  autoKeepAlive?: boolean;
 }
 
 export interface SessionInfo {
