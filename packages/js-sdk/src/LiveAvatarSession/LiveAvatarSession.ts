@@ -143,6 +143,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   private _remoteAudioTrack: RemoteAudioTrack | null = null;
   private _remoteVideoTrack: RemoteVideoTrack | null = null;
   private _keepAliveTimer: ReturnType<typeof setInterval> | null = null;
+  private _startController: AbortController | null = null;
   private readonly _mode: SessionMode;
   private readonly _agentType: AgentType;
 
@@ -210,10 +211,23 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       return;
     }
 
+    const controller = new AbortController();
+    this._startController = controller;
+    const { signal } = controller;
     try {
       this.state = SessionState.CONNECTING;
+      if (signal.aborted) throw signal.reason;
 
-      this._sessionInfo = await this.sessionClient.startSession();
+      const sessionInfo = await this.sessionClient.startSession(signal);
+      if (signal.aborted) {
+        // A transport that ignores cancellation may return after the first stop.
+        // Stop again after that response so the late server session is not orphaned.
+        await this.sessionClient.stopSession().catch((error) => {
+          console.error("Failed to stop canceled session on server:", error);
+        });
+        return;
+      }
+      this._sessionInfo = sessionInfo;
       const livekitRoomUrl = this._sessionInfo.livekit_url;
       const livekitClientToken = this._sessionInfo.livekit_client_token;
       const websocketUrl = this._sessionInfo.ws_url;
@@ -222,37 +236,102 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       if (livekitRoomUrl && livekitClientToken) {
         // Track the different events from the room, server, and websocket
         this.trackEvents();
-        await this.room.connect(livekitRoomUrl, livekitClientToken);
-        await this.waitForRequiredParticipants();
+        await this.waitForStartup(
+          this.room.connect(livekitRoomUrl, livekitClientToken),
+          signal,
+          () => this.room.disconnect(),
+        );
+        if (signal.aborted) throw signal.reason;
+        await this.waitForRequiredParticipants(signal);
+        if (signal.aborted) throw signal.reason;
         this.connectionQualityIndicator.start(this.room);
       }
 
       // Connect to WebSocket if provided
       if (websocketUrl) {
-        await this.connectWebSocket(websocketUrl);
+        if (signal.aborted) throw signal.reason;
+        await this.waitForStartup(this.connectWebSocket(websocketUrl), signal);
+        if (signal.aborted) throw signal.reason;
         this.setupWebSocketManagement();
       }
 
       // Run configurations as needed
-      await this.configureSession();
+      if (signal.aborted) throw signal.reason;
+      await this.waitForStartup(this.configureSession(), signal, () =>
+        this.voiceChat.stop(),
+      );
+      if (signal.aborted) throw signal.reason;
       this.state = SessionState.CONNECTED;
+      if (signal.aborted) throw signal.reason;
       this.startAutoKeepAlive();
     } catch (error) {
+      if (signal.aborted) return;
       console.error("Session start failed:", error);
-      this.cleanup();
+      await this.cleanup().catch((cleanupError) => {
+        console.error("Failed to clean up session:", cleanupError);
+      });
       this.postStop(SessionDisconnectReason.SESSION_START_FAILED);
       throw error;
+    } finally {
+      this._startController = null;
     }
   }
 
   public async stop(): Promise<void> {
-    if (!this.assertConnected()) {
+    if (this.state !== SessionState.CONNECTING && !this.assertConnected()) {
       return;
     }
 
     this.state = SessionState.DISCONNECTING;
-    this.cleanup();
-    this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
+    this._startController?.abort();
+    try {
+      await this.cleanup();
+    } finally {
+      this.postStop(SessionDisconnectReason.CLIENT_INITIATED);
+    }
+  }
+
+  private waitForStartup<T>(
+    operation: Promise<T>,
+    signal: AbortSignal,
+    onLateCompletion: () => void | Promise<void> = () => {},
+  ): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const onAbort = (): void => {
+        reject(signal.reason);
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      if (signal.aborted) onAbort();
+      operation.then(
+        (result) => {
+          signal.removeEventListener("abort", onAbort);
+          if (signal.aborted) {
+            Promise.resolve()
+              .then(onLateCompletion)
+              .catch((error) => {
+                console.error("Failed to clean up canceled startup:", error);
+              });
+            reject(signal.reason);
+          } else {
+            resolve(result);
+          }
+        },
+        (error) => {
+          signal.removeEventListener("abort", onAbort);
+          if (signal.aborted) {
+            Promise.resolve()
+              .then(onLateCompletion)
+              .catch((cleanupError) => {
+                console.error(
+                  "Failed to clean up canceled startup:",
+                  cleanupError,
+                );
+              });
+          }
+          reject(error);
+        },
+      );
+    });
   }
 
   public async keepAlive(): Promise<void> {
@@ -426,7 +505,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
         "[SDK:SESSION_STOPPED] Server stopped session, reason:",
         event.stop_reason,
       );
-      this.cleanup();
+      this.cleanup().catch((error) =>
+        console.error("Failed to clean up session:", error),
+      );
       this.postStop(SessionDisconnectReason.SERVER_INITIATED);
     });
 
@@ -452,7 +533,8 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     });
   }
 
-  private waitForRequiredParticipants(): Promise<void> {
+  private waitForRequiredParticipants(signal: AbortSignal): Promise<void> {
+    if (signal.aborted) throw signal.reason;
     if (this._mode !== SessionMode.FULL) {
       return Promise.resolve();
     }
@@ -485,11 +567,18 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
           ),
         );
       }, REQUIRED_PARTICIPANTS_TIMEOUT_MS);
+      const onAbort = (): void => {
+        cleanup();
+        reject(signal.reason);
+      };
       const cleanup = (): void => {
         clearTimeout(timeout);
         this.room.off(RoomEvent.ParticipantConnected, onConnected);
+        signal.removeEventListener("abort", onAbort);
       };
       this.room.on(RoomEvent.ParticipantConnected, onConnected);
+      signal.addEventListener("abort", onAbort, { once: true });
+      if (signal.aborted) onAbort();
     });
   }
 
@@ -571,7 +660,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
     }
 
     this._sessionEventSocket = null;
-    this.cleanup();
+    this.cleanup().catch((error) =>
+      console.error("Failed to clean up session:", error),
+    );
     this.postStop(SessionDisconnectReason.UNKNOWN_REASON);
   }
 
@@ -613,6 +704,7 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   }
 
   private async cleanup(): Promise<void> {
+    this._startController?.abort();
     this.stopAutoKeepAlive();
     this.connectionQualityIndicator.stop();
     this.voiceChat.stop();
@@ -643,12 +735,14 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       }
       this._sessionEventSocket = null;
     }
-    // Disconnect from room if connected
-    if (this.room.state === "connected") {
-      this.room.disconnect();
+    // Stop the server session even if disconnecting the local room fails.
+    try {
+      if (this.room.state !== "disconnected") {
+        await this.room.disconnect();
+      }
+    } finally {
+      await this.sessionClient.stopSession();
     }
-    // Kill the session on the server
-    await this.sessionClient.stopSession();
   }
 
   private postStop(reason: SessionDisconnectReason): void {
@@ -657,7 +751,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
   }
 
   private handleRoomDisconnect(): void {
-    this.cleanup();
+    this.cleanup().catch((error) =>
+      console.error("Failed to clean up session:", error),
+    );
     this.postStop(SessionDisconnectReason.UNKNOWN_REASON);
   }
 

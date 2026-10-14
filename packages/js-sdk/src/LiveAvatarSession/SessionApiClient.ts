@@ -56,6 +56,7 @@ export class SessionAPIClient {
 
       return data.data as T;
     } catch (err) {
+      if (params.signal?.aborted) throw params.signal.reason;
       if (err instanceof SessionApiError) {
         throw err;
       }
@@ -63,8 +64,8 @@ export class SessionAPIClient {
     }
   }
 
-  public async startSession(): Promise<SessionInfo> {
-    return await this.request(`/v1/sessions/start`, { method: "POST" });
+  public async startSession(signal?: AbortSignal): Promise<SessionInfo> {
+    return await this.request(`/v1/sessions/start`, { method: "POST", signal });
   }
 
   public async stopSession(): Promise<void> {
