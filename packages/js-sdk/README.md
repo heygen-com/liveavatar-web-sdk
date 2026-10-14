@@ -51,12 +51,23 @@ await session.start();
 await session.stop();
 ```
 
+### Canceling startup
+
+You can call `stop()` while `start()` is still pending. The SDK aborts the start
+request, cancels connection setup, and emits a client-initiated disconnect instead
+of reporting a startup failure. The canceled `start()` promise resolves without
+reaching `CONNECTED`; `stop()` awaits cleanup and rejects if cleanup fails.
+
+If the server has already processed the request, client-side cancellation cannot
+undo that work. A late successful start response triggers another stop request.
+This does not guarantee that an already-processed session will not be billed.
+
 ### Session config options
 
-| Option          | Type              | Default | Description                                                                                                                                       |
-| --------------- | ----------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Option          | Type              | Default | Description                                                                                                                                                                 |
+| --------------- | ----------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `voiceChat`     | `VoiceChatConfig` | `{}`    | Voice chat settings applied on connect. Default turns the microphone on unmuted. Pass `{ defaultMuted: true }` for a text-only session. Also accepts `deviceId` and `mode`. |
-| `autoKeepAlive` | `boolean`         | `false` | Opt in to automatic keep-alive. When `true`, the SDK calls `keepAlive()` every 60 seconds while connected. Otherwise call `keepAlive()` yourself. |
+| `autoKeepAlive` | `boolean`         | `false` | Opt in to automatic keep-alive. When `true`, the SDK calls `keepAlive()` every 60 seconds while connected. Otherwise call `keepAlive()` yourself.                           |
 
 ## License
 

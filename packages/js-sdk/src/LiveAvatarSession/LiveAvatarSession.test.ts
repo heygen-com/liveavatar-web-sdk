@@ -903,3 +903,343 @@ describe("LiveAvatarSession custom url", () => {
     );
   });
 });
+
+describe("stop during session startup", () => {
+  it("does not connect after stop while the initial request is pending", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    const onStateChanged = vi.fn();
+    session.on(SessionEvent.SESSION_STATE_CHANGED, onStateChanged);
+    const originalFetch = globalThis.fetch;
+    let releaseStart!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseStart = resolve;
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementationOnce(
+      async (input, init) => {
+        await gate;
+        return originalFetch(input, init);
+      },
+    );
+    const start = session.start().catch((error: unknown) => error);
+    try {
+      expect(session.state).toBe(SessionState.CONNECTING);
+      await session.stop();
+      releaseStart();
+      await start;
+      expect(onStateChanged).not.toHaveBeenCalledWith(SessionState.CONNECTED);
+      expect(session.state).toBe(SessionState.DISCONNECTED);
+    } finally {
+      releaseStart();
+      await start;
+      await session.stop();
+    }
+  });
+});
+
+describe("startup cancellation cleanup", () => {
+  it("aborts the start request without reporting a failed startup", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    const onDisconnected = vi.fn();
+    session.on(SessionEvent.SESSION_DISCONNECTED, onDisconnected);
+    let signal: AbortSignal | undefined;
+    vi.spyOn(globalThis, "fetch").mockImplementationOnce((_input, init) => {
+      signal = init?.signal ?? undefined;
+      return new Promise((_resolve, reject) => {
+        signal?.addEventListener("abort", () => reject(signal?.reason), {
+          once: true,
+        });
+      });
+    });
+    const start = session.start();
+    expect(signal).toBeDefined();
+    await session.stop();
+    await start;
+    expect(signal?.aborted).toBe(true);
+    expect(session.state).toBe(SessionState.DISCONNECTED);
+    expect(onDisconnected).toHaveBeenCalledExactlyOnceWith(
+      SessionDisconnectReason.CLIENT_INITIATED,
+    );
+  });
+
+  it("stops a server session returned after the transport ignored abort", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    const originalFetch = globalThis.fetch;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementationOnce(async (input, init) => {
+        await gate;
+        return originalFetch(input, init);
+      });
+    const start = session.start();
+    try {
+      await session.stop();
+      const stopsBeforeResponse = fetchSpy.mock.calls.filter(([input]) =>
+        String(input).endsWith("/sessions/stop"),
+      ).length;
+      release();
+      await start;
+      const stopsAfterResponse = fetchSpy.mock.calls.filter(([input]) =>
+        String(input).endsWith("/sessions/stop"),
+      ).length;
+      expect(stopsAfterResponse).toBeGreaterThan(stopsBeforeResponse);
+      expect(session.sessionId).toBeNull();
+      expect(session.state).toBe(SessionState.DISCONNECTED);
+    } finally {
+      release();
+      await start;
+    }
+  });
+
+  it.each([false, true])(
+    "disconnects a late LiveKit completion (reject=%s)",
+    async (rejectLate) => {
+      const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+      const room = testContext.roomInstance;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      room.connect.mockImplementationOnce(async () => {
+        room.state = "connecting";
+        await gate;
+        room.state = "connected";
+        if (rejectLate) throw new Error("late connection error");
+      });
+      const onStateChanged = vi.fn();
+      session.on(SessionEvent.SESSION_STATE_CHANGED, onStateChanged);
+      const start = session.start();
+      try {
+        await vi.waitFor(() => expect(room.connect).toHaveBeenCalled());
+        await session.stop();
+        await start;
+        expect(room.state).toBe("disconnected");
+        const initialDisconnects = room.disconnect.mock.calls.length;
+        release();
+        await vi.waitFor(() =>
+          expect(room.disconnect.mock.calls.length).toBeGreaterThan(
+            initialDisconnects,
+          ),
+        );
+        expect(room.state).toBe("disconnected");
+        expect(onStateChanged).not.toHaveBeenCalledWith(SessionState.CONNECTED);
+      } finally {
+        release();
+        await start;
+      }
+    },
+  );
+
+  it("clears the participant wait timeout when stopped", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    const room = testContext.roomInstance;
+    vi.spyOn(room, "_emitRequiredParticipants").mockImplementation(() => {});
+    const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    const clearSpy = vi.spyOn(globalThis, "clearTimeout");
+    const start = session.start();
+    await vi.waitFor(() =>
+      expect(room.listenerCount(RoomEvent.ParticipantConnected)).toBe(2),
+    );
+    const timeoutIndex = timeoutSpy.mock.calls.findIndex(
+      ([, delay]) => delay === 30_000,
+    );
+    expect(timeoutIndex).toBeGreaterThanOrEqual(0);
+    const timeout = timeoutSpy.mock.results[timeoutIndex]?.value;
+    await session.stop();
+    await start;
+    expect(clearSpy).toHaveBeenCalledWith(timeout);
+    expect(room.listenerCount(RoomEvent.ParticipantConnected)).toBe(0);
+    expect(session.state).toBe(SessionState.DISCONNECTED);
+  });
+
+  it("settles startup and closes a WebSocket still opening", async () => {
+    vi.useFakeTimers();
+    mockWebSocket();
+    const session = setupLiveAvatarSession({
+      sessionInfo: {
+        ...sessionInfoMock,
+        livekit_url: "",
+        livekit_client_token: "",
+        ws_url: "mock-websocket-url",
+      },
+    });
+    const onStateChanged = vi.fn();
+    session.on(SessionEvent.SESSION_STATE_CHANGED, onStateChanged);
+    const start = session.start();
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      const socket = testContext.wsInstance;
+      expect(socket.readyState).toBe(WebSocket.CONNECTING);
+      await session.stop();
+      await start;
+      expect(socket.close).toHaveBeenCalledOnce();
+      expect(socket.readyState).toBe(WebSocket.CLOSED);
+      expect(onStateChanged).not.toHaveBeenCalledWith(SessionState.CONNECTED);
+      expect(session.state).toBe(SessionState.DISCONNECTED);
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops voice chat that finishes after startup was canceled", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const voiceStart = vi
+      .spyOn(session.voiceChat, "start")
+      .mockImplementationOnce(async () => {
+        await gate;
+      });
+    const voiceStop = vi.spyOn(session.voiceChat, "stop");
+    const onStateChanged = vi.fn();
+    session.on(SessionEvent.SESSION_STATE_CHANGED, onStateChanged);
+    const start = session.start();
+    try {
+      await vi.waitFor(() => expect(voiceStart).toHaveBeenCalled());
+      await session.stop();
+      await start;
+      const initialStops = voiceStop.mock.calls.length;
+      release();
+      await vi.waitFor(() =>
+        expect(voiceStop.mock.calls.length).toBeGreaterThan(initialStops),
+      );
+      expect(onStateChanged).not.toHaveBeenCalledWith(SessionState.CONNECTED);
+      expect(session.state).toBe(SessionState.DISCONNECTED);
+    } finally {
+      release();
+      await start;
+    }
+  });
+
+  it("propagates backend stop errors while preserving local cancellation", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    const onDisconnected = vi.fn();
+    session.on(SessionEvent.SESSION_DISCONNECTED, onDisconnected);
+    const originalFetch = globalThis.fetch;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementationOnce(async (input, init) => {
+      await gate;
+      return originalFetch(input, init);
+    });
+    fetchSpy.mockImplementationOnce(
+      async () =>
+        new Response(
+          JSON.stringify({ code: 500, message: "stop unavailable" }),
+          { status: 500 },
+        ),
+    );
+    const start = session.start();
+    try {
+      await expect(session.stop()).rejects.toThrow("stop unavailable");
+      expect(session.state).toBe(SessionState.DISCONNECTED);
+      release();
+      await start;
+      expect(onDisconnected).toHaveBeenCalledExactlyOnceWith(
+        SessionDisconnectReason.CLIENT_INITIATED,
+      );
+    } finally {
+      release();
+      await start;
+    }
+  });
+});
+
+describe("stop from state callbacks", () => {
+  it("does not allocate a session if stopped by the CONNECTING callback", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    let stopping: Promise<void> | undefined;
+    session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
+      if (state === SessionState.CONNECTING) stopping = session.stop();
+    });
+    await session.start();
+    await stopping;
+    expect(
+      fetchSpy.mock.calls.some(([input]) =>
+        String(input).endsWith("/sessions/start"),
+      ),
+    ).toBe(false);
+    expect(session.state).toBe(SessionState.DISCONNECTED);
+  });
+
+  it("does not start keep-alive after stopping in the CONNECTED callback", async () => {
+    vi.useFakeTimers();
+    const session = setupLiveAvatarSession({
+      sessionInfo: sessionInfoMock,
+      sessionConfig: { autoKeepAlive: true },
+    });
+    const keepAlive = vi.spyOn(session, "keepAlive");
+    let stopping: Promise<void> | undefined;
+    session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
+      if (state === SessionState.CONNECTED) stopping = session.stop();
+    });
+    const start = session.start();
+    try {
+      await vi.advanceTimersByTimeAsync(10);
+      await start;
+      await stopping;
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(keepAlive).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+      expect(session.state).toBe(SessionState.DISCONNECTED);
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it("attempts server cleanup even when local room disconnect fails", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    await session.start();
+    const room = testContext.roomInstance;
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    room.disconnect.mockRejectedValueOnce(new Error("disconnect failed"));
+    await expect(session.stop()).rejects.toThrow("disconnect failed");
+    expect(
+      fetchSpy.mock.calls.some(([input]) =>
+        String(input).endsWith("/sessions/stop"),
+      ),
+    ).toBe(true);
+    expect(session.state).toBe(SessionState.DISCONNECTED);
+    await room.disconnect();
+  });
+});
+
+it("does not open a socket when stopped as the last participant arrives", async () => {
+  mockWebSocket();
+  const session = setupLiveAvatarSession({
+    sessionInfo: { ...sessionInfoMock, ws_url: "mock-websocket-url" },
+  });
+  const room = testContext.roomInstance;
+  vi.spyOn(room, "_emitRequiredParticipants").mockImplementation(() => {});
+  const start = session.start();
+  await vi.waitFor(() =>
+    expect(room.listenerCount(RoomEvent.ParticipantConnected)).toBe(2),
+  );
+  let stopping: Promise<void> | undefined;
+  room.on(
+    RoomEvent.ParticipantConnected,
+    (participant: { identity: string }) => {
+      if (participant.identity.startsWith("liveavatar-agent-"))
+        stopping = session.stop();
+    },
+  );
+  room.emit(RoomEvent.ParticipantConnected, { identity: "heygen" });
+  room.emit(RoomEvent.ParticipantConnected, {
+    identity: "liveavatar-agent-mock-session-id",
+  });
+  await stopping;
+  await start;
+  expect(testContext.wsInstance).toBeUndefined();
+  expect(session.state).toBe(SessionState.DISCONNECTED);
+});
