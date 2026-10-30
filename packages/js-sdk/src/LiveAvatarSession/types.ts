@@ -40,7 +40,8 @@ export interface SessionConfig {
    * WebRTC configuration for the LiveKit peer connection. Use it for networks
    * where the default connection fails, for example `{ iceTransportPolicy:
    * "relay" }` to force TURN, or your own `iceServers`. ICE servers set here
-   * replace the ones LiveKit provides. Defaults to LiveKit's configuration.
+   * replace the ones LiveKit provides. Behind proxies that only pass HTTPS,
+   * use a `turns:` (TLS) URL on port 443. Defaults to LiveKit's configuration.
    */
   rtcConfig?: RTCConfiguration;
   /**

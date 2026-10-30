@@ -53,11 +53,11 @@ await session.stop();
 
 ### Session config options
 
-| Option          | Type               | Default   | Description                                                                                                                                                                                                                    |
-| --------------- | ------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `voiceChat`     | `VoiceChatConfig`  | `{}`      | Voice chat settings applied on connect. Default turns the microphone on unmuted. Pass `{ defaultMuted: true }` for a text-only session. Also accepts `deviceId` and `mode`.                                                    |
-| `autoKeepAlive` | `boolean`          | `false`   | Opt in to automatic keep-alive. When `true`, the SDK calls `keepAlive()` every 60 seconds while connected. Otherwise call `keepAlive()` yourself.                                                                              |
-| `rtcConfig`     | `RTCConfiguration` | LiveKit's | WebRTC settings for the LiveKit connection, for networks where the default fails. `{ iceTransportPolicy: "relay" }` forces TURN; `iceServers` replaces LiveKit's ICE servers with your own, such as a self-hosted TURN server. |
+| Option          | Type               | Default   | Description                                                                                                                                                                                                                                                                                               |
+| --------------- | ------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `voiceChat`     | `VoiceChatConfig`  | `{}`      | Voice chat settings applied on connect. Default turns the microphone on unmuted. Pass `{ defaultMuted: true }` for a text-only session. Also accepts `deviceId` and `mode`.                                                                                                                               |
+| `autoKeepAlive` | `boolean`          | `false`   | Opt in to automatic keep-alive. When `true`, the SDK calls `keepAlive()` every 60 seconds while connected. Otherwise call `keepAlive()` yourself.                                                                                                                                                         |
+| `rtcConfig`     | `RTCConfiguration` | LiveKit's | WebRTC settings for the LiveKit connection, for networks where the default fails. `{ iceTransportPolicy: "relay" }` forces TURN; `iceServers` replaces LiveKit's ICE servers with your own, such as a self-hosted TURN server. Behind proxies that only pass HTTPS, use a `turns:` (TLS) URL on port 443. |
 
 ## License
 
