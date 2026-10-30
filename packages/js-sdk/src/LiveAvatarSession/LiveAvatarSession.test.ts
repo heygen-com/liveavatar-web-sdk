@@ -606,6 +606,35 @@ describe("LiveAvatarSession voiceChat config", () => {
   });
 });
 
+describe("LiveAvatarSession rtcConfig", () => {
+  it("passes rtcConfig to the LiveKit room connection", async () => {
+    const rtcConfig: RTCConfiguration = {
+      iceServers: [{ urls: "turns:turn.example.com:443" }],
+      iceTransportPolicy: "relay",
+    };
+    const session = setupLiveAvatarSession({
+      sessionInfo: sessionInfoMock,
+      sessionConfig: { rtcConfig },
+    });
+    await session.start();
+    expect(testContext.roomInstance.connect).toHaveBeenCalledWith(
+      sessionInfoMock.livekit_url,
+      sessionInfoMock.livekit_client_token,
+      { rtcConfig },
+    );
+  });
+
+  it("leaves LiveKit's configuration in place when rtcConfig is omitted", async () => {
+    const session = setupLiveAvatarSession({ sessionInfo: sessionInfoMock });
+    await session.start();
+    expect(testContext.roomInstance.connect).toHaveBeenCalledWith(
+      sessionInfoMock.livekit_url,
+      sessionInfoMock.livekit_client_token,
+      { rtcConfig: undefined },
+    );
+  });
+});
+
 describe("LiveAvatarSession stop", () => {
   it("stops and cleans up the session", async () => {
     mockWebSocket();
