@@ -222,7 +222,9 @@ export class LiveAvatarSession extends (EventEmitter as new () => TypedEmitter<
       if (livekitRoomUrl && livekitClientToken) {
         // Track the different events from the room, server, and websocket
         this.trackEvents();
-        await this.room.connect(livekitRoomUrl, livekitClientToken);
+        await this.room.connect(livekitRoomUrl, livekitClientToken, {
+          rtcConfig: this.config.rtcConfig,
+        });
         await this.waitForRequiredParticipants();
         this.connectionQualityIndicator.start(this.room);
       }
