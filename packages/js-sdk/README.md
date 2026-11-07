@@ -2,7 +2,7 @@
 
 ## About
 
-This is offical LiveAvatar supported client-side SDK.
+This is the official LiveAvatar supported client-side SDK.
 This SDK library manages various LiveAvatar sessions, supporting the session initiation,
 session management, and session cleanup.
 
